@@ -24,7 +24,7 @@ export async function createUser(input: CreateUserInput): Promise<ActionResult<{
       data: {
         name: validated.name,
         email: validated.email,
-        role: validated.role as any,
+        role: validated.role,
         emailVerified: true,
         accounts: {
           create: {
@@ -65,7 +65,7 @@ export async function updateUser(
       data: {
         ...(validated.name && { name: validated.name }),
         ...(validated.email && { email: validated.email }),
-        ...(validated.role && { role: validated.role as any }),
+        ...(validated.role && { role: validated.role }),
         ...(validated.banned !== undefined && { banned: validated.banned }),
       },
     });

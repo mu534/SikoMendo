@@ -95,7 +95,10 @@ export default function CreateUserPage() {
             <select
               id="role"
               value={formData.role}
-              onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
+              onChange={(e) => {
+                const role = e.target.value as "EMPLOYEE" | "MANAGER" | "HR_OFFICER" | "ADMIN";
+                setFormData({ ...formData, role });
+              }}
               className="mt-2 w-full rounded-lg border border-zinc-200 px-4 py-2 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
             >
               <option value="EMPLOYEE">Employee</option>
