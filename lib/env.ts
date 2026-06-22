@@ -31,6 +31,8 @@ if (typeof window === "undefined") {
   }
 } else {
   // Client side gets standard process.env values if prefix is NEXT_PUBLIC_
+  const nodeEnv = (process.env.NODE_ENV as "development" | "production" | "test" | undefined) || "development";
+
   parsedEnv = {
     DATABASE_URL: "",
     BETTER_AUTH_SECRET: "",
@@ -42,7 +44,7 @@ if (typeof window === "undefined") {
     R2_SECRET_ACCESS_KEY: "",
     R2_ENDPOINT: "",
     R2_BUCKET_NAME: "",
-    NODE_ENV: (process.env.NODE_ENV as any) || "development",
+    NODE_ENV: nodeEnv,
   };
 }
 
