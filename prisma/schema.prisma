@@ -1,0 +1,295 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  HR_OFFICER
+  MANAGER
+  EMPLOYEE
+}
+
+enum EmploymentStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  TERMINATED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  HALF_DAY
+  EXCUSED
+}
+
+enum DocumentType {
+  CONTRACT
+  ID_DOCUMENT
+  CERTIFICATE
+  RESUME
+  OTHER
+}
+
+enum ReportType {
+  EMPLOYEE_DIRECTORY
+  ATTENDANCE_SUMMARY
+  COOPERATIVE_LISTING
+  HEADCOUNT
+  AUDIT_LOG
+}
+
+enum ReportFormat {
+  PDF
+  CSV
+}
+
+// ─── Better Auth Tables ───────────────────────────────
+// These tables are managed by Better Auth.
+// The 'user' table is extended with our custom 'role' field.
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  role          Role      @default(EMPLOYEE)
+  banned        Boolean   @default(false)
+  banReason     String?
+  banExpires    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  sessions            Session[]
+  accounts            Account[]
+  employee            Employee?
+  reports             Report[]         @relation("GeneratedBy")
+  auditLogs           AuditLog[]
+  recordedAttendances Attendance[]     @relation("RecordedBy")
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  userId                String
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  idToken               String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("verification")
+}
+
+// ─── Domain Models ────────────────────────────────────
+
+model Employee {
+  id               String           @id @default(cuid())
+  employeeId       String           @unique            // Business-facing unique ID (e.g., "EMP-0001")
+  firstName        String
+  lastName         String
+  email            String?
+  phone            String?
+  gender           Gender?
+  dateOfBirth      DateTime?
+  address          String?
+  department       String?
+  position         String?
+  hireDate         DateTime?
+  employmentStatus EmploymentStatus @default(ACTIVE)
+  profileImageUrl  String?
+  
+  // Relations
+  userId          String?           @unique            // Optional link to User account
+  user            User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  cooperativeId   String?
+  cooperative     Cooperative?      @relation(fields: [cooperativeId], references: [id], onDelete: SetNull)
+  
+  attendances     Attendance[]
+  documents       Document[]
+
+  // Timestamps & soft delete
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  deletedAt       DateTime?
+
+  @@index([cooperativeId])
+  @@index([employmentStatus])
+  @@index([department])
+  @@index([deletedAt])
+  @@map("employee")
+}
+
+model Cooperative {
+  id            String      @id @default(cuid())
+  cooperativeId String      @unique                 // Business-facing unique ID (e.g., "COOP-001")
+  name          String
+  description   String?
+  location      String?
+  contactPerson String?
+  contactEmail  String?
+  contactPhone  String?
+  isActive      Boolean     @default(true)
+
+  // Relations
+  employees     Employee[]
+
+  // Timestamps & soft delete
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  deletedAt     DateTime?
+
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("cooperative")
+}
+
+model Attendance {
+  id           String           @id @default(cuid())
+  date         DateTime         @db.Date
+  checkIn      DateTime?
+  checkOut     DateTime?
+  status       AttendanceStatus @default(PRESENT)
+  notes        String?
+
+  // Relations
+  employeeId   String
+  employee     Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  recordedById String?
+  recordedBy   User?            @relation("RecordedBy", fields: [recordedById], references: [id], onDelete: SetNull)
+
+  // Timestamps
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  // Prevent duplicate attendance for same employee on same date
+  @@unique([employeeId, date])
+  @@index([date])
+  @@index([employeeId])
+  @@index([recordedById])
+  @@map("attendance")
+}
+
+model Document {
+  id           String       @id @default(cuid())
+  title        String
+  type         DocumentType @default(OTHER)
+  fileUrl      String                              // Cloudflare R2 URL or key
+  fileKey      String                              // R2 object key for deletion
+  fileName     String
+  fileSize     Int                                 // Bytes
+  mimeType     String
+
+  // Relations
+  employeeId   String
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  uploadedById String?
+  uploadedBy   User?        @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  // Timestamps & soft delete
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  deletedAt    DateTime?
+
+  @@index([employeeId])
+  @@index([type])
+  @@index([deletedAt])
+  @@map("document")
+}
+
+model Report {
+  id            String       @id @default(cuid())
+  title         String
+  type          ReportType
+  format        ReportFormat
+  parameters    Json?                               // Filter criteria used to generate
+  fileUrl       String?                             // URL if report was saved
+
+  // Relations
+  generatedById String
+  generatedBy   User         @relation("GeneratedBy", fields: [generatedById], references: [id], onDelete: Cascade)
+
+  // Timestamps (reports are immutable — no updatedAt)
+  createdAt     DateTime     @default(now())
+
+  @@index([generatedById])
+  @@index([type])
+  @@map("report")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String                              // e.g., "CREATE", "UPDATE", "DELETE", "LOGIN"
+  entity    String                              // e.g., "Employee", "Cooperative"
+  entityId  String?                             // ID of the affected record
+  changes   Json?                               // Before/after snapshot
+  ipAddress String?
+
+  // Relations
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // Timestamp (audit logs are append-only)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([entity])
+  @@index([createdAt])
+  @@map("audit_log")
+}
