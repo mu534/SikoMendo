@@ -82,6 +82,7 @@ model User {
   reports             Report[]         @relation("GeneratedBy")
   auditLogs           AuditLog[]
   recordedAttendances Attendance[]     @relation("RecordedBy")
+  uploadedDocuments   Document[]
 
   @@map("user")
 }
