@@ -13,7 +13,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     return (
       <html>
         <body>
-          <script dangerouslySetInnerHTML={{ __html: "window.location.href='/(auth)/sign-in'" }} />
+          <script dangerouslySetInnerHTML={{ __html: "window.location.href='/sign-in'" }} />
         </body>
       </html>
     );
@@ -63,7 +63,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 <button
                   onClick={async () => {
                     await fetch("/api/auth/sign-out", { method: "POST" });
-                    window.location.href = "/(auth)/sign-in";
+                    window.location.href = "/sign-in";
                   }}
                   className="text-sm text-zinc-600 hover:text-zinc-900"
                 >

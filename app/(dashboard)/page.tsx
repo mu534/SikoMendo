@@ -9,7 +9,7 @@ export default async function DashboardPage({ request }: { request?: Request }) 
     return (
       <html>
         <body>
-          <script dangerouslySetInnerHTML={{ __html: "window.location.href='/(auth)/sign-in'" }} />
+          <script dangerouslySetInnerHTML={{ __html: "window.location.href='/sign-in'" }} />
         </body>
       </html>
     );
