@@ -1,4 +1,4 @@
-import { PrismaClient, Role, EmploymentStatus, Gender, AttendanceStatus } from "../app/generated/prisma/client";
+import { PrismaClient, Role, EmploymentStatus, Gender, AttendanceStatus } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -248,6 +248,7 @@ async function main() {
     AttendanceStatus.PRESENT, // skew towards present
     AttendanceStatus.LATE,
     AttendanceStatus.HALF_DAY,
+    AttendanceStatus.ABSENT, // include absent as a possible state
   ];
 
   const employees = [adminEmp, hrEmp, managerEmp, employeeEmp, staffEmp1, staffEmp2];
