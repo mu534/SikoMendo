@@ -1,7 +1,8 @@
-import { PrismaClient, Role, EmploymentStatus, Gender, AttendanceStatus } from "@prisma/client";
+import dotenv from "dotenv";
+dotenv.config({ path: ".env.local" });
+import { Role, EmploymentStatus, Gender, AttendanceStatus } from "@prisma/client";
+import prisma from "../lib/prisma";
 import * as bcrypt from "bcryptjs";
-
-const prisma = new PrismaClient();
 
 async function main() {
   console.log("🌱 Starting database seeding...");
