@@ -1,105 +1,52 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState } from "react";
+import { updateUserAccount } from "@/features/users/actions";
+import { ROLES, roleLabel } from "@/lib/permissions";
+import { Input, Label, Select, FieldGroup } from "@/components/ui/field";
+import { Button, ButtonLink } from "@/components/ui/button";
 
-type Props = {
-  id: string;
-  initialName?: string | null;
-  initialEmail?: string | null;
-  initialRole?: string | null;
-  initialBanned?: boolean | null;
-};
-
-export default function EditUserForm({ id, initialName, initialEmail, initialRole, initialBanned }: Props) {
-  const [name, setName] = useState(initialName ?? "");
-  const [email, setEmail] = useState(initialEmail ?? "");
-  const [role, setRole] = useState(initialRole ?? "EMPLOYEE");
-  const [banned, setBanned] = useState<boolean>(!!initialBanned);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    try {
-      const res = await fetch(`/api/users/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, role, banned }),
-      });
-
-      const payload = await res.json();
-      if (!res.ok && payload?.error) {
-        setError(payload.error.message ?? "Failed to update user");
-        return;
-      }
-
-      window.location.href = "/users";
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to update user");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleDelete() {
-    if (!confirm("Delete this user? This action cannot be undone.")) return;
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/users/${id}`, { method: "DELETE" });
-      const payload = await res.json();
-      if (!res.ok && payload?.error) {
-        setError(payload.error.message ?? "Failed to delete user");
-        return;
-      }
-      window.location.href = "/users";
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to delete user");
-    } finally {
-      setLoading(false);
-    }
-  }
+export function EditUserForm({
+  user,
+}: {
+  user: { id: string; name: string; email: string; role: string };
+}) {
+  const action = updateUserAccount.bind(null, user.id);
+  const [state, formAction, isPending] = useActionState(action, null);
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div>
-        <label className="block text-sm font-medium text-zinc-900">Name</label>
-        <input value={name} onChange={(e) => setName(e.target.value)} className="mt-2 w-full rounded-lg border px-4 py-2" />
-      </div>
+    <form action={formAction} className="space-y-5">
+      <FieldGroup>
+        <Label htmlFor="name">Full name</Label>
+        <Input id="name" name="name" required defaultValue={user.name} />
+      </FieldGroup>
 
-      <div>
-        <label className="block text-sm font-medium text-zinc-900">Email</label>
-        <input value={email} onChange={(e) => setEmail(e.target.value)} className="mt-2 w-full rounded-lg border px-4 py-2" />
-      </div>
+      <FieldGroup>
+        <Label htmlFor="email">Email address</Label>
+        <Input id="email" name="email" type="email" required defaultValue={user.email} />
+      </FieldGroup>
 
-      <div>
-        <label className="block text-sm font-medium text-zinc-900">Role</label>
-        <select value={role} onChange={(e) => setRole(e.target.value)} className="mt-2 w-full rounded-lg border px-4 py-2">
-          <option value="EMPLOYEE">Employee</option>
-          <option value="MANAGER">Manager</option>
-          <option value="HR_OFFICER">HR Officer</option>
-          <option value="ADMIN">Admin</option>
-        </select>
-      </div>
+      <FieldGroup>
+        <Label htmlFor="role">Role</Label>
+        <Select id="role" name="role" required defaultValue={user.role}>
+          {ROLES.map((role) => (
+            <option key={role} value={role}>
+              {roleLabel(role)}
+            </option>
+          ))}
+        </Select>
+      </FieldGroup>
 
-      <div className="flex items-center gap-3">
-        <label className="flex items-center gap-2">
-          <input type="checkbox" checked={banned} onChange={(e) => setBanned(e.target.checked)} />
-          <span className="text-sm text-zinc-700">Banned</span>
-        </label>
-      </div>
+      {state && !state.success && <p className="text-sm text-red-600">{state.error.message}</p>}
+      {state?.success && <p className="text-sm text-emerald-600">Saved.</p>}
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
-
-      <div className="flex gap-3">
-        <button type="submit" disabled={loading} className="rounded-lg bg-sky-950 px-4 py-2 text-white">
-          {loading ? "Saving..." : "Save"}
-        </button>
-        <button type="button" onClick={handleDelete} disabled={loading} className="rounded-lg border px-4 py-2">
-          Delete
-        </button>
+      <div className="flex items-center gap-3 pt-1">
+        <Button type="submit" disabled={isPending}>
+          {isPending ? "Saving…" : "Save changes"}
+        </Button>
+        <ButtonLink href="/users" variant="ghost">
+          Back to users
+        </ButtonLink>
       </div>
     </form>
   );
