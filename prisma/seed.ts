@@ -1,13 +1,29 @@
 import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
+
 import { Role, EmploymentStatus, Gender, AttendanceStatus } from "@prisma/client";
 import prisma from "../lib/prisma";
-import * as bcrypt from "bcryptjs";
+
+const DEMO_PASSWORD = "ChangeMe123!";
+
+async function createDemoUser(name: string, email: string, role: Role) {
+  // Imported dynamically, *after* dotenv has populated process.env above —
+  // lib/auth.ts reads env vars (via lib/env.ts) at module-load time, so a
+  // static top-level import here would run before dotenv.config() does.
+  const { auth } = await import("../lib/auth");
+
+  const { user } = await auth.api.createUser({
+    body: { name, email, password: DEMO_PASSWORD },
+  });
+  // The admin plugin's role parameter is typed around its own "user"/"admin"
+  // defaults, so — same as in features/users/actions.ts — we set our 4-way
+  // Role enum directly through Prisma rather than through that API.
+  return prisma.user.update({ where: { id: user.id }, data: { role, emailVerified: true } });
+}
 
 async function main() {
   console.log("🌱 Starting database seeding...");
 
-  // Clean existing data in order of relations
   console.log("🧹 Cleaning existing data...");
   await prisma.auditLog.deleteMany({});
   await prisma.document.deleteMany({});
@@ -16,19 +32,20 @@ async function main() {
   await prisma.cooperative.deleteMany({});
   await prisma.session.deleteMany({});
   await prisma.account.deleteMany({});
+  await prisma.verification.deleteMany({});
   await prisma.user.deleteMany({});
 
-  // 1. Seed Cooperatives
+  // 1. Cooperatives under Siko Mendo Union — Bale Robe, Oromia, Ethiopia
   console.log("📦 Seeding cooperatives...");
   const coop1 = await prisma.cooperative.create({
     data: {
       cooperativeId: "COOP-001",
-      name: "Siko Mendo HQ Cooperative",
-      description: "Main headquarters cooperative for Siko Mendo Union",
-      location: "Jakarta, Indonesia",
-      contactPerson: "John Doe",
-      contactEmail: "hq@sikomendo.coop",
-      contactPhone: "+62211234567",
+      name: "Siko Mendo Primary Cooperative – Robe Branch",
+      description: "Main union office and primary cooperative branch serving Robe town and surrounding kebeles.",
+      location: "Robe, Bale Zone, Oromia, Ethiopia",
+      contactPerson: "Tofik Mohammed",
+      contactEmail: "robe.branch@sikomendounion.org.et",
+      contactPhone: "+251911000111",
       isActive: true,
     },
   });
@@ -36,111 +53,41 @@ async function main() {
   const coop2 = await prisma.cooperative.create({
     data: {
       cooperativeId: "COOP-002",
-      name: "West Coast Agro-Coop",
-      description: "Agricultural branch cooperative on the West Coast",
-      location: "Bandung, Indonesia",
-      contactPerson: "Jane Smith",
-      contactEmail: "westcoast@sikomendo.coop",
-      contactPhone: "+62227654321",
+      name: "Siko Mendo Grain Marketing Cooperative – Goba Branch",
+      description: "Grain collection and marketing cooperative serving member farmers around Goba.",
+      location: "Goba, Bale Zone, Oromia, Ethiopia",
+      contactPerson: "Caltu Bekele",
+      contactEmail: "goba.branch@sikomendounion.org.et",
+      contactPhone: "+251911000222",
       isActive: true,
     },
   });
 
-  // 2. Hash passwords for users
-  console.log("🔑 Generating password hashes...");
-  const salt = await bcrypt.genSalt(10);
-  const adminPasswordHash = await bcrypt.hash("AdminPassword123!", salt);
-  const hrPasswordHash = await bcrypt.hash("HrPassword123!", salt);
-  const managerPasswordHash = await bcrypt.hash("ManagerPassword123!", salt);
-  const employeePasswordHash = await bcrypt.hash("EmployeePassword123!", salt);
+  // 2. Users — one per role, created through Better Auth so passwords are
+  // hashed the way the real sign-in flow expects.
+  console.log("👥 Seeding user accounts...");
+  const adminUser = await createDemoUser("Tofik Mohammed", "admin@sikomendounion.org.et", Role.ADMIN);
+  const hrUser = await createDemoUser("Caltu Bekele", "hr@sikomendounion.org.et", Role.HR_OFFICER);
+  const managerUser = await createDemoUser("Mohammed Sultan", "manager@sikomendounion.org.et", Role.MANAGER);
+  const employeeUser = await createDemoUser("Amina Hussein", "employee@sikomendounion.org.et", Role.EMPLOYEE);
 
-  // 3. Seed Users
-  console.log("👥 Seeding users...");
-  
-  // Admin User
-  const adminUser = await prisma.user.create({
-    data: {
-      name: "System Administrator",
-      email: "admin@sikomendo.org",
-      emailVerified: true,
-      role: Role.ADMIN,
-      accounts: {
-        create: {
-          providerId: "email",
-          accountId: "admin@sikomendo.org",
-          password: adminPasswordHash,
-        },
-      },
-    },
-  });
-
-  // HR Officer User
-  const hrUser = await prisma.user.create({
-    data: {
-      name: "Sarah Jenkins (HR)",
-      email: "hr@sikomendo.org",
-      emailVerified: true,
-      role: Role.HR_OFFICER,
-      accounts: {
-        create: {
-          providerId: "email",
-          accountId: "hr@sikomendo.org",
-          password: hrPasswordHash,
-        },
-      },
-    },
-  });
-
-  // Manager User
-  const managerUser = await prisma.user.create({
-    data: {
-      name: "David Vance (Manager)",
-      email: "manager@sikomendo.org",
-      emailVerified: true,
-      role: Role.MANAGER,
-      accounts: {
-        create: {
-          providerId: "email",
-          accountId: "manager@sikomendo.org",
-          password: managerPasswordHash,
-        },
-      },
-    },
-  });
-
-  // Employee User
-  const employeeUser = await prisma.user.create({
-    data: {
-      name: "Alice Cooper (Employee)",
-      email: "employee@sikomendo.org",
-      emailVerified: true,
-      role: Role.EMPLOYEE,
-      accounts: {
-        create: {
-          providerId: "email",
-          accountId: "employee@sikomendo.org",
-          password: employeePasswordHash,
-        },
-      },
-    },
-  });
-
-  // 4. Seed Employee Records (linked to users and cooperatives)
+  // 3. Employee records (linked to the accounts above, plus a couple of
+  // staff with no system login yet).
   console.log("👔 Seeding employee records...");
-  
+
   const adminEmp = await prisma.employee.create({
     data: {
       employeeId: "EMP-0001",
-      firstName: "System",
-      lastName: "Administrator",
-      email: "admin@sikomendo.org",
-      phone: "+62811111111",
+      firstName: "Tofik",
+      lastName: "Mohammed",
+      email: "admin@sikomendounion.org.et",
+      phone: "+251911000111",
       gender: Gender.MALE,
       dateOfBirth: new Date("1985-05-15"),
-      address: "123 Union Way, Jakarta",
-      department: "Information Technology",
-      position: "IT Architect",
-      hireDate: new Date("2020-01-01"),
+      address: "Kebele 01, Robe, Bale Zone",
+      department: "ICT & Systems",
+      position: "System Administrator",
+      hireDate: new Date("2020-01-06"),
       employmentStatus: EmploymentStatus.ACTIVE,
       userId: adminUser.id,
       cooperativeId: coop1.id,
@@ -150,16 +97,16 @@ async function main() {
   const hrEmp = await prisma.employee.create({
     data: {
       employeeId: "EMP-0002",
-      firstName: "Sarah",
-      lastName: "Jenkins",
-      email: "hr@sikomendo.org",
-      phone: "+62822222222",
+      firstName: "Caltu",
+      lastName: "Bekele",
+      email: "hr@sikomendounion.org.et",
+      phone: "+251911000222",
       gender: Gender.FEMALE,
       dateOfBirth: new Date("1990-08-22"),
-      address: "45 HR Blvd, Jakarta",
+      address: "Kebele 02, Robe, Bale Zone",
       department: "Human Resources",
-      position: "Senior HR Specialist",
-      hireDate: new Date("2021-06-15"),
+      position: "HR Officer",
+      hireDate: new Date("2021-03-15"),
       employmentStatus: EmploymentStatus.ACTIVE,
       userId: hrUser.id,
       cooperativeId: coop1.id,
@@ -169,16 +116,16 @@ async function main() {
   const managerEmp = await prisma.employee.create({
     data: {
       employeeId: "EMP-0003",
-      firstName: "David",
-      lastName: "Vance",
-      email: "manager@sikomendo.org",
-      phone: "+62833333333",
+      firstName: "Mohammed",
+      lastName: "Sultan",
+      email: "manager@sikomendounion.org.et",
+      phone: "+251911000333",
       gender: Gender.MALE,
       dateOfBirth: new Date("1978-11-03"),
-      address: "78 Executive Road, Bandung",
-      department: "Operations",
-      position: "Operations Manager",
-      hireDate: new Date("2018-03-10"),
+      address: "Goba town, Bale Zone",
+      department: "Cooperative Operations",
+      position: "Branch Manager",
+      hireDate: new Date("2018-06-10"),
       employmentStatus: EmploymentStatus.ACTIVE,
       userId: managerUser.id,
       cooperativeId: coop2.id,
@@ -188,15 +135,15 @@ async function main() {
   const employeeEmp = await prisma.employee.create({
     data: {
       employeeId: "EMP-0004",
-      firstName: "Alice",
-      lastName: "Cooper",
-      email: "employee@sikomendo.org",
-      phone: "+62844444444",
+      firstName: "Amina",
+      lastName: "Hussein",
+      email: "employee@sikomendounion.org.et",
+      phone: "+251911000444",
       gender: Gender.FEMALE,
       dateOfBirth: new Date("1995-04-12"),
-      address: "12 Residential St, Bandung",
-      department: "Operations",
-      position: "Staff Associate",
+      address: "Goba town, Bale Zone",
+      department: "Cooperative Operations",
+      position: "Member Services Associate",
       hireDate: new Date("2023-09-01"),
       employmentStatus: EmploymentStatus.ACTIVE,
       userId: employeeUser.id,
@@ -204,18 +151,17 @@ async function main() {
     },
   });
 
-  // Add a few more employees that are not users (system-only profiles)
   const staffEmp1 = await prisma.employee.create({
     data: {
       employeeId: "EMP-0005",
-      firstName: "Bob",
-      lastName: "Miller",
-      email: "bob.miller@gmail.com",
-      phone: "+62855555555",
+      firstName: "Geremew",
+      lastName: "Tesfaye",
+      email: "geremew.tesfaye@example.com",
+      phone: "+251911000555",
       gender: Gender.MALE,
       dateOfBirth: new Date("1993-01-30"),
-      address: "56 Village Lane, Bandung",
-      department: "Operations",
+      address: "Goba town, Bale Zone",
+      department: "Field Extension",
       position: "Field Officer",
       hireDate: new Date("2024-02-15"),
       employmentStatus: EmploymentStatus.ACTIVE,
@@ -226,66 +172,58 @@ async function main() {
   const staffEmp2 = await prisma.employee.create({
     data: {
       employeeId: "EMP-0006",
-      firstName: "Eva",
-      lastName: "Green",
-      email: "eva.green@yahoo.com",
-      phone: "+62866666666",
+      firstName: "Lelise",
+      lastName: "Gemechu",
+      email: "lelise.gemechu@example.com",
+      phone: "+251911000666",
       gender: Gender.FEMALE,
       dateOfBirth: new Date("1989-12-05"),
-      address: "88 Highland Plaza, Bandung",
+      address: "Robe, Bale Zone",
       department: "Finance",
       position: "Accountant",
       hireDate: new Date("2022-11-01"),
       employmentStatus: EmploymentStatus.ACTIVE,
-      cooperativeId: coop2.id,
+      cooperativeId: coop1.id,
     },
   });
 
-  // 5. Seed Attendance Records for the last 5 days
+  // 4. Attendance for the last 5 working days
   console.log("⏰ Seeding attendance records...");
   const statusOptions = [
     AttendanceStatus.PRESENT,
     AttendanceStatus.PRESENT,
-    AttendanceStatus.PRESENT, // skew towards present
+    AttendanceStatus.PRESENT,
     AttendanceStatus.LATE,
     AttendanceStatus.HALF_DAY,
-    AttendanceStatus.ABSENT, // include absent as a possible state
+    AttendanceStatus.ABSENT,
   ];
 
   const employees = [adminEmp, hrEmp, managerEmp, employeeEmp, staffEmp1, staffEmp2];
-  
+
   for (let i = 0; i < 5; i++) {
     const currentDate = new Date();
     currentDate.setDate(currentDate.getDate() - i);
-    
-    // Skip weekends
+
     const day = currentDate.getDay();
-    if (day === 0 || day === 6) continue;
+    if (day === 0 || day === 6) continue; // skip weekends
 
     for (const emp of employees) {
-      // 90% chance of recording attendance for a given day
       if (Math.random() > 0.1) {
-        const randStatus = statusOptions[Math.floor(Math.random() * statusOptions.length)];
-        
+        const status = statusOptions[Math.floor(Math.random() * statusOptions.length)];
+
         let checkIn: Date | null = null;
         let checkOut: Date | null = null;
 
-        if (randStatus !== AttendanceStatus.ABSENT) {
-          // Standard check-in: 08:00 AM +/- 30 mins
+        if (status !== AttendanceStatus.ABSENT) {
           checkIn = new Date(currentDate);
-          const minutesOffset = Math.floor(Math.random() * 60) - 30; // -30 to +30 mins
-          checkIn.setHours(8, 30 + minutesOffset, 0, 0);
+          checkIn.setHours(8, 30 + Math.floor(Math.random() * 60) - 30, 0, 0);
 
-          // Standard check-out: 05:00 PM +/- 30 mins
           checkOut = new Date(currentDate);
-          const checkOutMinutesOffset = Math.floor(Math.random() * 60) - 30;
-          checkOut.setHours(17, 30 + checkOutMinutesOffset, 0, 0);
-          
-          if (randStatus === AttendanceStatus.LATE) {
-            // Late check-in: after 09:00 AM
+          checkOut.setHours(17, 30 + Math.floor(Math.random() * 60) - 30, 0, 0);
+
+          if (status === AttendanceStatus.LATE) {
             checkIn.setHours(9, 15 + Math.floor(Math.random() * 45), 0, 0);
-          } else if (randStatus === AttendanceStatus.HALF_DAY) {
-            // Half day checkout: 01:00 PM
+          } else if (status === AttendanceStatus.HALF_DAY) {
             checkOut.setHours(13, 0, 0, 0);
           }
         }
@@ -293,19 +231,19 @@ async function main() {
         await prisma.attendance.create({
           data: {
             date: currentDate,
-            status: randStatus,
-            checkIn: checkIn,
-            checkOut: checkOut,
+            status,
+            checkIn,
+            checkOut,
             employeeId: emp.id,
             recordedById: adminUser.id,
-            notes: randStatus === AttendanceStatus.LATE ? "Traffic delay" : null,
+            notes: status === AttendanceStatus.LATE ? "Transport delay" : null,
           },
         });
       }
     }
   }
 
-  // 6. Seed Audit Logs
+  // 5. Audit log seed entries
   console.log("📝 Seeding audit logs...");
   await prisma.auditLog.createMany({
     data: [
@@ -315,8 +253,7 @@ async function main() {
         entityId: coop1.id,
         changes: { name: coop1.name },
         userId: adminUser.id,
-        ipAddress: "127.0.0.1",
-        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hrs ago
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2),
       },
       {
         action: "CREATE",
@@ -324,22 +261,21 @@ async function main() {
         entityId: coop2.id,
         changes: { name: coop2.name },
         userId: adminUser.id,
-        ipAddress: "127.0.0.1",
         createdAt: new Date(Date.now() - 1000 * 60 * 60 * 1.9),
       },
       {
         action: "CREATE",
         entity: "Employee",
         entityId: employeeEmp.id,
-        changes: { name: "Alice Cooper" },
+        changes: { name: "Amina Hussein" },
         userId: hrUser.id,
-        ipAddress: "127.0.0.1",
         createdAt: new Date(Date.now() - 1000 * 60 * 60 * 1),
       },
     ],
   });
 
   console.log("✅ Seeding completed successfully!");
+  console.log(`   All demo accounts use the password: ${DEMO_PASSWORD}`);
 }
 
 main()
