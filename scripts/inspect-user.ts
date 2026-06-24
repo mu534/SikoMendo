@@ -2,7 +2,7 @@ import prisma from '../lib/prisma';
 
 async function main() {
   const u = await prisma.user.findUnique({
-    where: { email: 'admin@sikomendo.org' },
+    where: { email: 'admin@sikomendounion.org.et' },
     include: { accounts: true },
   });
   console.log(JSON.stringify(u, null, 2));
