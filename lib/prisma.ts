@@ -5,8 +5,6 @@ import { Pool } from "pg";
 
 dotenv.config({ path: ".env.local" });
 
-dotenv.config();
-
 const globalForPrisma = global as unknown as {
   prisma: PrismaClient | undefined;
   pool: Pool | undefined;

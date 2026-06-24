@@ -1,30 +1,33 @@
-import { can, type Action } from "./permissions";
+import "server-only";
+import type { AuthSession } from "@/lib/auth";
+import { can, type Action } from "@/lib/permissions";
 
 export type ActionResult<T> =
   | { success: true; data: T }
   | { success: false; error: { message: string; code?: string } };
 
-export type AppUser = { id: string; role?: string; email?: string } & Record<string, unknown>;
-export type AppSession = { user?: AppUser } | null;
-
+/**
+ * Wraps a Server Action with a permission check and consistent error
+ * shape. Every mutation in features/* should go through this so that
+ * "is this user allowed to do this" is never accidentally skipped.
+ */
 export async function withPermission<T>(
-  session: AppSession | null,
+  session: AuthSession | null,
   action: Action,
   handler: () => Promise<T>
 ): Promise<ActionResult<T>> {
-  if (!session || !session.user) {
-    return { success: false, error: { message: "Unauthorized", code: "UNAUTHORIZED" } };
+  if (!session?.user) {
+    return { success: false, error: { message: "You must be signed in.", code: "UNAUTHORIZED" } };
   }
-  const role = session.user.role;
-  if (!can(role, action)) {
-    return { success: false, error: { message: "Forbidden", code: "FORBIDDEN" } };
+  if (!can(session.user.role, action)) {
+    return { success: false, error: { message: "You don't have permission to do that.", code: "FORBIDDEN" } };
   }
 
   try {
     const data = await handler();
     return { success: true, data };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+    const message = err instanceof Error ? err.message : "Something went wrong. Please try again.";
     return { success: false, error: { message, code: "INTERNAL_ERROR" } };
   }
 }

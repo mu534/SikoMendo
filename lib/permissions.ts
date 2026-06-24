@@ -2,6 +2,18 @@ export const ROLES = ["ADMIN", "HR_OFFICER", "MANAGER", "EMPLOYEE"] as const;
 
 export type Role = (typeof ROLES)[number];
 
+export const ROLE_LABELS: Record<Role, string> = {
+  ADMIN: "Administrator",
+  HR_OFFICER: "HR Officer",
+  MANAGER: "Manager",
+  EMPLOYEE: "Employee",
+};
+
+export function roleLabel(role: string | undefined | null): string {
+  if (!role) return "Unknown";
+  return ROLE_LABELS[role as Role] ?? role;
+}
+
 export type Action =
   | "MANAGE_USERS"
   | "MANAGE_ROLES"

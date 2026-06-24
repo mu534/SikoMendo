@@ -1,46 +1,54 @@
+import { betterAuth } from "better-auth";
+import { prismaAdapter } from "better-auth/adapters/prisma";
+import { nextCookies } from "better-auth/next-js";
+import { admin } from "better-auth/plugins";
 import prisma from "@/lib/prisma";
-import { cookies } from "next/headers";
+import { ROLES } from "@/lib/permissions";
+import { env } from "@/lib/env";
 
-export async function getSessionFromRequest(request?: Request) {
-  // Prefer Next.js cookies() helper for server handlers; fall back to request.cookies when available
-  let token: string | undefined | null = undefined;
+export const auth = betterAuth({
+  appName: "Siko Mendo Union HRMIS",
+  baseURL: env.BETTER_AUTH_URL,
+  secret: env.BETTER_AUTH_SECRET,
+  database: prismaAdapter(prisma, {
+    provider: "postgresql",
+  }),
 
-  try {
-    // cookies() can be async in some environments
-    const store = await cookies();
-    token = store.get("siko_mendo_session")?.value;
-  } catch (err) {
-    // fallback to Request object cookie parsing (parse Cookie header)
-    const cookieHeader = request?.headers?.get?.("cookie") ?? null;
-    if (cookieHeader) {
-      const pairs = cookieHeader.split(";").map((p) => p.trim());
-      for (const pair of pairs) {
-        const [name, ...rest] = pair.split("=");
-        if (name === "siko_mendo_session") {
-          token = decodeURIComponent(rest.join("="));
-          break;
-        }
-      }
-    }
-  }
+  emailAndPassword: {
+    enabled: true,
+    minPasswordLength: 8,
+    autoSignIn: true,
+  },
 
-  if (!token) return null;
+  // The HRMIS has no public sign-up flow — accounts are provisioned by an
+  // Administrator (see features/users). Role lives on the user record and
+  // drives every permission check in lib/permissions.ts.
+  user: {
+    additionalFields: {
+      role: {
+        type: [...ROLES] as unknown as string[],
+        input: false,
+        defaultValue: "EMPLOYEE",
+      },
+    },
+  },
 
-  const session = await prisma.session.findUnique({
-    where: { token },
-    include: { user: true },
-  });
+  session: {
+    expiresIn: 60 * 60 * 24 * 7, // 7 days
+    updateAge: 60 * 60 * 24, // refresh once per day of activity
+  },
 
-  if (!session || session.expiresAt < new Date()) {
-    return null;
-  }
+  // Gives Administrators built-in account lifecycle tools (create user,
+  // change role, ban/unban, reset password, force sign-out) without us
+  // having to hand-roll session/password management.
+  plugins: [
+    admin({
+      defaultRole: "EMPLOYEE",
+      adminRoles: ["ADMIN"],
+      defaultBanReason: "Account disabled by an Administrator.",
+    }),
+    nextCookies(), // must stay last: lets Server Actions set auth cookies
+  ],
+});
 
-  return session;
-}
-
-export function requireSession(session: Awaited<ReturnType<typeof getSessionFromRequest>>) {
-  if (!session) {
-    throw new Error("Unauthorized");
-  }
-  return session;
-}
+export type AuthSession = typeof auth.$Infer.Session;
