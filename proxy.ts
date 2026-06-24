@@ -1,28 +1,29 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import prisma from "@/lib/prisma";
+import { getSessionCookie } from "better-auth/cookies";
 
-const PUBLIC_PATHS = ["/", "/sign-in", "/api/auth/sign-in", "/api/auth/sign-out"];
+// Public routes that never require a session. Everything else under the
+// matcher below is treated as protected by default — safer than maintaining
+// a deny-list that someone forgets to update when a new page is added.
+const PUBLIC_PATHS = new Set(["/", "/sign-in"]);
 
 export async function proxy(request: NextRequest) {
-	const cookie = request.cookies.get("siko_mendo_session")?.value;
+  const { pathname } = request.nextUrl;
 
-  if (PUBLIC_PATHS.some((path) => request.nextUrl.pathname === path)) {
+  if (PUBLIC_PATHS.has(pathname)) {
     return NextResponse.next();
   }
 
-  if (!cookie) {
-    const signInUrl = new URL("/sign-in", request.url);
-    return NextResponse.redirect(signInUrl);
-  }
+  // Optimistic check only: confirms a session cookie exists, not that it's
+  // still valid or what role it belongs to. Real authentication and
+  // role-based authorization happen server-side in lib/session.ts, inside
+  // each layout/page/Server Action — see the Data Security guidance this
+  // mirrors: https://nextjs.org/docs/app/guides/data-security
+  const sessionCookie = getSessionCookie(request);
 
-  const session = await prisma.session.findUnique({
-    where: { token: cookie },
-    include: { user: true },
-  });
-
-  if (!session || session.expiresAt < new Date()) {
+  if (!sessionCookie) {
     const signInUrl = new URL("/sign-in", request.url);
+    signInUrl.searchParams.set("redirectTo", pathname);
     return NextResponse.redirect(signInUrl);
   }
 
@@ -30,5 +31,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 };
