@@ -1,106 +1,126 @@
 "use server";
 
+import { headers } from "next/headers";
+import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
-import { getSessionFromRequest } from "@/lib/auth";
+import { auth } from "@/lib/auth";
+import { getServerSession } from "@/lib/session";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
-import * as bcrypt from "bcryptjs";
-import { createUserSchema, updateUserSchema, type CreateUserInput, type UpdateUserInput } from "./schemas";
+import { createUserSchema, updateUserSchema } from "./schemas";
 
-export async function createUser(input: CreateUserInput): Promise<ActionResult<{ id: string; email: string }>> {
-  const session = await getSessionFromRequest();
+async function logAudit(action: string, entityId: string, changes: unknown, userId?: string) {
+  await prisma.auditLog.create({
+    data: { action, entity: "User", entityId, changes: changes as object, userId },
+  });
+}
+
+export async function createUserAccount(_prevState: unknown, formData: FormData): Promise<ActionResult<{ id: string }>> {
+  const session = await getServerSession();
 
   return withPermission(session, "MANAGE_USERS", async () => {
-    const validated = createUserSchema.parse(input);
-
-    const existingUser = await prisma.user.findUnique({ where: { email: validated.email } });
-    if (existingUser) {
-      throw new Error("User with this email already exists");
+    const parsed = createUserSchema.safeParse({
+      name: formData.get("name"),
+      email: formData.get("email"),
+      password: formData.get("password"),
+      role: formData.get("role"),
+    });
+    if (!parsed.success) {
+      throw new Error(parsed.error.issues[0]?.message ?? "Invalid input.");
     }
 
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(validated.password, salt);
+    const existing = await prisma.user.findUnique({ where: { email: parsed.data.email } });
+    if (existing) {
+      throw new Error("A user with this email already exists.");
+    }
 
-    const user = await prisma.user.create({
-      data: {
-        name: validated.name,
-        email: validated.email,
-        role: validated.role,
-        emailVerified: true,
-        accounts: {
-          create: {
-            providerId: "email",
-            accountId: validated.email,
-            password: passwordHash,
-          },
-        },
+    const { user } = await auth.api.createUser({
+      headers: await headers(),
+      body: {
+        name: parsed.data.name,
+        email: parsed.data.email,
+        password: parsed.data.password,
       },
     });
 
-    // Log audit trail
-    await prisma.auditLog.create({
-      data: {
-        action: "CREATE",
-        entity: "User",
-        entityId: user.id,
-        changes: { name: user.name, email: user.email, role: user.role },
-        userId: session?.user?.id,
-      },
-    });
+    // The admin plugin's TypeScript types only know about its own
+    // adminRoles/defaultRole strings, so we set our 4-way Role enum
+    // directly through Prisma instead of fighting its generics.
+    await prisma.user.update({ where: { id: user.id }, data: { role: parsed.data.role } });
 
-    return { id: user.id, email: user.email };
+    await logAudit("CREATE", user.id, { name: user.name, email: user.email, role: parsed.data.role }, session?.user.id);
+    revalidatePath("/users");
+    return { id: user.id };
   });
 }
 
-export async function updateUser(
+export async function updateUserAccount(
   userId: string,
-  input: UpdateUserInput
-): Promise<ActionResult<{ id: string; email: string }>> {
-  const session = await getSessionFromRequest();
+  _prevState: unknown,
+  formData: FormData
+): Promise<ActionResult<{ id: string }>> {
+  const session = await getServerSession();
 
   return withPermission(session, "MANAGE_USERS", async () => {
-    const validated = updateUserSchema.parse(input);
+    const parsed = updateUserSchema.safeParse({
+      name: formData.get("name"),
+      email: formData.get("email"),
+      role: formData.get("role"),
+    });
+    if (!parsed.success) {
+      throw new Error(parsed.error.issues[0]?.message ?? "Invalid input.");
+    }
 
-    const user = await prisma.user.update({
-      where: { id: userId },
-      data: {
-        ...(validated.name && { name: validated.name }),
-        ...(validated.email && { email: validated.email }),
-        ...(validated.role && { role: validated.role }),
-        ...(validated.banned !== undefined && { banned: validated.banned }),
-      },
+    const target = await prisma.user.findUnique({ where: { id: userId } });
+    if (!target) throw new Error("User not found.");
+
+    await auth.api.adminUpdateUser({
+      headers: await headers(),
+      body: { userId, data: { name: parsed.data.name, email: parsed.data.email } },
     });
 
-    // Log audit trail
-    await prisma.auditLog.create({
-      data: {
-        action: "UPDATE",
-        entity: "User",
-        entityId: user.id,
-        changes: validated,
-        userId: session?.user?.id,
-      },
-    });
+    if (parsed.data.role !== target.role) {
+      await prisma.user.update({ where: { id: userId }, data: { role: parsed.data.role } });
+    }
 
-    return { id: user.id, email: user.email };
+    await logAudit("UPDATE", userId, parsed.data, session?.user.id);
+    revalidatePath("/users");
+    revalidatePath(`/users/${userId}`);
+    return { id: userId };
   });
 }
 
-export async function deleteUser(userId: string): Promise<ActionResult<{ success: boolean }>> {
-  const session = await getSessionFromRequest();
+export async function toggleUserBan(userId: string, nextBanned: boolean): Promise<ActionResult<{ id: string }>> {
+  const session = await getServerSession();
 
   return withPermission(session, "MANAGE_USERS", async () => {
-    await prisma.user.delete({ where: { id: userId } });
+    if (session?.user.id === userId) {
+      throw new Error("You can't ban your own account.");
+    }
 
-    // Log audit trail
-    await prisma.auditLog.create({
-      data: {
-        action: "DELETE",
-        entity: "User",
-        entityId: userId,
-        userId: session?.user?.id,
-      },
-    });
+    if (nextBanned) {
+      await auth.api.banUser({ headers: await headers(), body: { userId } });
+    } else {
+      await auth.api.unbanUser({ headers: await headers(), body: { userId } });
+    }
 
-    return { success: true };
+    await logAudit(nextBanned ? "BAN" : "UNBAN", userId, { banned: nextBanned }, session?.user.id);
+    revalidatePath("/users");
+    return { id: userId };
+  });
+}
+
+export async function deleteUserAccount(userId: string): Promise<ActionResult<{ id: string }>> {
+  const session = await getServerSession();
+
+  return withPermission(session, "MANAGE_USERS", async () => {
+    if (session?.user.id === userId) {
+      throw new Error("You can't delete your own account.");
+    }
+
+    await auth.api.removeUser({ headers: await headers(), body: { userId } });
+
+    await logAudit("DELETE", userId, {}, session?.user.id);
+    revalidatePath("/users");
+    return { id: userId };
   });
 }
