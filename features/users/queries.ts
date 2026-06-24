@@ -20,7 +20,7 @@ export async function listUsers({ q, role, page }: UserListFilters) {
             ],
           }
         : {},
-      role && ROLES.includes(role as Role) ? { role } : {},
+      role && ROLES.includes(role as Role) ? { role: role as Role } : {},
     ],
   };
 

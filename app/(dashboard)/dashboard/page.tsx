@@ -1,7 +1,7 @@
 import { Users, Building2, CalendarCheck, CalendarX, FileBarChart, UserCheck } from "lucide-react";
 import { requireSession } from "@/lib/session";
 import { can } from "@/lib/permissions";
-import { getOrganizationStats, getRecentAuditLogs, getOwnAttendanceSummary } from "@/features/dashboard/queries";
+import { getOrganizationStats, getRecentAuditLogs, getOwnAttendanceSummary } from "@/features/Dashboard/queries";
 import prisma from "@/lib/prisma";
 import { StatCard, Card, CardHeader } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/utils";

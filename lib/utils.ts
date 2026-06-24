@@ -1,8 +1,8 @@
-import { clsx, type ClassValue } from "clsx";
+import clsx, { type ClassValue } from "clsx";
 
 /** Merges conditional class names. Tailwind classes are simple enough here that we don't need tailwind-merge. */
 export function cn(...inputs: ClassValue[]) {
-  return clsx(inputs);
+  return clsx(...inputs);
 }
 
 export function formatDate(date: Date | string | null | undefined): string {
