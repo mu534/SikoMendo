@@ -8,6 +8,7 @@ import { formatDateTime } from "@/lib/utils";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { AuditLog } from "@prisma/client";
 
+
 export default async function DashboardPage() {
   const session = await requireSession();
 
@@ -25,7 +26,7 @@ async function OrganizationDashboard({ userName }: { userName: string }) {
     <div className="space-y-6">
       <div>
         <h2 className="font-display text-xl font-semibold text-ink-900">Welcome back, {userName.split(" ")[0]}</h2>
-        <p className="mt-1 text-sm text-ink-900/60">Here's what's happening across Siko Mendo Union today.</p>
+        <p className="mt-1 text-sm text-ink-900/60">Here is what is happening across Siko Mendo Union today.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
