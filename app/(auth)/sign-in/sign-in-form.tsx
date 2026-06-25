@@ -56,7 +56,7 @@ export function SignInForm() {
         <p className="mt-1.5 text-sm text-ink-900/60">Sign in with the account your Administrator created for you.</p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <form onSubmit={handleSubmit(onSubmit)} method="post" className="space-y-5">
         <FieldGroup>
           <Label htmlFor="email">Email address</Label>
           <Input id="email" type="email" autoComplete="email" placeholder="you@sikomendo.org" {...register("email")} />
