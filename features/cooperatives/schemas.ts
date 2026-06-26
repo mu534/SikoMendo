@@ -1,76 +1,84 @@
 import { z } from "zod";
 
+// ── Helpers for optional (contact section only) ───────────────────────────────
 const optionalString = z
   .string()
   .optional()
   .transform((v) => (v && v.trim() !== "" ? v.trim() : null));
 
-const optionalDecimal = z
+const optionalEmail = z
   .string()
   .optional()
-  .transform((v) => (v && v.trim() !== "" ? parseFloat(v.trim()) : null))
-  .pipe(z.number().nonnegative("Must be 0 or greater").nullable());
+  .transform((v) => (v && v.trim() !== "" ? v.trim() : null))
+  .pipe(z.string().email("Enter a valid email").nullable());
 
-const optionalInt = z
-  .string()
-  .optional()
-  .transform((v) => (v && v.trim() !== "" ? parseInt(v.trim(), 10) : null))
-  .pipe(z.number().int().nonnegative("Must be 0 or greater").nullable());
+// ── Helpers for required fields ───────────────────────────────────────────────
+const requiredString = (label: string) =>
+  z
+    .string({ required_error: `${label} is required` })
+    .min(1, `${label} is required`)
+    .trim();
 
-const optionalDate = z
-  .string()
-  .optional()
-  .transform((v) => (v && v.trim() !== "" ? new Date(v.trim()) : null))
-  .pipe(z.date().nullable());
+const requiredDate = (label: string) =>
+  z
+    .string({ required_error: `${label} is required` })
+    .min(1, `${label} is required`)
+    .transform((v) => new Date(v))
+    .pipe(z.date({ required_error: `${label} is required` }));
 
+const requiredDecimal = (label: string) =>
+  z
+    .string({ required_error: `${label} is required` })
+    .min(1, `${label} is required`)
+    .transform((v) => parseFloat(v))
+    .pipe(z.number({ required_error: `${label} is required` }).nonnegative("Must be 0 or greater"));
+
+const requiredInt = (label: string) =>
+  z
+    .string({ required_error: `${label} is required` })
+    .min(1, `${label} is required`)
+    .transform((v) => parseInt(v, 10))
+    .pipe(z.number({ required_error: `${label} is required` }).int().nonnegative("Must be 0 or greater"));
+
+// ── Schema ────────────────────────────────────────────────────────────────────
 export const cooperativeSchema = z
   .object({
-    // Basic
-    name: z.string().min(2, "Name must be at least 2 characters").trim(),
-    cooperativeType: optionalString,
-    registrationNumber: optionalString,
-    registrationDate: optionalDate,
-    dateJoinedUnion: optionalDate,
+    // Section 1 — Basic Information (all required except cooperativeType has a default)
+    name: requiredString("Cooperative Name"),
+    cooperativeType: requiredString("Cooperative Type"),
+    registrationNumber: requiredString("Registration Number"),
+    registrationDate: requiredDate("Registration Date"),
+    dateJoinedUnion: requiredDate("Date Joined Union"),
     isActive: z.preprocess((v) => v === "on" || v === "true" || v === true, z.boolean()),
 
-    // Address
-    district: optionalString,
-    kebele: optionalString,
+    // Section 2 — Address (all required)
+    district: requiredString("District"),
+    kebele: requiredString("Kebele"),
 
-    // Registration details
-    businessType: optionalString,
-    registrationFee: optionalDecimal,
-    numberOfShares: optionalInt,
-    pricePerShare: optionalDecimal,
+    // Section 3 — Registration Details (all required)
+    businessType: requiredString("Business Type"),
+    registrationFee: requiredDecimal("Registration Fee"),
+    numberOfShares: requiredInt("Number of Shares"),
+    pricePerShare: requiredDecimal("Price Per Share"),
 
-    // Membership
-    totalMembers: optionalInt,
-    maleMembers: optionalInt,
-    femaleMembers: optionalInt,
+    // Section 4 — Membership (all required)
+    totalMembers: requiredInt("Total Members"),
+    maleMembers: requiredInt("Male Members"),
+    femaleMembers: requiredInt("Female Members"),
 
-    // Capital
-    fixedAssets: optionalDecimal,
-    currentAssets: optionalDecimal,
+    // Section 5 — Capital (all required)
+    fixedAssets: requiredDecimal("Fixed Assets"),
+    currentAssets: requiredDecimal("Current Assets"),
 
-    // Legacy fields kept for backward compat
+    // Section 6 — Contact & Additional (all optional)
     description: optionalString,
     location: optionalString,
     contactPerson: optionalString,
-    contactEmail: z
-      .string()
-      .optional()
-      .transform((v) => (v && v.trim() !== "" ? v.trim() : null))
-      .pipe(z.string().email("Enter a valid email").nullable()),
+    contactEmail: optionalEmail,
     contactPhone: optionalString,
   })
   .superRefine((data, ctx) => {
-    const { totalMembers, maleMembers, femaleMembers } = data;
-    if (
-      totalMembers !== null &&
-      maleMembers !== null &&
-      femaleMembers !== null &&
-      maleMembers + femaleMembers !== totalMembers
-    ) {
+    if (data.maleMembers + data.femaleMembers !== data.totalMembers) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Male + Female members must equal Total members",
