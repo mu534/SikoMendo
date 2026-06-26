@@ -1,0 +1,16 @@
+-- AlterTable
+ALTER TABLE "cooperative" ADD COLUMN     "businessType" TEXT,
+ADD COLUMN     "cooperativeType" TEXT,
+ADD COLUMN     "currentAssets" DECIMAL(15,2),
+ADD COLUMN     "dateJoinedUnion" TIMESTAMP(3),
+ADD COLUMN     "district" TEXT,
+ADD COLUMN     "femaleMembers" INTEGER,
+ADD COLUMN     "fixedAssets" DECIMAL(15,2),
+ADD COLUMN     "kebele" TEXT,
+ADD COLUMN     "maleMembers" INTEGER,
+ADD COLUMN     "numberOfShares" INTEGER,
+ADD COLUMN     "pricePerShare" DECIMAL(15,2),
+ADD COLUMN     "registrationDate" TIMESTAMP(3),
+ADD COLUMN     "registrationFee" DECIMAL(15,2),
+ADD COLUMN     "registrationNumber" TEXT,
+ADD COLUMN     "totalMembers" INTEGER;

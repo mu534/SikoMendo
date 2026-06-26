@@ -186,6 +186,23 @@ model Cooperative {
   contactPhone  String?
   isActive      Boolean     @default(true)
 
+  // Extended registration fields
+  cooperativeType   String?
+  registrationNumber String?
+  registrationDate   DateTime?
+  dateJoinedUnion    DateTime?
+  district           String?   // Aana
+  kebele             String?   // Ganda
+  businessType       String?   // Gosa Hojii
+  registrationFee    Decimal?  @db.Decimal(15, 2)
+  numberOfShares     Int?
+  pricePerShare      Decimal?  @db.Decimal(15, 2)
+  totalMembers       Int?
+  maleMembers        Int?
+  femaleMembers      Int?
+  fixedAssets        Decimal?  @db.Decimal(15, 2)
+  currentAssets      Decimal?  @db.Decimal(15, 2)
+
   // Relations
   employees     Employee[]
 

@@ -20,7 +20,11 @@ type AssignedEmployee = {
   profileImageUrl: string | null;
 };
 
-export default async function CooperativeDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function CooperativeDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const session = await requirePermission("VIEW_COOPERATIVES");
   const { id } = await params;
 
@@ -29,46 +33,181 @@ export default async function CooperativeDetailPage({ params }: { params: Promis
 
   const canManage = can(session.user.role, "MANAGE_COOPERATIVES");
 
+  // Convert Prisma Decimal fields → plain numbers for the client form
+  const cooperativeFormValues = {
+    cooperativeId: cooperative.cooperativeId,
+    name: cooperative.name,
+    cooperativeType: cooperative.cooperativeType,
+    registrationNumber: cooperative.registrationNumber,
+    registrationDate: cooperative.registrationDate,
+    dateJoinedUnion: cooperative.dateJoinedUnion,
+    isActive: cooperative.isActive,
+    district: cooperative.district,
+    kebele: cooperative.kebele,
+    businessType: cooperative.businessType,
+    registrationFee: cooperative.registrationFee != null ? Number(cooperative.registrationFee) : null,
+    numberOfShares: cooperative.numberOfShares,
+    pricePerShare: cooperative.pricePerShare != null ? Number(cooperative.pricePerShare) : null,
+    totalMembers: cooperative.totalMembers,
+    maleMembers: cooperative.maleMembers,
+    femaleMembers: cooperative.femaleMembers,
+    fixedAssets: cooperative.fixedAssets != null ? Number(cooperative.fixedAssets) : null,
+    currentAssets: cooperative.currentAssets != null ? Number(cooperative.currentAssets) : null,
+    description: cooperative.description,
+    location: cooperative.location,
+    contactPerson: cooperative.contactPerson,
+    contactEmail: cooperative.contactEmail,
+    contactPhone: cooperative.contactPhone,
+  };
+
   return (
     <div className="space-y-6">
       <div>
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="font-display text-xl font-semibold text-ink-900">{cooperative.name}</h2>
           <Badge tone="brand">{cooperative.cooperativeId}</Badge>
-          {cooperative.isActive ? <Badge tone="success">Active</Badge> : <Badge tone="neutral">Inactive</Badge>}
+          {cooperative.isActive ? (
+            <Badge tone="success">Active</Badge>
+          ) : (
+            <Badge tone="neutral">Inactive</Badge>
+          )}
         </div>
-        {cooperative.location && <p className="mt-1 text-sm text-ink-900/60">{cooperative.location}</p>}
+        {cooperative.location && (
+          <p className="mt-1 text-sm text-ink-900/60">{cooperative.location}</p>
+        )}
       </div>
 
       {canManage ? (
-        <CooperativeForm action={updateCooperative.bind(null, cooperative.id)} cooperative={cooperative} />
+        <CooperativeForm
+          action={updateCooperative.bind(null, cooperative.id)}
+          cooperative={cooperativeFormValues}
+        />
       ) : (
-        <Card className="max-w-2xl p-6">
+        <Card className="max-w-3xl p-6">
           <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <ReadField label="Cooperative ID" value={cooperative.cooperativeId} />
+            <ReadField label="Cooperative Type" value={cooperative.cooperativeType} />
+            <ReadField label="Registration Number" value={cooperative.registrationNumber} />
+            <ReadField
+              label="Registration Date"
+              value={cooperative.registrationDate
+                ? new Date(cooperative.registrationDate).toLocaleDateString()
+                : null}
+            />
+            <ReadField
+              label="Date Joined Union"
+              value={cooperative.dateJoinedUnion
+                ? new Date(cooperative.dateJoinedUnion).toLocaleDateString()
+                : null}
+            />
+            <ReadField label="Status" value={cooperative.isActive ? "Active" : "Inactive"} />
+            <ReadField label="District / Aanaa" value={cooperative.district} />
+            <ReadField label="Kebele / Ganda" value={cooperative.kebele} />
+            <ReadField label="Location" value={cooperative.location} />
+            <ReadField label="Business Type" value={cooperative.businessType} />
+            <ReadField
+              label="Registration Fee"
+              value={cooperative.registrationFee != null
+                ? Number(cooperative.registrationFee).toLocaleString()
+                : null}
+            />
+            <ReadField
+              label="Number of Shares"
+              value={cooperative.numberOfShares != null
+                ? cooperative.numberOfShares.toLocaleString()
+                : null}
+            />
+            <ReadField
+              label="Price Per Share"
+              value={cooperative.pricePerShare != null
+                ? Number(cooperative.pricePerShare).toLocaleString()
+                : null}
+            />
+            <ReadField
+              label="Total Share Value"
+              value={cooperative.numberOfShares != null && cooperative.pricePerShare != null
+                ? (cooperative.numberOfShares * Number(cooperative.pricePerShare)).toLocaleString(
+                    "en-US",
+                    { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                  )
+                : null}
+            />
+            <ReadField
+              label="Total Members"
+              value={cooperative.totalMembers != null
+                ? cooperative.totalMembers.toLocaleString()
+                : null}
+            />
+            <ReadField
+              label="Male Members"
+              value={cooperative.maleMembers != null
+                ? cooperative.maleMembers.toLocaleString()
+                : null}
+            />
+            <ReadField
+              label="Female Members"
+              value={cooperative.femaleMembers != null
+                ? cooperative.femaleMembers.toLocaleString()
+                : null}
+            />
+            <ReadField
+              label="Fixed Assets"
+              value={cooperative.fixedAssets != null
+                ? Number(cooperative.fixedAssets).toLocaleString()
+                : null}
+            />
+            <ReadField
+              label="Current Assets"
+              value={cooperative.currentAssets != null
+                ? Number(cooperative.currentAssets).toLocaleString()
+                : null}
+            />
+            <ReadField
+              label="Total Capital"
+              value={cooperative.fixedAssets != null && cooperative.currentAssets != null
+                ? (Number(cooperative.fixedAssets) + Number(cooperative.currentAssets)).toLocaleString(
+                    "en-US",
+                    { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                  )
+                : null}
+            />
+            <ReadField label="Contact Person" value={cooperative.contactPerson} />
+            <ReadField label="Contact Email" value={cooperative.contactEmail} />
+            <ReadField label="Contact Phone" value={cooperative.contactPhone} />
             <ReadField label="Description" value={cooperative.description} className="sm:col-span-2" />
-            <ReadField label="Contact person" value={cooperative.contactPerson} />
-            <ReadField label="Contact email" value={cooperative.contactEmail} />
-            <ReadField label="Contact phone" value={cooperative.contactPhone} />
           </dl>
         </Card>
       )}
 
       <Card>
-        <CardHeader title="Assigned employees" description={`${cooperative._count.employees} employee${cooperative._count.employees === 1 ? "" : "s"} at this cooperative.`} />
+        <CardHeader
+          title="Assigned employees"
+          description={`${cooperative._count.employees} employee${
+            cooperative._count.employees === 1 ? "" : "s"
+          } at this cooperative.`}
+        />
         {cooperative.employees.length === 0 ? (
           <EmptyState icon={<Users className="h-8 w-8" />} title="No employees assigned yet" />
         ) : (
           <ul className="divide-y divide-ink-900/6">
             {cooperative.employees.map((employee: AssignedEmployee) => (
               <li key={employee.id}>
-                <Link href={`/employees/${employee.id}`} className="flex items-center gap-3 px-6 py-3.5 hover:bg-sand-100/70">
-                  <Avatar name={`${employee.firstName} ${employee.lastName}`} imageUrl={employee.profileImageUrl} size="sm" />
+                <Link
+                  href={`/employees/${employee.id}`}
+                  className="flex items-center gap-3 px-6 py-3.5 hover:bg-sand-100/70"
+                >
+                  <Avatar
+                    name={`${employee.firstName} ${employee.lastName}`}
+                    imageUrl={employee.profileImageUrl}
+                    size="sm"
+                  />
                   <div>
                     <p className="text-sm font-medium text-ink-900">
                       {employee.firstName} {employee.lastName}
                     </p>
                     <p className="text-xs text-ink-900/50">
-                      {employee.employeeId} {employee.position ? `· ${employee.position}` : ""}
+                      {employee.employeeId}
+                      {employee.position ? ` · ${employee.position}` : ""}
                     </p>
                   </div>
                 </Link>
@@ -81,7 +220,15 @@ export default async function CooperativeDetailPage({ params }: { params: Promis
   );
 }
 
-function ReadField({ label, value, className }: { label: string; value?: string | null; className?: string }) {
+function ReadField({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value?: string | null;
+  className?: string;
+}) {
   return (
     <div className={className}>
       <dt className="text-xs font-medium uppercase tracking-wide text-ink-900/45">{label}</dt>
