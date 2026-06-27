@@ -5,14 +5,26 @@ import { PAGE_SIZE } from "@/lib/utils";
 export type EmployeeListFilters = {
   q?: string;
   status?: string;
+  department?: string;
+  employmentType?: string;
+  gender?: string;
   cooperativeId?: string;
   showArchived?: boolean;
   page: number;
 };
 
-const EMPLOYMENT_STATUSES = ["ACTIVE", "INACTIVE", "SUSPENDED", "TERMINATED"];
+const EMPLOYMENT_STATUSES = ["ACTIVE", "ON_LEAVE", "RESIGNED", "RETIRED", "SUSPENDED", "TERMINATED", "INACTIVE"];
 
-export async function listEmployees({ q, status, cooperativeId, showArchived, page }: EmployeeListFilters) {
+export async function listEmployees({
+  q,
+  status,
+  department,
+  employmentType,
+  gender,
+  cooperativeId,
+  showArchived,
+  page,
+}: EmployeeListFilters) {
   const where = {
     deletedAt: showArchived ? { not: null } : null,
     AND: [
@@ -23,10 +35,15 @@ export async function listEmployees({ q, status, cooperativeId, showArchived, pa
               { lastName: { contains: q, mode: "insensitive" as const } },
               { employeeId: { contains: q, mode: "insensitive" as const } },
               { email: { contains: q, mode: "insensitive" as const } },
+              { department: { contains: q, mode: "insensitive" as const } },
+              { position: { contains: q, mode: "insensitive" as const } },
             ],
           }
         : {},
       status && EMPLOYMENT_STATUSES.includes(status) ? { employmentStatus: status } : {},
+      department ? { department: { contains: department, mode: "insensitive" as const } } : {},
+      employmentType ? { employmentType } : {},
+      gender ? { gender } : {},
       cooperativeId ? { cooperativeId } : {},
     ],
   };
@@ -56,7 +73,6 @@ export async function getEmployeeById(id: string) {
   });
 }
 
-/** Active cooperatives for the assignment dropdown. */
 export async function listAssignableCooperatives() {
   return prisma.cooperative.findMany({
     where: { deletedAt: null, isActive: true },
@@ -65,11 +81,6 @@ export async function listAssignableCooperatives() {
   });
 }
 
-/**
- * Users not yet linked to an employee record — candidates for the
- * "link to a user account" field. Includes the current employee's own
- * linked user (if any) so editing a record doesn't make that option vanish.
- */
 export async function listLinkableUsers(currentUserId?: string | null) {
   return prisma.user.findMany({
     where: currentUserId ? { OR: [{ employee: null }, { id: currentUserId }] } : { employee: null },
@@ -86,4 +97,54 @@ export async function generateNextEmployeeId() {
 
   const lastNumber = last ? parseInt(last.employeeId.replace(/\D/g, ""), 10) || 0 : 0;
   return `EMP-${String(lastNumber + 1).padStart(4, "0")}`;
+}
+
+// ── Report data queries ───────────────────────────────────────────────────────
+
+export async function getEmployeesForReport(filters: {
+  status?: string;
+  department?: string;
+  gender?: string;
+  employmentType?: string;
+  cooperativeId?: string;
+  month?: string; // "YYYY-MM"
+}) {
+  const where: Record<string, unknown> = { deletedAt: null };
+  if (filters.status) where.employmentStatus = filters.status;
+  if (filters.department) where.department = filters.department;
+  if (filters.gender) where.gender = filters.gender;
+  if (filters.employmentType) where.employmentType = filters.employmentType;
+  if (filters.cooperativeId) where.cooperativeId = filters.cooperativeId;
+
+  return prisma.employee.findMany({
+    where,
+    include: {
+      cooperative: { select: { name: true } },
+      attendances: filters.month
+        ? {
+            where: {
+              date: {
+                gte: new Date(`${filters.month}-01`),
+                lt: new Date(
+                  new Date(`${filters.month}-01`).setMonth(
+                    new Date(`${filters.month}-01`).getMonth() + 1
+                  )
+                ),
+              },
+            },
+          }
+        : false,
+    },
+    orderBy: [{ department: "asc" }, { firstName: "asc" }],
+  });
+}
+
+export async function getDepartmentList() {
+  const result = await prisma.employee.findMany({
+    where: { deletedAt: null, department: { not: null } },
+    select: { department: true },
+    distinct: ["department"],
+    orderBy: { department: "asc" },
+  });
+  return result.map((r) => r.department as string);
 }

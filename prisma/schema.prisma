@@ -19,9 +19,12 @@ enum Role {
 
 enum EmploymentStatus {
   ACTIVE
-  INACTIVE
+  ON_LEAVE
+  RESIGNED
+  RETIRED
   SUSPENDED
   TERMINATED
+  INACTIVE
 }
 
 enum Gender {
@@ -139,7 +142,7 @@ model Verification {
 
 model Employee {
   id               String           @id @default(cuid())
-  employeeId       String           @unique            // Business-facing unique ID (e.g., "EMP-0001")
+  employeeId       String           @unique
   firstName        String
   lastName         String
   email            String?
@@ -152,14 +155,23 @@ model Employee {
   hireDate         DateTime?
   employmentStatus EmploymentStatus @default(ACTIVE)
   profileImageUrl  String?
-  
+  profileImageKey  String?
+
+  // Extended fields
+  maritalStatus        String?
+  employmentType       String?    // Full-Time, Part-Time, Contract, Casual
+  emergencyContactName String?
+  emergencyContactPhone String?
+  educationLevel       String?
+  fieldOfStudy         String?
+  institutionName      String?
+  graduationYear       String?
+
   // Relations
-  userId          String?           @unique            // Optional link to User account
+  userId          String?           @unique
   user            User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
-  
   cooperativeId   String?
   cooperative     Cooperative?      @relation(fields: [cooperativeId], references: [id], onDelete: SetNull)
-  
   attendances     Attendance[]
   documents       Document[]
 

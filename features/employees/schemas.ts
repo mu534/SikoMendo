@@ -1,11 +1,5 @@
 import { z } from "zod";
 
-// Note: these transform blank/empty input to `null`, not `undefined`.
-// For Prisma's `update`, an `undefined` field means "leave unchanged",
-// while `null` means "clear it" — and clearing a previously-set field
-// (e.g. unassigning a cooperative) is exactly what an empty form value
-// should do. `null` behaves the same as omitting the field on `create`,
-// so this is safe for both create and update.
 const optionalString = z
   .string()
   .optional()
@@ -34,7 +28,15 @@ export const employeeSchema = z.object({
   department: optionalString,
   position: optionalString,
   hireDate: optionalDate,
-  employmentStatus: z.enum(["ACTIVE", "INACTIVE", "SUSPENDED", "TERMINATED"]),
+  employmentStatus: z.enum(["ACTIVE", "ON_LEAVE", "RESIGNED", "RETIRED", "SUSPENDED", "TERMINATED", "INACTIVE"]),
+  employmentType: optionalString,
+  maritalStatus: optionalString,
+  emergencyContactName: optionalString,
+  emergencyContactPhone: optionalString,
+  educationLevel: optionalString,
+  fieldOfStudy: optionalString,
+  institutionName: optionalString,
+  graduationYear: optionalString,
   cooperativeId: optionalString,
   userId: optionalString,
 });
@@ -54,6 +56,14 @@ export function employeeFormDataToObject(formData: FormData) {
     position: formData.get("position"),
     hireDate: formData.get("hireDate"),
     employmentStatus: formData.get("employmentStatus"),
+    employmentType: formData.get("employmentType"),
+    maritalStatus: formData.get("maritalStatus"),
+    emergencyContactName: formData.get("emergencyContactName"),
+    emergencyContactPhone: formData.get("emergencyContactPhone"),
+    educationLevel: formData.get("educationLevel"),
+    fieldOfStudy: formData.get("fieldOfStudy"),
+    institutionName: formData.get("institutionName"),
+    graduationYear: formData.get("graduationYear"),
     cooperativeId: formData.get("cooperativeId"),
     userId: formData.get("userId"),
   };
