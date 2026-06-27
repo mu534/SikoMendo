@@ -47,20 +47,45 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
       {canManage ? (
         <EmployeeForm
           action={updateEmployee.bind(null, employee.id)}
-          employee={employee}
+          employee={{
+            ...employee,
+            maritalStatus: employee.maritalStatus ?? null,
+            employmentType: employee.employmentType ?? null,
+            emergencyContactName: employee.emergencyContactName ?? null,
+            emergencyContactPhone: employee.emergencyContactPhone ?? null,
+            educationLevel: employee.educationLevel ?? null,
+            fieldOfStudy: employee.fieldOfStudy ?? null,
+            institutionName: employee.institutionName ?? null,
+            graduationYear: employee.graduationYear ?? null,
+          }}
           cooperatives={cooperatives}
           linkableUsers={linkableUsers}
         />
       ) : (
         <Card className="max-w-3xl p-6">
           <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            {/* Personal */}
             <ReadField label="Email" value={employee.email} />
             <ReadField label="Phone" value={employee.phone} />
+            <ReadField label="Gender" value={employee.gender} />
+            <ReadField label="Date of Birth" value={formatDate(employee.dateOfBirth)} />
+            <ReadField label="Marital Status" value={employee.maritalStatus} />
+            <ReadField label="Address" value={employee.address} className="sm:col-span-2" />
+            {/* Emergency Contact */}
+            <ReadField label="Emergency Contact Name" value={employee.emergencyContactName} />
+            <ReadField label="Emergency Contact Phone" value={employee.emergencyContactPhone} />
+            {/* Employment */}
             <ReadField label="Department" value={employee.department} />
             <ReadField label="Position" value={employee.position} />
-            <ReadField label="Hire date" value={formatDate(employee.hireDate)} />
-            <ReadField label="Date of birth" value={formatDate(employee.dateOfBirth)} />
-            <ReadField label="Address" value={employee.address} className="sm:col-span-2" />
+            <ReadField label="Employment Type" value={employee.employmentType} />
+            <ReadField label="Employment Status" value={employee.employmentStatus} />
+            <ReadField label="Date of Employment" value={formatDate(employee.hireDate)} />
+            <ReadField label="Cooperative" value={employee.cooperative?.name} />
+            {/* Education */}
+            <ReadField label="Education Level" value={employee.educationLevel} />
+            <ReadField label="Field of Study" value={employee.fieldOfStudy} />
+            <ReadField label="Institution" value={employee.institutionName} />
+            <ReadField label="Graduation Year" value={employee.graduationYear} />
           </dl>
         </Card>
       )}
