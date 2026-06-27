@@ -2,13 +2,13 @@
 
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import {
-  User, MapPin, Briefcase, GraduationCap, Phone, Building2
-} from "lucide-react";
+import { User, Briefcase, GraduationCap, Phone } from "lucide-react";
 import { Input, Label, Select, Textarea, FieldGroup } from "@/components/ui/field";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PhotoInput } from "./photo-input";
+
+export const EMPLOYEE_FORM_ID = "employee-form";
 
 type EmploymentStatus = "ACTIVE" | "ON_LEAVE" | "RESIGNED" | "RETIRED" | "SUSPENDED" | "TERMINATED" | "INACTIVE";
 
@@ -20,7 +20,7 @@ export type EmployeeFormValues = {
   email?: string | null;
   phone?: string | null;
   gender?: "MALE" | "FEMALE" | null;
-  dateOfBirth?: Date | null;
+  dateOfBirth?: string | null;   // ISO string, not Date — RSC can't pass Date to client
   maritalStatus?: string | null;
   address?: string | null;
   emergencyContactName?: string | null;
@@ -28,7 +28,7 @@ export type EmployeeFormValues = {
   department?: string | null;
   position?: string | null;
   employmentType?: string | null;
-  hireDate?: Date | null;
+  hireDate?: string | null;      // ISO string, not Date — RSC can't pass Date to client
   employmentStatus: EmploymentStatus;
   educationLevel?: string | null;
   fieldOfStudy?: string | null;
@@ -39,7 +39,7 @@ export type EmployeeFormValues = {
   profileImageUrl?: string | null;
 };
 
-function toDateInputValue(date?: Date | null) {
+function toDateInputValue(date?: string | null) {
   if (!date) return "";
   return new Date(date).toISOString().slice(0, 10);
 }
@@ -59,6 +59,38 @@ function RequiredMark() {
   return <span className="ml-0.5 text-red-500" aria-hidden="true">*</span>;
 }
 
+// ── Standalone action buttons ─────────────────────────────────────────────────
+// Uses the HTML `form` attribute to link to the form by ID, so these buttons
+// can live anywhere in the page (e.g. after the Documents card on the edit page).
+export function EmployeeFormActions({
+  isPending,
+  isEdit,
+}: {
+  isPending?: boolean;
+  isEdit?: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-3 border-t border-ink-900/8 pt-4">
+      <Button type="submit" form={EMPLOYEE_FORM_ID} disabled={isPending}>
+        {isPending ? (
+          <span className="flex items-center gap-2">
+            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+            </svg>
+            Saving…
+          </span>
+        ) : isEdit ? "Save changes" : "Create employee"}
+      </Button>
+      <Button type="reset" form={EMPLOYEE_FORM_ID} variant="outline">
+        Reset
+      </Button>
+      <ButtonLink href="/employees" variant="ghost">Cancel</ButtonLink>
+    </div>
+  );
+}
+
+// ── Main form component ───────────────────────────────────────────────────────
 export function EmployeeForm({
   action,
   employee,
@@ -94,7 +126,8 @@ export function EmployeeForm({
         </div>
       )}
 
-      <form action={formAction} className="space-y-5">
+      {/* id lets external buttons submit/reset this form via form="employee-form" */}
+      <form id={EMPLOYEE_FORM_ID} action={formAction} className="space-y-5">
 
         {/* ── Section 1: Personal Information ──────────────────────────── */}
         <Card className="p-6">
@@ -105,7 +138,6 @@ export function EmployeeForm({
               currentName={`${employee?.firstName ?? ""} ${employee?.lastName ?? ""}`}
               currentUrl={employee?.profileImageUrl}
             />
-
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <FieldGroup>
                 <Label htmlFor="firstName">First Name<RequiredMark /></Label>
@@ -115,7 +147,6 @@ export function EmployeeForm({
                 <Label htmlFor="lastName">Last Name<RequiredMark /></Label>
                 <Input id="lastName" name="lastName" required defaultValue={employee?.lastName} />
               </FieldGroup>
-
               <FieldGroup>
                 <Label htmlFor="gender">Gender</Label>
                 <Select id="gender" name="gender" defaultValue={employee?.gender ?? ""}>
@@ -128,7 +159,6 @@ export function EmployeeForm({
                 <Label htmlFor="dateOfBirth">Date of Birth</Label>
                 <Input id="dateOfBirth" name="dateOfBirth" type="date" defaultValue={toDateInputValue(employee?.dateOfBirth)} />
               </FieldGroup>
-
               <FieldGroup>
                 <Label htmlFor="maritalStatus">Marital Status</Label>
                 <Select id="maritalStatus" name="maritalStatus" defaultValue={employee?.maritalStatus ?? ""}>
@@ -143,13 +173,11 @@ export function EmployeeForm({
                 <Label htmlFor="phone">Phone Number</Label>
                 <Input id="phone" name="phone" placeholder="+251 9XX XXX XXX" defaultValue={employee?.phone ?? ""} />
               </FieldGroup>
-
               <FieldGroup>
                 <Label htmlFor="email">Email Address</Label>
                 <Input id="email" name="email" type="email" defaultValue={employee?.email ?? ""} />
               </FieldGroup>
             </div>
-
             <FieldGroup>
               <Label htmlFor="address">Address</Label>
               <Textarea id="address" name="address" rows={2} defaultValue={employee?.address ?? ""} />
@@ -184,7 +212,6 @@ export function EmployeeForm({
               <Label htmlFor="position">Position</Label>
               <Input id="position" name="position" defaultValue={employee?.position ?? ""} />
             </FieldGroup>
-
             <FieldGroup>
               <Label htmlFor="employmentType">Employment Type</Label>
               <Select id="employmentType" name="employmentType" defaultValue={employee?.employmentType ?? ""}>
@@ -199,7 +226,6 @@ export function EmployeeForm({
               <Label htmlFor="hireDate">Date of Employment</Label>
               <Input id="hireDate" name="hireDate" type="date" defaultValue={toDateInputValue(employee?.hireDate)} />
             </FieldGroup>
-
             <FieldGroup>
               <Label htmlFor="employmentStatus">Employment Status<RequiredMark /></Label>
               <Select id="employmentStatus" name="employmentStatus" required defaultValue={employee?.employmentStatus ?? "ACTIVE"}>
@@ -221,7 +247,6 @@ export function EmployeeForm({
                 ))}
               </Select>
             </FieldGroup>
-
             <FieldGroup>
               <Label htmlFor="userId">Linked System Account</Label>
               <Select id="userId" name="userId" defaultValue={employee?.userId ?? ""}>
@@ -255,7 +280,6 @@ export function EmployeeForm({
               <Label htmlFor="fieldOfStudy">Field of Study</Label>
               <Input id="fieldOfStudy" name="fieldOfStudy" defaultValue={employee?.fieldOfStudy ?? ""} />
             </FieldGroup>
-
             <FieldGroup>
               <Label htmlFor="institutionName">Institution Name</Label>
               <Input id="institutionName" name="institutionName" defaultValue={employee?.institutionName ?? ""} />
@@ -267,23 +291,11 @@ export function EmployeeForm({
           </div>
         </Card>
 
-        {/* ── Action Buttons ────────────────────────────────────────────── */}
-        <div className="flex flex-wrap items-center gap-3 border-t border-ink-900/8 pt-2">
-          <Button type="submit" disabled={isPending}>
-            {isPending ? (
-              <span className="flex items-center gap-2">
-                <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                </svg>
-                Saving…
-              </span>
-            ) : employee ? "Save changes" : "Create employee"}
-          </Button>
-          <Button type="reset" variant="outline">Reset</Button>
-          <ButtonLink href="/employees" variant="ghost">Cancel</ButtonLink>
-        </div>
       </form>
+
+      {/* On /new: render buttons here (no Documents card below).
+          On /[id]: the page renders <EmployeeFormActions> after the Documents card. */}
+      {!employee && <EmployeeFormActions isEdit={false} isPending={isPending} />}
     </div>
   );
 }

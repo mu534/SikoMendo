@@ -4,7 +4,7 @@ import { requirePermission } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { getEmployeeById, listAssignableCooperatives, listLinkableUsers } from "@/features/employees/queries";
 import { updateEmployee, deleteEmployeeDocument } from "@/features/employees/actions";
-import { EmployeeForm } from "@/features/employees/employee-form";
+import { EmployeeForm, EmployeeFormActions } from "@/features/employees/employee-form";
 import { DocumentUploadForm } from "@/features/employees/document-upload-form";
 import { formatDate, formatBytes } from "@/lib/utils";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -48,15 +48,30 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
         <EmployeeForm
           action={updateEmployee.bind(null, employee.id)}
           employee={{
-            ...employee,
+            id: employee.id,
+            employeeId: employee.employeeId,
+            firstName: employee.firstName,
+            lastName: employee.lastName,
+            email: employee.email ?? null,
+            phone: employee.phone ?? null,
+            gender: (employee.gender as "MALE" | "FEMALE" | null) ?? null,
+            dateOfBirth: employee.dateOfBirth ? employee.dateOfBirth.toISOString() : null,
             maritalStatus: employee.maritalStatus ?? null,
-            employmentType: employee.employmentType ?? null,
+            address: employee.address ?? null,
             emergencyContactName: employee.emergencyContactName ?? null,
             emergencyContactPhone: employee.emergencyContactPhone ?? null,
+            department: employee.department ?? null,
+            position: employee.position ?? null,
+            employmentType: employee.employmentType ?? null,
+            hireDate: employee.hireDate ? employee.hireDate.toISOString() : null,
+            employmentStatus: employee.employmentStatus as "ACTIVE" | "ON_LEAVE" | "RESIGNED" | "RETIRED" | "SUSPENDED" | "TERMINATED" | "INACTIVE",
             educationLevel: employee.educationLevel ?? null,
             fieldOfStudy: employee.fieldOfStudy ?? null,
             institutionName: employee.institutionName ?? null,
             graduationYear: employee.graduationYear ?? null,
+            cooperativeId: employee.cooperativeId ?? null,
+            userId: employee.userId ?? null,
+            profileImageUrl: employee.profileImageUrl ?? null,
           }}
           cooperatives={cooperatives}
           linkableUsers={linkableUsers}
@@ -130,6 +145,9 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
         )}
         {canManageDocuments && <DocumentUploadForm employeeId={employee.id} />}
       </Card>
+
+      {/* Save/Reset/Cancel sit here so they appear after Documents on the edit page */}
+      {canManage && <EmployeeFormActions isEdit />}
     </div>
   );
 }
