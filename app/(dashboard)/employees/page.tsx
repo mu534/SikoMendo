@@ -14,9 +14,9 @@ import { Toolbar } from "@/components/ui/toolbar";
 import { Table, THead, TH, TBody, TR, TD, EmptyRow } from "@/components/ui/table";
 import { Pagination } from "@/components/ui/pagination";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
-import type { Employee } from "@prisma/client";
+import type { Employee, Prisma } from "@prisma/client";
 
-type EmployeeRow = Employee & { cooperative: { name: string } | null };
+type EmployeeRow = Prisma.EmployeeGetPayload<{ include: { cooperative: { select: { name: true } } } }>;
 type CooperativeOption = { id: string; name: string };
 
 const STATUS_TONE = {

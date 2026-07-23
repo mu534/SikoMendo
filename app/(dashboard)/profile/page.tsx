@@ -38,7 +38,11 @@ export default async function ProfilePage() {
             <Avatar name={user.name} imageUrl={user.image} size="lg" />
             <div>
               <p className="font-display text-lg font-semibold text-ink-900">{user.name}</p>
-              <p className="mt-0.5 text-sm text-ink-900/60">{user.email}</p>
+              <p className="mt-0.5 text-sm text-ink-900/60">
+              {(user as { username?: string | null }).username
+                ? `@${(user as { username?: string | null }).username}`
+                : user.name}
+            </p>
             </div>
             <Badge tone="brand">{roleLabel(user.role)}</Badge>
           </div>
@@ -46,8 +50,12 @@ export default async function ProfilePage() {
           {/* Read-only account details */}
           <dl className="mt-6 space-y-3 border-t border-ink-900/8 pt-5">
             <div>
-              <dt className="text-xs font-medium uppercase tracking-wide text-ink-900/45">Email</dt>
-              <dd className="mt-1 text-sm text-ink-900/80">{user.email}</dd>
+              <dt className="text-xs font-medium uppercase tracking-wide text-ink-900/45">Username</dt>
+              <dd className="mt-1 text-sm text-ink-900/80">
+                {(user as { username?: string | null }).username
+                  ? `@${(user as { username?: string | null }).username}`
+                  : "—"}
+              </dd>
             </div>
             <div>
               <dt className="text-xs font-medium uppercase tracking-wide text-ink-900/45">Role</dt>
@@ -72,7 +80,7 @@ export default async function ProfilePage() {
           <Card className="p-6">
             <SectionHeader icon={UserCircle} title="Personal Information" />
             <p className="mb-4 text-sm text-ink-900/60">
-              Your email and role are managed by an Administrator and cannot be changed here.
+              Your username and role are managed by an Administrator and cannot be changed here.
             </p>
             <UpdateProfileForm name={user.name} />
           </Card>

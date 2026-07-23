@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { admin } from "better-auth/plugins";
+import { username } from "better-auth/plugins";
 import prisma from "@/lib/prisma";
 import { ROLES } from "@/lib/permissions";
 import { env } from "@/lib/env";
@@ -14,15 +15,15 @@ export const auth = betterAuth({
     provider: "postgresql",
   }),
 
+  // Email+password is kept enabled because better-auth requires it for
+  // account creation via auth.api.createUser. We never expose email-based
+  // sign-in in the UI — only username-based sign-in is shown.
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 8,
     autoSignIn: true,
   },
 
-  // The HRMIS has no public sign-up flow — accounts are provisioned by an
-  // Administrator (see features/users). Role lives on the user record and
-  // drives every permission check in lib/permissions.ts.
   user: {
     additionalFields: {
       role: {
@@ -34,14 +35,17 @@ export const auth = betterAuth({
   },
 
   session: {
-    expiresIn: 60 * 60 * 24 * 7, // 7 days
-    updateAge: 60 * 60 * 24, // refresh once per day of activity
+    expiresIn: 60 * 60 * 24 * 7,   // 7 days
+    updateAge: 60 * 60 * 24,        // refresh once per day of activity
   },
 
-  // Gives Administrators built-in account lifecycle tools (create user,
-  // change role, ban/unban, reset password, force sign-out) without us
-  // having to hand-roll session/password management.
   plugins: [
+    username({
+      // Only lowercase letters, digits, dots, hyphens, underscores allowed.
+      usernameValidator: (u) => /^[a-z0-9._-]+$/.test(u),
+      minUsernameLength: 3,
+      maxUsernameLength: 40,
+    }),
     admin({
       defaultRole: "EMPLOYEE",
       adminRoles: ["ADMIN"],

@@ -16,8 +16,8 @@ export type CooperativeFormValues = {
   name: string;
   cooperativeType: string;
   registrationNumber: string;
-  registrationDate: Date;
-  dateJoinedUnion: Date;
+  registrationDate: string;    // ISO string — RSC can't pass Date to client
+  dateJoinedUnion: string;     // ISO string — RSC can't pass Date to client
   isActive: boolean;
 
   // Section 2 — Address (required)
@@ -49,7 +49,7 @@ export type CooperativeFormValues = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function toDateInputValue(date?: Date | null): string {
+function toDateInputValue(date?: string | null): string {
   if (!date) return "";
   return new Date(date).toISOString().split("T")[0];
 }

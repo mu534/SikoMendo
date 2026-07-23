@@ -43,7 +43,7 @@ export default async function UsersPage({
       </div>
 
       <Card>
-        <Toolbar basePath="/users" searchPlaceholder="Search by name or email" searchDefault={q}>
+        <Toolbar basePath="/users" searchPlaceholder="Search by name or username" searchDefault={q}>
           <Select name="role" defaultValue={role} className="w-44">
             <option value="">All roles</option>
             {ROLES.map((r) => (
@@ -76,7 +76,9 @@ export default async function UsersPage({
                     <Avatar name={user.name} imageUrl={user.image} size="sm" />
                     <div>
                       <p className="font-medium text-ink-900">{user.name}</p>
-                      <p className="text-xs text-ink-900/50">{user.email}</p>
+                      <p className="text-xs text-ink-900/50">
+                        {user.username ? `@${user.username}` : <span className="italic">no username</span>}
+                      </p>
                     </div>
                   </div>
                 </TD>

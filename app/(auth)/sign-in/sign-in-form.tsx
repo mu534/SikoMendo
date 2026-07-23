@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, FieldGroup, FieldError } from "@/components/ui/field";
 
 const signInSchema = z.object({
-  email: z.string().email("Enter a valid email address"),
+  username: z.string().min(1, "Enter your username"),
   password: z.string().min(1, "Enter your password"),
 });
 
@@ -31,13 +31,14 @@ export function SignInForm() {
   async function onSubmit(values: SignInValues) {
     setFormError(null);
 
-    const { error } = await authClient.signIn.email({
-      email: values.email,
+    // Use the username plugin's sign-in endpoint
+    const { error } = await (authClient.signIn as { username: (opts: { username: string; password: string }) => Promise<{ error: { message?: string } | null }> }).username({
+      username: values.username,
       password: values.password,
     });
 
     if (error) {
-      setFormError(error.message ?? "Invalid email or password.");
+      setFormError(error.message ?? "Invalid username or password.");
       return;
     }
 
@@ -53,19 +54,32 @@ export function SignInForm() {
           <LogIn className="h-5 w-5" />
         </div>
         <h1 className="font-display mt-5 text-2xl font-semibold text-ink-900">Welcome back</h1>
-        <p className="mt-1.5 text-sm text-ink-900/60">Sign in with the account your Administrator created for you.</p>
+        <p className="mt-1.5 text-sm text-ink-900/60">
+          Sign in with the username and password your Administrator created for you.
+        </p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} method="post" className="space-y-5">
         <FieldGroup>
-          <Label htmlFor="email">Email address</Label>
-          <Input id="email" type="email" autoComplete="email" placeholder="you@sikomendo.org" {...register("email")} />
-          <FieldError>{errors.email?.message}</FieldError>
+          <Label htmlFor="username">Username</Label>
+          <Input
+            id="username"
+            type="text"
+            autoComplete="username"
+            placeholder="e.g. aster.tadesse"
+            {...register("username")}
+          />
+          <FieldError>{errors.username?.message}</FieldError>
         </FieldGroup>
 
         <FieldGroup>
           <Label htmlFor="password">Password</Label>
-          <Input id="password" type="password" autoComplete="current-password" {...register("password")} />
+          <Input
+            id="password"
+            type="password"
+            autoComplete="current-password"
+            {...register("password")}
+          />
           <FieldError>{errors.password?.message}</FieldError>
         </FieldGroup>
 

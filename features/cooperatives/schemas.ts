@@ -12,38 +12,34 @@ const optionalEmail = z
   .transform((v) => (v && v.trim() !== "" ? v.trim() : null))
   .pipe(z.string().email("Enter a valid email").nullable());
 
-// ── Helpers for required fields ───────────────────────────────────────────────
+// ── Helpers for required fields (Zod v4 uses `error` not `required_error`) ───
 const requiredString = (label: string) =>
-  z
-    .string({ required_error: `${label} is required` })
-    .min(1, `${label} is required`)
-    .trim();
+  z.string().min(1, `${label} is required`).trim();
 
 const requiredDate = (label: string) =>
   z
-    .string({ required_error: `${label} is required` })
+    .string()
     .min(1, `${label} is required`)
     .transform((v) => new Date(v))
-    .pipe(z.date({ required_error: `${label} is required` }));
+    .pipe(z.date());
 
 const requiredDecimal = (label: string) =>
   z
-    .string({ required_error: `${label} is required` })
+    .string()
     .min(1, `${label} is required`)
     .transform((v) => parseFloat(v))
-    .pipe(z.number({ required_error: `${label} is required` }).nonnegative("Must be 0 or greater"));
+    .pipe(z.number({ error: `${label} is required` }).nonnegative("Must be 0 or greater"));
 
 const requiredInt = (label: string) =>
   z
-    .string({ required_error: `${label} is required` })
+    .string()
     .min(1, `${label} is required`)
     .transform((v) => parseInt(v, 10))
-    .pipe(z.number({ required_error: `${label} is required` }).int().nonnegative("Must be 0 or greater"));
+    .pipe(z.number({ error: `${label} is required` }).int().nonnegative("Must be 0 or greater"));
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 export const cooperativeSchema = z
   .object({
-    // Section 1 — Basic Information (all required except cooperativeType has a default)
     name: requiredString("Cooperative Name"),
     cooperativeType: requiredString("Cooperative Type"),
     registrationNumber: requiredString("Registration Number"),
@@ -51,26 +47,21 @@ export const cooperativeSchema = z
     dateJoinedUnion: requiredDate("Date Joined Union"),
     isActive: z.preprocess((v) => v === "on" || v === "true" || v === true, z.boolean()),
 
-    // Section 2 — Address (all required)
     district: requiredString("District"),
     kebele: requiredString("Kebele"),
 
-    // Section 3 — Registration Details (all required)
     businessType: requiredString("Business Type"),
     registrationFee: requiredDecimal("Registration Fee"),
     numberOfShares: requiredInt("Number of Shares"),
     pricePerShare: requiredDecimal("Price Per Share"),
 
-    // Section 4 — Membership (all required)
     totalMembers: requiredInt("Total Members"),
     maleMembers: requiredInt("Male Members"),
     femaleMembers: requiredInt("Female Members"),
 
-    // Section 5 — Capital (all required)
     fixedAssets: requiredDecimal("Fixed Assets"),
     currentAssets: requiredDecimal("Current Assets"),
 
-    // Section 6 — Contact & Additional (all optional)
     description: optionalString,
     location: optionalString,
     contactPerson: optionalString,

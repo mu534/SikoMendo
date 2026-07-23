@@ -1,6 +1,7 @@
 import "server-only";
 import prisma from "@/lib/prisma";
 import { PAGE_SIZE } from "@/lib/utils";
+import type { EmploymentStatus, Gender, Prisma } from "@prisma/client";
 
 export type EmployeeListFilters = {
   q?: string;
@@ -13,7 +14,10 @@ export type EmployeeListFilters = {
   page: number;
 };
 
-const EMPLOYMENT_STATUSES = ["ACTIVE", "ON_LEAVE", "RESIGNED", "RETIRED", "SUSPENDED", "TERMINATED", "INACTIVE"];
+const EMPLOYMENT_STATUSES: EmploymentStatus[] = [
+  "ACTIVE", "ON_LEAVE", "RESIGNED", "RETIRED", "SUSPENDED", "TERMINATED", "INACTIVE",
+];
+const GENDERS: Gender[] = ["MALE", "FEMALE"];
 
 export async function listEmployees({
   q,
@@ -25,27 +29,39 @@ export async function listEmployees({
   showArchived,
   page,
 }: EmployeeListFilters) {
-  const where = {
+  const andClauses: Prisma.EmployeeWhereInput[] = [];
+
+  if (q) {
+    andClauses.push({
+      OR: [
+        { firstName: { contains: q, mode: "insensitive" } },
+        { lastName: { contains: q, mode: "insensitive" } },
+        { employeeId: { contains: q, mode: "insensitive" } },
+        { email: { contains: q, mode: "insensitive" } },
+        { department: { contains: q, mode: "insensitive" } },
+        { position: { contains: q, mode: "insensitive" } },
+      ],
+    });
+  }
+  if (status && EMPLOYMENT_STATUSES.includes(status as EmploymentStatus)) {
+    andClauses.push({ employmentStatus: status as EmploymentStatus });
+  }
+  if (department) {
+    andClauses.push({ department: { contains: department, mode: "insensitive" } });
+  }
+  if (employmentType) {
+    andClauses.push({ employmentType });
+  }
+  if (gender && GENDERS.includes(gender as Gender)) {
+    andClauses.push({ gender: gender as Gender });
+  }
+  if (cooperativeId) {
+    andClauses.push({ cooperativeId });
+  }
+
+  const where: Prisma.EmployeeWhereInput = {
     deletedAt: showArchived ? { not: null } : null,
-    AND: [
-      q
-        ? {
-            OR: [
-              { firstName: { contains: q, mode: "insensitive" as const } },
-              { lastName: { contains: q, mode: "insensitive" as const } },
-              { employeeId: { contains: q, mode: "insensitive" as const } },
-              { email: { contains: q, mode: "insensitive" as const } },
-              { department: { contains: q, mode: "insensitive" as const } },
-              { position: { contains: q, mode: "insensitive" as const } },
-            ],
-          }
-        : {},
-      status && EMPLOYMENT_STATUSES.includes(status) ? { employmentStatus: status } : {},
-      department ? { department: { contains: department, mode: "insensitive" as const } } : {},
-      employmentType ? { employmentType } : {},
-      gender ? { gender } : {},
-      cooperativeId ? { cooperativeId } : {},
-    ],
+    ...(andClauses.length > 0 ? { AND: andClauses } : {}),
   };
 
   const [items, total] = await Promise.all([
@@ -83,7 +99,9 @@ export async function listAssignableCooperatives() {
 
 export async function listLinkableUsers(currentUserId?: string | null) {
   return prisma.user.findMany({
-    where: currentUserId ? { OR: [{ employee: null }, { id: currentUserId }] } : { employee: null },
+    where: currentUserId
+      ? { OR: [{ employee: null }, { id: currentUserId }] }
+      : { employee: null },
     orderBy: { name: "asc" },
     select: { id: true, name: true, email: true },
   });
@@ -94,7 +112,6 @@ export async function generateNextEmployeeId() {
     orderBy: { employeeId: "desc" },
     select: { employeeId: true },
   });
-
   const lastNumber = last ? parseInt(last.employeeId.replace(/\D/g, ""), 10) || 0 : 0;
   return `EMP-${String(lastNumber + 1).padStart(4, "0")}`;
 }
@@ -107,12 +124,16 @@ export async function getEmployeesForReport(filters: {
   gender?: string;
   employmentType?: string;
   cooperativeId?: string;
-  month?: string; // "YYYY-MM"
+  month?: string;
 }) {
-  const where: Record<string, unknown> = { deletedAt: null };
-  if (filters.status) where.employmentStatus = filters.status;
+  const where: Prisma.EmployeeWhereInput = { deletedAt: null };
+  if (filters.status && EMPLOYMENT_STATUSES.includes(filters.status as EmploymentStatus)) {
+    where.employmentStatus = filters.status as EmploymentStatus;
+  }
   if (filters.department) where.department = filters.department;
-  if (filters.gender) where.gender = filters.gender;
+  if (filters.gender && GENDERS.includes(filters.gender as Gender)) {
+    where.gender = filters.gender as Gender;
+  }
   if (filters.employmentType) where.employmentType = filters.employmentType;
   if (filters.cooperativeId) where.cooperativeId = filters.cooperativeId;
 

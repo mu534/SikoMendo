@@ -26,11 +26,16 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
             {user.banned ? <Badge tone="danger">Banned</Badge> : <Badge tone="success">Active</Badge>}
             <span className="text-xs text-ink-900/50">Joined {formatDate(user.createdAt)}</span>
           </div>
+          {user.username && (
+            <p className="mt-1 text-sm text-ink-900/50">@{user.username}</p>
+          )}
         </div>
       </div>
 
       <Card className="p-6">
-        <EditUserForm user={{ id: user.id, name: user.name, email: user.email, role: user.role }} />
+        <EditUserForm
+          user={{ id: user.id, name: user.name, username: user.username, role: user.role }}
+        />
       </Card>
     </div>
   );

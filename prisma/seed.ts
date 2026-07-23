@@ -6,19 +6,16 @@ import prisma from "../lib/prisma";
 
 const DEMO_PASSWORD = "ChangeMe123!";
 
-async function createDemoUser(name: string, email: string, role: Role) {
-  // Imported dynamically, *after* dotenv has populated process.env above —
-  // lib/auth.ts reads env vars (via lib/env.ts) at module-load time, so a
-  // static top-level import here would run before dotenv.config() does.
+async function createDemoUser(name: string, email: string, role: Role, usernameStr: string) {
   const { auth } = await import("../lib/auth");
 
   const { user } = await auth.api.createUser({
     body: { name, email, password: DEMO_PASSWORD },
   });
-  // The admin plugin's role parameter is typed around its own "user"/"admin"
-  // defaults, so — same as in features/users/actions.ts — we set our 4-way
-  // Role enum directly through Prisma rather than through that API.
-  return prisma.user.update({ where: { id: user.id }, data: { role, emailVerified: true } });
+  return prisma.user.update({
+    where: { id: user.id },
+    data: { role, emailVerified: true, username: usernameStr, displayUsername: usernameStr },
+  });
 }
 
 async function main() {
@@ -66,10 +63,10 @@ async function main() {
   // 2. Users — one per role, created through Better Auth so passwords are
   // hashed the way the real sign-in flow expects.
   console.log("👥 Seeding user accounts...");
-  const adminUser = await createDemoUser("Tofik Mohammed", "admin@sikomendounion.org.et", Role.ADMIN);
-  const hrUser = await createDemoUser("Caltu Bekele", "hr@sikomendounion.org.et", Role.HR_OFFICER);
-  const managerUser = await createDemoUser("Mohammed Sultan", "manager@sikomendounion.org.et", Role.MANAGER);
-  const employeeUser = await createDemoUser("Amina Hussein", "employee@sikomendounion.org.et", Role.EMPLOYEE);
+  const adminUser = await createDemoUser("Tofik Mohammed", "admin@sikomendounion.org.et", Role.ADMIN, "admin");
+  const hrUser = await createDemoUser("Caltu Bekele", "hr@sikomendounion.org.et", Role.HR_OFFICER, "hr.officer");
+  const managerUser = await createDemoUser("Mohammed Sultan", "manager@sikomendounion.org.et", Role.MANAGER, "manager");
+  const employeeUser = await createDemoUser("Amina Hussein", "employee@sikomendounion.org.et", Role.EMPLOYEE, "amina.hussein");
 
   // 3. Employee records (linked to the accounts above, plus a couple of
   // staff with no system login yet).
@@ -276,6 +273,7 @@ async function main() {
 
   console.log("✅ Seeding completed successfully!");
   console.log(`   All demo accounts use the password: ${DEMO_PASSWORD}`);
+  console.log("   Usernames: admin / hr.officer / manager / amina.hussein");
 }
 
 main()

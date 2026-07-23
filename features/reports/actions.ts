@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "@/lib/session";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
-import type { ReportType, ReportFormat } from "@prisma/client";
+import type { ReportType, ReportFormat, Prisma } from "@prisma/client";
 
 export async function generateReport(
   _prevState: unknown,
@@ -29,7 +29,7 @@ export async function generateReport(
     const title = REPORT_TITLES[type] ?? type;
 
     // Collect relevant data based on report type
-    let parameters: Record<string, unknown> = {};
+    let parameters: Prisma.InputJsonValue = {};
 
     if (type === "EMPLOYEE_DIRECTORY") {
       const count = await prisma.employee.count({ where: { deletedAt: null } });

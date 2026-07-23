@@ -27,14 +27,27 @@ export function CreateUserForm() {
         </FieldGroup>
 
         <FieldGroup>
-          <Label htmlFor="email">Email address</Label>
-          <Input id="email" name="email" type="email" required placeholder="name@sikomendo.org" />
+          <Label htmlFor="username">Username</Label>
+          <Input
+            id="username"
+            name="username"
+            required
+            placeholder="e.g. aster.tadesse"
+            autoComplete="off"
+            pattern="[a-z0-9._\-]+"
+            title="Lowercase letters, numbers, dots, hyphens, and underscores only"
+          />
+          <p className="text-xs text-ink-900/50">
+            Used to sign in. Lowercase letters, numbers, dots, hyphens, underscores only.
+          </p>
         </FieldGroup>
 
         <FieldGroup>
           <Label htmlFor="password">Temporary password</Label>
           <Input id="password" name="password" type="password" required minLength={8} />
-          <p className="text-xs text-ink-900/50">Share this with the user — they can change it from their profile.</p>
+          <p className="text-xs text-ink-900/50">
+            Share this with the user — they can change it from their profile.
+          </p>
         </FieldGroup>
 
         <FieldGroup>
@@ -48,7 +61,9 @@ export function CreateUserForm() {
           </Select>
         </FieldGroup>
 
-        {state && !state.success && <p className="text-sm text-red-600">{state.error.message}</p>}
+        {state && !state.success && (
+          <p className="text-sm text-red-600">{state.error.message}</p>
+        )}
 
         <div className="flex items-center gap-3 pt-1">
           <Button type="submit" disabled={isPending}>

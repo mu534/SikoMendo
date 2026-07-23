@@ -78,6 +78,10 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  // Username plugin fields — username is the login credential shown in UI
+  username        String?   @unique
+  displayUsername String?
+
   // Relations
   sessions            Session[]
   accounts            Account[]
@@ -134,7 +138,6 @@ model Verification {
   expiresAt  DateTime
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-
   @@map("verification")
 }
 

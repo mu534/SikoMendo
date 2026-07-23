@@ -9,7 +9,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 export function EditUserForm({
   user,
 }: {
-  user: { id: string; name: string; email: string; role: string };
+  user: { id: string; name: string; username: string | null; role: string };
 }) {
   const action = updateUserAccount.bind(null, user.id);
   const [state, formAction, isPending] = useActionState(action, null);
@@ -22,8 +22,18 @@ export function EditUserForm({
       </FieldGroup>
 
       <FieldGroup>
-        <Label htmlFor="email">Email address</Label>
-        <Input id="email" name="email" type="email" required defaultValue={user.email} />
+        <Label htmlFor="username">Username</Label>
+        <Input
+          id="username"
+          name="username"
+          required
+          defaultValue={user.username ?? ""}
+          pattern="[a-z0-9._\-]+"
+          title="Lowercase letters, numbers, dots, hyphens, and underscores only"
+        />
+        <p className="text-xs text-ink-900/50">
+          This is the credential the user signs in with.
+        </p>
       </FieldGroup>
 
       <FieldGroup>
@@ -37,7 +47,9 @@ export function EditUserForm({
         </Select>
       </FieldGroup>
 
-      {state && !state.success && <p className="text-sm text-red-600">{state.error.message}</p>}
+      {state && !state.success && (
+        <p className="text-sm text-red-600">{state.error.message}</p>
+      )}
       {state?.success && <p className="text-sm text-emerald-600">Saved.</p>}
 
       <div className="flex items-center gap-3 pt-1">

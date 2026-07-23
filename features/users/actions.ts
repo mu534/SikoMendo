@@ -14,13 +14,16 @@ async function logAudit(action: string, entityId: string, changes: unknown, user
   });
 }
 
-export async function createUserAccount(_prevState: unknown, formData: FormData): Promise<ActionResult<{ id: string }>> {
+export async function createUserAccount(
+  _prevState: unknown,
+  formData: FormData
+): Promise<ActionResult<{ id: string }>> {
   const session = await getServerSession();
 
   return withPermission(session, "MANAGE_USERS", async () => {
     const parsed = createUserSchema.safeParse({
       name: formData.get("name"),
-      email: formData.get("email"),
+      username: formData.get("username"),
       password: formData.get("password"),
       role: formData.get("role"),
     });
@@ -28,26 +31,50 @@ export async function createUserAccount(_prevState: unknown, formData: FormData)
       throw new Error(parsed.error.issues[0]?.message ?? "Invalid input.");
     }
 
-    const existing = await prisma.user.findUnique({ where: { email: parsed.data.email } });
+    // Check username uniqueness before attempting creation
+    const existingByUsername = await prisma.user.findUnique({
+      where: { username: parsed.data.username },
+    });
+    if (existingByUsername) {
+      throw new Error("A user with this username already exists.");
+    }
+
+    // better-auth's createUser API requires an email field.
+    // We use a deterministic internal address that is never shown in the UI
+    // and never used for login — username is the only login credential.
+    const internalEmail = `${parsed.data.username}@internal.sikomendo.local`;
+
+    const existing = await prisma.user.findUnique({ where: { email: internalEmail } });
     if (existing) {
-      throw new Error("A user with this email already exists.");
+      throw new Error("A user with this username already exists.");
     }
 
     const { user } = await auth.api.createUser({
       headers: await headers(),
       body: {
         name: parsed.data.name,
-        email: parsed.data.email,
+        email: internalEmail,
         password: parsed.data.password,
       },
     });
 
-    // The admin plugin's TypeScript types only know about its own
-    // adminRoles/defaultRole strings, so we set our 4-way Role enum
-    // directly through Prisma instead of fighting its generics.
-    await prisma.user.update({ where: { id: user.id }, data: { role: parsed.data.role } });
+    // Set the username and role via Prisma (better-auth createUser doesn't
+    // expose username or our custom role enum through its typed API).
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        username: parsed.data.username,
+        displayUsername: parsed.data.username,
+        role: parsed.data.role,
+      },
+    });
 
-    await logAudit("CREATE", user.id, { name: user.name, email: user.email, role: parsed.data.role }, session?.user.id);
+    await logAudit(
+      "CREATE",
+      user.id,
+      { name: user.name, username: parsed.data.username, role: parsed.data.role },
+      session?.user.id
+    );
     revalidatePath("/users");
     return { id: user.id };
   });
@@ -63,7 +90,7 @@ export async function updateUserAccount(
   return withPermission(session, "MANAGE_USERS", async () => {
     const parsed = updateUserSchema.safeParse({
       name: formData.get("name"),
-      email: formData.get("email"),
+      username: formData.get("username"),
       role: formData.get("role"),
     });
     if (!parsed.success) {
@@ -73,14 +100,32 @@ export async function updateUserAccount(
     const target = await prisma.user.findUnique({ where: { id: userId } });
     if (!target) throw new Error("User not found.");
 
+    // If username changed, check it's not already taken by another user
+    if (parsed.data.username !== target.username) {
+      const taken = await prisma.user.findUnique({
+        where: { username: parsed.data.username },
+      });
+      if (taken && taken.id !== userId) {
+        throw new Error("That username is already taken.");
+      }
+    }
+
+    // Update the internal email to stay in sync with the username
+    const newInternalEmail = `${parsed.data.username}@internal.sikomendo.local`;
+
     await auth.api.adminUpdateUser({
       headers: await headers(),
-      body: { userId, data: { name: parsed.data.name, email: parsed.data.email } },
+      body: { userId, data: { name: parsed.data.name, email: newInternalEmail } },
     });
 
-    if (parsed.data.role !== target.role) {
-      await prisma.user.update({ where: { id: userId }, data: { role: parsed.data.role } });
-    }
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        username: parsed.data.username,
+        displayUsername: parsed.data.username,
+        role: parsed.data.role,
+      },
+    });
 
     await logAudit("UPDATE", userId, parsed.data, session?.user.id);
     revalidatePath("/users");
@@ -89,7 +134,10 @@ export async function updateUserAccount(
   });
 }
 
-export async function toggleUserBan(userId: string, nextBanned: boolean): Promise<ActionResult<{ id: string }>> {
+export async function toggleUserBan(
+  userId: string,
+  nextBanned: boolean
+): Promise<ActionResult<{ id: string }>> {
   const session = await getServerSession();
 
   return withPermission(session, "MANAGE_USERS", async () => {

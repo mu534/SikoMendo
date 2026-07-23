@@ -16,7 +16,7 @@ export async function listUsers({ q, role, page }: UserListFilters) {
         ? {
             OR: [
               { name: { contains: q, mode: "insensitive" as const } },
-              { email: { contains: q, mode: "insensitive" as const } },
+              { username: { contains: q, mode: "insensitive" as const } },
             ],
           }
         : {},

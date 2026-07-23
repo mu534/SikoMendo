@@ -8,7 +8,7 @@ export default async function NewUserPage() {
     <div className="space-y-6">
       <div>
         <h2 className="font-display text-xl font-semibold text-ink-900">New user account</h2>
-        <p className="mt-1 text-sm text-ink-900/60">Provision access for a staff member. They'll sign in with this email and password.</p>
+        <p className="mt-1 text-sm text-ink-900/60">Provision access for a staff member. They&apos;ll sign in with their username and password.</p>
       </div>
       <CreateUserForm />
     </div>
