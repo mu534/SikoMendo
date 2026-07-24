@@ -83,7 +83,7 @@ export async function getEmployeeById(id: string) {
     where: { id },
     include: {
       cooperative: { select: { id: true, name: true } },
-      user: { select: { id: true, email: true } },
+      user: { select: { id: true, email: true, username: true, role: true } },
       documents: { where: { deletedAt: null }, orderBy: { createdAt: "desc" } },
     },
   });

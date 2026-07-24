@@ -79,16 +79,16 @@ model User {
   updatedAt     DateTime  @updatedAt
 
   // Username plugin fields — username is the login credential shown in UI
-  username        String?   @unique
+  username        String? @unique
   displayUsername String?
 
   // Relations
   sessions            Session[]
   accounts            Account[]
   employee            Employee?
-  reports             Report[]         @relation("GeneratedBy")
+  reports             Report[]     @relation("GeneratedBy")
   auditLogs           AuditLog[]
-  recordedAttendances Attendance[]     @relation("RecordedBy")
+  recordedAttendances Attendance[] @relation("RecordedBy")
   uploadedDocuments   Document[]
 
   @@map("user")
@@ -105,6 +105,8 @@ model Session {
   updatedAt DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  impersonatedBy String?
 
   @@index([userId])
   @@map("session")
@@ -138,7 +140,9 @@ model Verification {
   expiresAt  DateTime
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+
   @@map("verification")
+  @@index([identifier])
 }
 
 // ─── Domain Models ────────────────────────────────────
@@ -147,6 +151,7 @@ model Employee {
   id               String           @id @default(cuid())
   employeeId       String           @unique
   firstName        String
+  middleName       String?
   lastName         String
   email            String?
   phone            String?
@@ -161,27 +166,29 @@ model Employee {
   profileImageKey  String?
 
   // Extended fields
-  maritalStatus        String?
-  employmentType       String?    // Full-Time, Part-Time, Contract, Casual
-  emergencyContactName String?
-  emergencyContactPhone String?
-  educationLevel       String?
-  fieldOfStudy         String?
-  institutionName      String?
-  graduationYear       String?
+  maritalStatus                String?
+  employmentType               String?
+  emergencyContactName         String?
+  emergencyContactPhone        String?
+  emergencyContactRelationship String?
+  emergencyContactAddress      String?
+  educationLevel               String?
+  fieldOfStudy                 String?
+  institutionName              String?
+  graduationYear               String?
 
   // Relations
-  userId          String?           @unique
-  user            User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
-  cooperativeId   String?
-  cooperative     Cooperative?      @relation(fields: [cooperativeId], references: [id], onDelete: SetNull)
-  attendances     Attendance[]
-  documents       Document[]
+  userId        String?      @unique
+  user          User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  cooperativeId String?
+  cooperative   Cooperative? @relation(fields: [cooperativeId], references: [id], onDelete: SetNull)
+  attendances   Attendance[]
+  documents     Document[]
 
   // Timestamps & soft delete
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  deletedAt       DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   @@index([cooperativeId])
   @@index([employmentStatus])
@@ -191,24 +198,24 @@ model Employee {
 }
 
 model Cooperative {
-  id            String      @id @default(cuid())
-  cooperativeId String      @unique                 // Business-facing unique ID (e.g., "COOP-001")
+  id            String  @id @default(cuid())
+  cooperativeId String  @unique // Business-facing unique ID (e.g., "COOP-001")
   name          String
   description   String?
   location      String?
   contactPerson String?
   contactEmail  String?
   contactPhone  String?
-  isActive      Boolean     @default(true)
+  isActive      Boolean @default(true)
 
   // Extended registration fields
-  cooperativeType   String?
+  cooperativeType    String?
   registrationNumber String?
   registrationDate   DateTime?
   dateJoinedUnion    DateTime?
-  district           String?   // Aana
-  kebele             String?   // Ganda
-  businessType       String?   // Gosa Hojii
+  district           String? // Aana
+  kebele             String? // Ganda
+  businessType       String? // Gosa Hojii
   registrationFee    Decimal?  @db.Decimal(15, 2)
   numberOfShares     Int?
   pricePerShare      Decimal?  @db.Decimal(15, 2)
@@ -219,12 +226,12 @@ model Cooperative {
   currentAssets      Decimal?  @db.Decimal(15, 2)
 
   // Relations
-  employees     Employee[]
+  employees Employee[]
 
   // Timestamps & soft delete
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  deletedAt     DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   @@index([isActive])
   @@index([deletedAt])
@@ -232,23 +239,22 @@ model Cooperative {
 }
 
 model Attendance {
-  id           String           @id @default(cuid())
-  date         DateTime         @db.Date
-  checkIn      DateTime?
-  checkOut     DateTime?
-  status       AttendanceStatus @default(PRESENT)
-  notes        String?
+  id       String           @id @default(cuid())
+  date     DateTime         @db.Date
+  checkIn  DateTime?
+  checkOut DateTime?
+  status   AttendanceStatus @default(PRESENT)
+  notes    String?
 
   // Relations
   employeeId   String
-  employee     Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  
+  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   recordedById String?
-  recordedBy   User?            @relation("RecordedBy", fields: [recordedById], references: [id], onDelete: SetNull)
+  recordedBy   User?    @relation("RecordedBy", fields: [recordedById], references: [id], onDelete: SetNull)
 
   // Timestamps
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Prevent duplicate attendance for same employee on same date
   @@unique([employeeId, date])
@@ -259,26 +265,25 @@ model Attendance {
 }
 
 model Document {
-  id           String       @id @default(cuid())
-  title        String
-  type         DocumentType @default(OTHER)
-  fileUrl      String                              // Cloudflare R2 URL or key
-  fileKey      String                              // R2 object key for deletion
-  fileName     String
-  fileSize     Int                                 // Bytes
-  mimeType     String
+  id       String       @id @default(cuid())
+  title    String
+  type     DocumentType @default(OTHER)
+  fileUrl  String // Cloudflare R2 URL or key
+  fileKey  String // R2 object key for deletion
+  fileName String
+  fileSize Int // Bytes
+  mimeType String
 
   // Relations
   employeeId   String
-  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  
+  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   uploadedById String?
-  uploadedBy   User?        @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  uploadedBy   User?    @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
 
   // Timestamps & soft delete
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  deletedAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   @@index([employeeId])
   @@index([type])
@@ -287,19 +292,19 @@ model Document {
 }
 
 model Report {
-  id            String       @id @default(cuid())
-  title         String
-  type          ReportType
-  format        ReportFormat
-  parameters    Json?                               // Filter criteria used to generate
-  fileUrl       String?                             // URL if report was saved
+  id         String       @id @default(cuid())
+  title      String
+  type       ReportType
+  format     ReportFormat
+  parameters Json? // Filter criteria used to generate
+  fileUrl    String? // URL if report was saved
 
   // Relations
   generatedById String
-  generatedBy   User         @relation("GeneratedBy", fields: [generatedById], references: [id], onDelete: Cascade)
+  generatedBy   User   @relation("GeneratedBy", fields: [generatedById], references: [id], onDelete: Cascade)
 
   // Timestamps (reports are immutable — no updatedAt)
-  createdAt     DateTime     @default(now())
+  createdAt DateTime @default(now())
 
   @@index([generatedById])
   @@index([type])
@@ -307,16 +312,16 @@ model Report {
 }
 
 model AuditLog {
-  id        String   @id @default(cuid())
-  action    String                              // e.g., "CREATE", "UPDATE", "DELETE", "LOGIN"
-  entity    String                              // e.g., "Employee", "Cooperative"
-  entityId  String?                             // ID of the affected record
-  changes   Json?                               // Before/after snapshot
+  id        String  @id @default(cuid())
+  action    String // e.g., "CREATE", "UPDATE", "DELETE", "LOGIN"
+  entity    String // e.g., "Employee", "Cooperative"
+  entityId  String? // ID of the affected record
+  changes   Json? // Before/after snapshot
   ipAddress String?
 
   // Relations
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   // Timestamp (audit logs are append-only)
   createdAt DateTime @default(now())
