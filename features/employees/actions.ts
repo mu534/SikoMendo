@@ -1,13 +1,10 @@
 "use server";
 
-import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
-import { auth } from "@/lib/auth";
 import { getServerSession } from "@/lib/session";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
 import { uploadToCloudinary, deleteFromCloudinary } from "@/lib/cloudinary";
-import { generateUsernameFromName } from "@/lib/username-utils";
 import { employeeSchema, employeeFormDataToObject } from "./schemas";
 import { generateNextEmployeeId } from "./queries";
 
@@ -18,13 +15,7 @@ async function logAudit(
   userId?: string
 ) {
   await prisma.auditLog.create({
-    data: {
-      action,
-      entity: "Employee",
-      entityId,
-      changes: changes as object,
-      userId,
-    },
+    data: { action, entity: "Employee", entityId, changes: changes as object, userId },
   });
 }
 
@@ -34,6 +25,8 @@ function getPhotoFile(formData: FormData): File | null {
 }
 
 // ── Create ────────────────────────────────────────────────────────────────────
+// Creates the employee record only. System account (username/password) is
+// provisioned separately by an Admin in the Users module.
 
 export async function createEmployee(
   _prevState: unknown,
@@ -53,36 +46,6 @@ export async function createEmployee(
       : null;
 
     const employeeId = await generateNextEmployeeId();
-    const role = (formData.get("role") as string) || "EMPLOYEE";
-
-    // Auto-generate a unique username from the employee's name.
-    const username = await generateUsernameFromName(
-      parsed.data.firstName,
-      parsed.data.lastName
-    );
-
-    // Create a linked User account with the generated username.
-    // We use a synthetic internal email so better-auth's email requirement is met.
-    const internalEmail = `${username}@internal.sikomendo.local`;
-
-    const { user: newUser } = await auth.api.createUser({
-      headers: await headers(),
-      body: {
-        name: `${parsed.data.firstName}${parsed.data.middleName ? ` ${parsed.data.middleName}` : ""} ${parsed.data.lastName}`,
-        email: internalEmail,
-        // Temporary password — admin must share this with the employee.
-        password: "ChangeMe123!",
-      },
-    });
-
-    await prisma.user.update({
-      where: { id: newUser.id },
-      data: {
-        username,
-        displayUsername: username,
-        role: role as never,
-      },
-    });
 
     const employee = await prisma.employee.create({
       data: {
@@ -90,19 +53,13 @@ export async function createEmployee(
         ...parsed.data,
         profileImageUrl: asset?.url ?? null,
         profileImageKey: asset?.publicId ?? null,
-        userId: newUser.id,
       },
     });
 
     await logAudit(
       "CREATE",
       employee.id,
-      {
-        employeeId,
-        name: `${employee.firstName} ${employee.lastName}`,
-        username,
-        role,
-      },
+      { employeeId, name: `${employee.firstName} ${employee.lastName}` },
       session?.user.id
     );
 
@@ -110,6 +67,8 @@ export async function createEmployee(
     return { id: employee.id };
   });
 }
+
+// ── Update ────────────────────────────────────────────────────────────────────
 
 export async function updateEmployee(
   id: string,
@@ -124,10 +83,7 @@ export async function updateEmployee(
       throw new Error(parsed.error.issues[0]?.message ?? "Invalid input.");
     }
 
-    const existing = await prisma.employee.findUnique({
-      where: { id },
-      include: { user: { select: { id: true, role: true } } },
-    });
+    const existing = await prisma.employee.findUnique({ where: { id } });
     if (!existing) throw new Error("Employee not found.");
 
     const photo = getPhotoFile(formData);
@@ -135,26 +91,16 @@ export async function updateEmployee(
       ? await uploadToCloudinary(photo, "siko-mendo/employees", { resourceType: "image" })
       : null;
 
-    // Update role on the linked User account if changed
-    const role = (formData.get("role") as string) || null;
-    if (role && existing.user?.id && role !== existing.user.role) {
-      await prisma.user.update({
-        where: { id: existing.user.id },
-        data: { role: role as never },
-      });
-    }
-
-    // Build a human-readable diff for the audit log
+    // Build a before/after diff for the audit log
     const before: Record<string, unknown> = {};
     const after: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(parsed.data)) {
       const prev = (existing as Record<string, unknown>)[key];
-      const curr = val;
       const prevStr = prev instanceof Date ? prev.toISOString() : String(prev ?? "");
-      const currStr = curr instanceof Date ? curr.toISOString() : String(curr ?? "");
+      const currStr = val instanceof Date ? val.toISOString() : String(val ?? "");
       if (prevStr !== currStr) {
         before[key] = prev;
-        after[key] = curr;
+        after[key] = val;
       }
     }
 
@@ -187,7 +133,6 @@ export async function updateEmployee(
 
 export async function archiveEmployee(id: string): Promise<ActionResult<{ id: string }>> {
   const session = await getServerSession();
-
   return withPermission(session, "MANAGE_EMPLOYEES", async () => {
     await prisma.employee.update({ where: { id }, data: { deletedAt: new Date() } });
     await logAudit("ARCHIVE", id, {}, session?.user.id);
@@ -198,7 +143,6 @@ export async function archiveEmployee(id: string): Promise<ActionResult<{ id: st
 
 export async function restoreEmployee(id: string): Promise<ActionResult<{ id: string }>> {
   const session = await getServerSession();
-
   return withPermission(session, "MANAGE_EMPLOYEES", async () => {
     await prisma.employee.update({ where: { id }, data: { deletedAt: null } });
     await logAudit("RESTORE", id, {}, session?.user.id);
@@ -215,7 +159,6 @@ export async function uploadEmployeeDocument(
   formData: FormData
 ): Promise<ActionResult<{ id: string }>> {
   const session = await getServerSession();
-
   return withPermission(session, "MANAGE_DOCUMENTS", async () => {
     const file = formData.get("file");
     const title = String(formData.get("title") ?? "").trim();
@@ -224,9 +167,7 @@ export async function uploadEmployeeDocument(
     if (!(file instanceof File) || file.size === 0) throw new Error("Choose a file to upload.");
     if (!title) throw new Error("Give the document a title.");
 
-    const asset = await uploadToCloudinary(file, "siko-mendo/documents", {
-      resourceType: "auto",
-    });
+    const asset = await uploadToCloudinary(file, "siko-mendo/documents", { resourceType: "auto" });
 
     const document = await prisma.document.create({
       data: {
@@ -252,16 +193,11 @@ export async function deleteEmployeeDocument(
   employeeId: string
 ): Promise<ActionResult<{ id: string }>> {
   const session = await getServerSession();
-
   return withPermission(session, "MANAGE_DOCUMENTS", async () => {
     const document = await prisma.document.findUnique({ where: { id: documentId } });
     if (!document) throw new Error("Document not found.");
 
-    await prisma.document.update({
-      where: { id: documentId },
-      data: { deletedAt: new Date() },
-    });
-
+    await prisma.document.update({ where: { id: documentId }, data: { deletedAt: new Date() } });
     const resourceType = document.mimeType.startsWith("image/") ? "image" : "raw";
     await deleteFromCloudinary(document.fileKey, resourceType);
 
