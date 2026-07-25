@@ -4,7 +4,20 @@ import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "@/lib/session";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
+import { uploadToCloudinary } from "@/lib/cloudinary";
+import { buildReportFile } from "./file-builder";
 import type { ReportType, ReportFormat, Prisma } from "@prisma/client";
+
+const REPORT_TITLES: Record<ReportType, string> = {
+  EMPLOYEE_DIRECTORY: "Employee Directory",
+  ATTENDANCE_SUMMARY: "Attendance Summary",
+  COOPERATIVE_LISTING: "Cooperative Listing",
+  HEADCOUNT: "Headcount Report",
+  AUDIT_LOG: "Audit Log",
+};
+
+const VALID_TYPES = new Set(Object.keys(REPORT_TITLES));
+const VALID_FORMATS = new Set(["PDF", "CSV"]);
 
 export async function generateReport(
   _prevState: unknown,
@@ -14,48 +27,31 @@ export async function generateReport(
 
   return withPermission(session, "GENERATE_REPORTS", async () => {
     const type = formData.get("type") as ReportType;
-    const format = (formData.get("format") as ReportFormat) ?? "PDF";
+    const format = (formData.get("format") as ReportFormat) || "PDF";
 
-    if (!type) throw new Error("Report type is required.");
+    if (!type || !VALID_TYPES.has(type)) throw new Error("Report type is required.");
+    if (!VALID_FORMATS.has(format)) throw new Error("Invalid report format.");
 
-    const REPORT_TITLES: Record<ReportType, string> = {
-      EMPLOYEE_DIRECTORY: "Employee Directory",
-      ATTENDANCE_SUMMARY: "Attendance Summary",
-      COOPERATIVE_LISTING: "Cooperative Listing",
-      HEADCOUNT: "Headcount Report",
-      AUDIT_LOG: "Audit Log",
-    };
+    const title = REPORT_TITLES[type];
 
-    const title = REPORT_TITLES[type] ?? type;
+    // Build the actual file (real data, rendered as PDF or CSV) and upload it
+    // so report history rows have a real, working download link.
+    let buffer: Buffer, mimeType: string, fileName: string, parameters: Record<string, unknown>;
+    try {
+      ({ buffer, mimeType, fileName, parameters } = await buildReportFile(type, format));
+    } catch (err) {
+      console.error("[generateReport] buildReportFile failed:", err);
+      throw new Error(`File generation failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
 
-    // Collect relevant data based on report type
-    let parameters: Prisma.InputJsonValue = {};
-
-    if (type === "EMPLOYEE_DIRECTORY") {
-      const count = await prisma.employee.count({ where: { deletedAt: null } });
-      parameters = { totalEmployees: count };
-    } else if (type === "ATTENDANCE_SUMMARY") {
-      const startOfMonth = new Date();
-      startOfMonth.setDate(1);
-      startOfMonth.setHours(0, 0, 0, 0);
-      const counts = await prisma.attendance.groupBy({
-        by: ["status"],
-        _count: true,
-        where: { date: { gte: startOfMonth } },
-      });
-      parameters = { month: startOfMonth.toISOString().slice(0, 7), breakdown: counts };
-    } else if (type === "COOPERATIVE_LISTING") {
-      const count = await prisma.cooperative.count({ where: { deletedAt: null } });
-      parameters = { totalCooperatives: count };
-    } else if (type === "HEADCOUNT") {
-      const [total, active] = await Promise.all([
-        prisma.employee.count({ where: { deletedAt: null } }),
-        prisma.employee.count({ where: { deletedAt: null, employmentStatus: "ACTIVE" } }),
-      ]);
-      parameters = { total, active };
-    } else if (type === "AUDIT_LOG") {
-      const count = await prisma.auditLog.count();
-      parameters = { totalEntries: count };
+    let fileUrl: string | undefined;
+    try {
+      const file = new File([new Uint8Array(buffer)], fileName, { type: mimeType });
+      const asset = await uploadToCloudinary(file, "siko-mendo/reports", { resourceType: "auto" });
+      fileUrl = asset.url;
+    } catch (err) {
+      // Upload failure is non-fatal — save the report record without a file URL.
+      console.error("[generateReport] Cloudinary upload failed:", err);
     }
 
     const report = await prisma.report.create({
@@ -63,7 +59,8 @@ export async function generateReport(
         title,
         type,
         format,
-        parameters,
+        parameters: parameters as Prisma.InputJsonValue,
+        fileUrl: fileUrl,
         generatedById: session!.user.id,
       },
     });

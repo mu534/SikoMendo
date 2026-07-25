@@ -28,6 +28,8 @@ export async function withPermission<T>(
     return { success: true, data };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Something went wrong. Please try again.";
+    // Log the full error server-side so it appears in the terminal
+    console.error("[withPermission] action failed:", err);
     return { success: false, error: { message, code: "INTERNAL_ERROR" } };
   }
 }
