@@ -32,22 +32,38 @@ type EmployeeWithAttendance = {
   id: string;
   firstName: string;
   lastName: string;
+  middleName: string | null;
   employeeId: string;
+  department: string | null;
   profileImageUrl: string | null;
-  cooperative: { name: string } | null;
-  attendances: { status: string; checkIn: Date | null; checkOut: Date | null; notes: string | null }[];
+  attendances: {
+    status: string;
+    checkIn: Date | null;
+    checkOut: Date | null;
+    notes: string | null;
+  }[];
 };
 
-export function AttendanceRow({ employee, date, readOnly }: { employee: EmployeeWithAttendance; date: string; readOnly?: boolean }) {
+export function AttendanceRow({
+  employee,
+  date,
+  readOnly,
+}: {
+  employee: EmployeeWithAttendance;
+  date: string;
+  readOnly?: boolean;
+}) {
   const record = employee.attendances[0];
 
   if (readOnly) {
     return (
-      <div className="grid grid-cols-1 items-center gap-3 border-b border-ink-900/6 px-6 py-3 last:border-0 sm:grid-cols-[1.6fr_110px_100px_100px_1.2fr]">
+      <div className="grid grid-cols-1 items-center gap-3 border-b border-ink-900/6 px-6 py-3 last:border-0 sm:grid-cols-[1.8fr_120px_100px_100px_1.2fr]">
         <EmployeeCell employee={employee} />
         <div>
           {record ? (
-            <Badge tone={STATUS_TONE[record.status as keyof typeof STATUS_TONE]}>{record.status}</Badge>
+            <Badge tone={STATUS_TONE[record.status as keyof typeof STATUS_TONE]}>
+              {record.status.replace("_", " ")}
+            </Badge>
           ) : (
             <Badge tone="neutral">Not marked</Badge>
           )}
@@ -63,15 +79,18 @@ export function AttendanceRow({ employee, date, readOnly }: { employee: Employee
 }
 
 function EmployeeCell({ employee }: { employee: EmployeeWithAttendance }) {
+  const fullName = [employee.firstName, employee.middleName, employee.lastName]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <div className="flex items-center gap-3">
-      <Avatar name={`${employee.firstName} ${employee.lastName}`} imageUrl={employee.profileImageUrl} size="sm" />
+      <Avatar name={fullName} imageUrl={employee.profileImageUrl} size="sm" />
       <div>
-        <p className="text-sm font-medium text-ink-900">
-          {employee.firstName} {employee.lastName}
-        </p>
+        <p className="text-sm font-medium text-ink-900">{fullName}</p>
         <p className="text-xs text-ink-900/50">
-          {employee.employeeId} {employee.cooperative ? `· ${employee.cooperative.name}` : ""}
+          {employee.employeeId}
+          {employee.department ? ` · ${employee.department}` : ""}
         </p>
       </div>
     </div>
@@ -85,14 +104,19 @@ function EditableAttendanceRow({
 }: {
   employee: EmployeeWithAttendance;
   date: string;
-  record?: { status: string; checkIn: Date | null; checkOut: Date | null; notes: string | null };
+  record?: {
+    status: string;
+    checkIn: Date | null;
+    checkOut: Date | null;
+    notes: string | null;
+  };
 }) {
   const [state, formAction, isPending] = useActionState(upsertAttendance, null);
 
   return (
     <form
       action={formAction}
-      className="grid grid-cols-1 items-center gap-3 border-b border-ink-900/6 px-6 py-3 last:border-0 sm:grid-cols-[1.6fr_110px_100px_100px_1.2fr_auto]"
+      className="grid grid-cols-1 items-center gap-3 border-b border-ink-900/6 px-6 py-3 last:border-0 sm:grid-cols-[1.8fr_120px_100px_100px_1.2fr_auto]"
     >
       <input type="hidden" name="employeeId" value={employee.id} />
       <input type="hidden" name="date" value={date} />
@@ -107,15 +131,37 @@ function EditableAttendanceRow({
         ))}
       </Select>
 
-      <Input type="time" name="checkIn" defaultValue={toTimeInputValue(record?.checkIn)} className="text-sm" />
-      <Input type="time" name="checkOut" defaultValue={toTimeInputValue(record?.checkOut)} className="text-sm" />
-      <Input name="notes" placeholder="Notes" defaultValue={record?.notes ?? ""} className="text-sm" />
+      <Input
+        type="time"
+        name="checkIn"
+        defaultValue={toTimeInputValue(record?.checkIn)}
+        className="text-sm"
+      />
+      <Input
+        type="time"
+        name="checkOut"
+        defaultValue={toTimeInputValue(record?.checkOut)}
+        className="text-sm"
+      />
+      <Input
+        name="notes"
+        placeholder="Remarks"
+        defaultValue={record?.notes ?? ""}
+        className="text-sm"
+      />
 
       <div className="flex items-center gap-2">
-        <Button type="submit" size="sm" variant={record ? "outline" : "secondary"} disabled={isPending}>
+        <Button
+          type="submit"
+          size="sm"
+          variant={record ? "outline" : "secondary"}
+          disabled={isPending}
+        >
           {isPending ? "Saving…" : record ? "Update" : "Mark"}
         </Button>
-        {state && !state.success && <span className="text-xs text-red-600">{state.error.message}</span>}
+        {state && !state.success && (
+          <span className="text-xs text-red-600">{state.error.message}</span>
+        )}
         {state?.success && <span className="text-xs text-emerald-600">Saved</span>}
       </div>
     </form>

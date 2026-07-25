@@ -3,15 +3,14 @@ import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { requirePermission } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { getDailyRegister } from "@/features/attendance/queries";
-
-type EmployeeRow = Awaited<ReturnType<typeof getDailyRegister>>["employees"][number];
-import { listAssignableCooperatives } from "@/features/employees/queries";
 import { AttendanceRow } from "@/features/attendance/attendance-row";
 import { MarkAllPresentButton } from "@/features/attendance/mark-all-present-button";
 import { parseStringParam } from "@/lib/utils";
 import { Card, StatCard } from "@/components/ui/card";
-import { Select, Input } from "@/components/ui/field";
+import { Input } from "@/components/ui/field";
 import { EmptyState } from "@/components/ui/empty-state";
+
+type EmployeeRow = Awaited<ReturnType<typeof getDailyRegister>>["employees"][number];
 
 function shiftDate(date: string, days: number) {
   const d = new Date(`${date}T00:00:00.000Z`);
@@ -30,27 +29,31 @@ export default async function AttendancePage({
   const params = await searchParams;
   const today = new Date().toISOString().slice(0, 10);
   const date = parseStringParam(params.date) || today;
-  const cooperativeId = parseStringParam(params.cooperativeId);
 
-  const [{ employees, summary }, cooperatives] = await Promise.all([
-    getDailyRegister({ date, cooperativeId }),
-    listAssignableCooperatives(),
-  ]);
+  const { employees, summary } = await getDailyRegister({ date });
 
-  const unmarkedIds = employees.filter((e: EmployeeRow) => e.attendances.length === 0).map((e: EmployeeRow) => e.id);
+  const unmarkedIds = employees
+    .filter((e: EmployeeRow) => e.attendances.length === 0)
+    .map((e: EmployeeRow) => e.id);
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-display text-xl font-semibold text-ink-900">Attendance register</h2>
           <p className="mt-1 text-sm text-ink-900/60">
-            {canManage ? "Mark and review daily attendance." : "Daily attendance across Siko Mendo Union."}
+            {canManage
+              ? "Mark and review daily attendance for all active employees."
+              : "Daily attendance across Siko Mendo Union."}
           </p>
         </div>
-        {canManage && unmarkedIds.length > 0 && <MarkAllPresentButton date={date} employeeIds={unmarkedIds} />}
+        {canManage && unmarkedIds.length > 0 && (
+          <MarkAllPresentButton date={date} employeeIds={unmarkedIds} />
+        )}
       </div>
 
+      {/* Summary stats */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         <StatCard label="Present" value={summary.present} />
         <StatCard label="Late" value={summary.late} />
@@ -60,60 +63,64 @@ export default async function AttendancePage({
         <StatCard label="Unmarked" value={summary.unmarked} />
       </div>
 
+      {/* Register */}
       <Card>
-        <form action="/attendance" method="get" className="flex flex-wrap items-end gap-3 border-b border-ink-900/8 px-6 py-4">
+        {/* Date navigation */}
+        <div className="flex flex-wrap items-end gap-3 border-b border-ink-900/8 px-6 py-4">
           <Link
-            href={`/attendance?date=${shiftDate(date, -1)}${cooperativeId ? `&cooperativeId=${cooperativeId}` : ""}`}
+            href={`/attendance?date=${shiftDate(date, -1)}`}
             className="rounded-lg border border-ink-900/15 p-2 hover:bg-sand-100"
             aria-label="Previous day"
           >
             <ChevronLeft className="h-4 w-4" />
           </Link>
 
-          <div>
+          <form action="/attendance" method="get">
             <label className="mb-1.5 block text-sm font-medium text-ink-900">Date</label>
             <Input type="date" name="date" defaultValue={date} className="w-44" />
-          </div>
+          </form>
 
           <Link
-            href={`/attendance?date=${shiftDate(date, 1)}${cooperativeId ? `&cooperativeId=${cooperativeId}` : ""}`}
+            href={`/attendance?date=${shiftDate(date, 1)}`}
             className="rounded-lg border border-ink-900/15 p-2 hover:bg-sand-100"
             aria-label="Next day"
           >
             <ChevronRight className="h-4 w-4" />
           </Link>
 
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-ink-900">Cooperative</label>
-            <Select name="cooperativeId" defaultValue={cooperativeId} className="w-56">
-              <option value="">All cooperatives</option>
-              {cooperatives.map((c: { id: string; name: string }) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-
-          <Link href={`/attendance?date=${today}`} className="text-sm font-medium text-brand-700 hover:underline">
+          <Link
+            href={`/attendance?date=${today}`}
+            className="text-sm font-medium text-brand-700 hover:underline"
+          >
             Today
           </Link>
-        </form>
+        </div>
 
+        {/* Employee rows */}
         {employees.length === 0 ? (
-          <EmptyState icon={<CalendarDays className="h-8 w-8" />} title="No active employees to show" />
+          <EmptyState
+            icon={<CalendarDays className="h-8 w-8" />}
+            title="No active employees to show"
+            description="Add employees with Active status to start tracking attendance."
+          />
         ) : (
           <div>
-            <div className="hidden border-b border-ink-900/8 px-6 py-2.5 text-xs font-medium uppercase tracking-wide text-ink-900/50 sm:grid sm:grid-cols-[1.6fr_110px_100px_100px_1.2fr_auto]">
+            {/* Column headers */}
+            <div className="hidden border-b border-ink-900/8 px-6 py-2.5 text-xs font-medium uppercase tracking-wide text-ink-900/50 sm:grid sm:grid-cols-[1.8fr_120px_100px_100px_1.2fr_auto]">
               <span>Employee</span>
               <span>Status</span>
-              <span>In</span>
-              <span>Out</span>
-              <span>Notes</span>
-              <span></span>
+              <span>Check In</span>
+              <span>Check Out</span>
+              <span>Remarks</span>
+              <span />
             </div>
             {employees.map((employee: EmployeeRow) => (
-              <AttendanceRow key={employee.id} employee={employee} date={date} readOnly={!canManage} />
+              <AttendanceRow
+                key={employee.id}
+                employee={employee}
+                date={date}
+                readOnly={!canManage}
+              />
             ))}
           </div>
         )}

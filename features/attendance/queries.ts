@@ -6,17 +6,15 @@ function parseDateOnly(dateStr: string): Date {
   return new Date(`${dateStr}T00:00:00.000Z`);
 }
 
-export async function getDailyRegister({ date, cooperativeId }: { date: string; cooperativeId?: string }) {
+export async function getDailyRegister({ date }: { date: string }) {
   const dateValue = parseDateOnly(date);
 
   const employees = await prisma.employee.findMany({
     where: {
       deletedAt: null,
       employmentStatus: "ACTIVE",
-      ...(cooperativeId ? { cooperativeId } : {}),
     },
     include: {
-      cooperative: { select: { name: true } },
       attendances: { where: { date: dateValue } },
     },
     orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
