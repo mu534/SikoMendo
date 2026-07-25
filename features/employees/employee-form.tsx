@@ -2,12 +2,11 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { User, Briefcase, GraduationCap, Phone, ShieldCheck } from "lucide-react";
+import { User, Briefcase, GraduationCap, Phone } from "lucide-react";
 import { Input, Label, Select, Textarea, FieldGroup } from "@/components/ui/field";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PhotoInput } from "./photo-input";
-import { ROLES, roleLabel } from "@/lib/permissions";
 
 export const EMPLOYEE_FORM_ID = "employee-form";
 
@@ -23,8 +22,6 @@ type EmploymentStatus =
 export type EmployeeFormValues = {
   id?: string;
   employeeId?: string;
-  username?: string | null;      // auto-generated, read-only
-  userRole?: string | null;      // role of the linked user account
 
   firstName: string;
   middleName?: string | null;
@@ -52,10 +49,10 @@ export type EmployeeFormValues = {
   institutionName?: string | null;
   graduationYear?: string | null;
 
-  cooperativeId?: string | null;
-  userId?: string | null;
   profileImageUrl?: string | null;
 };
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function toDateInputValue(date?: string | null) {
   if (!date) return "";
@@ -136,13 +133,9 @@ export function EmployeeFormActions({
 export function EmployeeForm({
   action,
   employee,
-  cooperatives,
-  linkableUsers,
 }: {
   action: (prevState: unknown, formData: FormData) => Promise<unknown>;
   employee?: EmployeeFormValues;
-  cooperatives: { id: string; name: string }[];
-  linkableUsers: { id: string; name: string; email: string }[];
 }) {
   const router = useRouter();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -187,30 +180,36 @@ export function EmployeeForm({
 
       <form id={EMPLOYEE_FORM_ID} action={formAction} className="space-y-5">
 
-        {/* ── Section 1: Personal Information ──────────────────────────── */}
+        {/* ══════════════════════════════════════════════════════════════
+            SECTION 1 — Personal Information
+        ══════════════════════════════════════════════════════════════ */}
         <Card className="p-6">
           <SectionHeader icon={User} title="Personal Information" />
           <div className="space-y-5">
+
             <PhotoInput
               name="photo"
               currentName={`${employee?.firstName ?? ""} ${employee?.lastName ?? ""}`}
               currentUrl={employee?.profileImageUrl}
             />
 
-            {/* Read-only Employee ID (edit only) */}
-            {isEdit && employee?.employeeId && (
+            {/* Employee ID — read-only on edit, auto-generated info on create */}
+            {isEdit && employee.employeeId && (
               <ReadOnlyField
                 label="Employee ID"
                 value={employee.employeeId}
-                hint="Employee ID cannot be changed."
+                hint="Employee ID is assigned automatically and cannot be changed."
               />
+            )}
+            {!isEdit && (
+              <div className="rounded-lg border border-brand-100 bg-brand-50 px-4 py-3 text-sm text-brand-800">
+                Employee ID will be automatically assigned when you save (e.g. EMP-0008).
+              </div>
             )}
 
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <FieldGroup>
-                <Label htmlFor="firstName">
-                  First Name<RequiredMark />
-                </Label>
+                <Label htmlFor="firstName">First Name<RequiredMark /></Label>
                 <Input id="firstName" name="firstName" required defaultValue={employee?.firstName} />
               </FieldGroup>
 
@@ -220,9 +219,7 @@ export function EmployeeForm({
               </FieldGroup>
 
               <FieldGroup>
-                <Label htmlFor="lastName">
-                  Last Name<RequiredMark />
-                </Label>
+                <Label htmlFor="lastName">Last Name<RequiredMark /></Label>
                 <Input id="lastName" name="lastName" required defaultValue={employee?.lastName} />
               </FieldGroup>
 
@@ -237,21 +234,12 @@ export function EmployeeForm({
 
               <FieldGroup>
                 <Label htmlFor="dateOfBirth">Date of Birth</Label>
-                <Input
-                  id="dateOfBirth"
-                  name="dateOfBirth"
-                  type="date"
-                  defaultValue={toDateInputValue(employee?.dateOfBirth)}
-                />
+                <Input id="dateOfBirth" name="dateOfBirth" type="date" defaultValue={toDateInputValue(employee?.dateOfBirth)} />
               </FieldGroup>
 
               <FieldGroup>
                 <Label htmlFor="maritalStatus">Marital Status</Label>
-                <Select
-                  id="maritalStatus"
-                  name="maritalStatus"
-                  defaultValue={employee?.maritalStatus ?? ""}
-                >
+                <Select id="maritalStatus" name="maritalStatus" defaultValue={employee?.maritalStatus ?? ""}>
                   <option value="">Not specified</option>
                   <option value="Single">Single</option>
                   <option value="Married">Married</option>
@@ -262,106 +250,80 @@ export function EmployeeForm({
 
               <FieldGroup>
                 <Label htmlFor="phone">Phone Number</Label>
-                <Input
-                  id="phone"
-                  name="phone"
-                  placeholder="+251 9XX XXX XXX"
-                  defaultValue={employee?.phone ?? ""}
-                />
+                <Input id="phone" name="phone" placeholder="+251 9XX XXX XXX" defaultValue={employee?.phone ?? ""} />
               </FieldGroup>
 
               <FieldGroup>
                 <Label htmlFor="email">Email Address</Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  defaultValue={employee?.email ?? ""}
-                />
+                <Input id="email" name="email" type="email" defaultValue={employee?.email ?? ""} />
               </FieldGroup>
             </div>
 
             <FieldGroup>
               <Label htmlFor="address">Address</Label>
-              <Textarea
-                id="address"
-                name="address"
-                rows={2}
-                defaultValue={employee?.address ?? ""}
-              />
+              <Textarea id="address" name="address" rows={2} defaultValue={employee?.address ?? ""} />
             </FieldGroup>
           </div>
         </Card>
 
-        {/* ── Section 2: Emergency Contact ─────────────────────────────── */}
+        {/* ══════════════════════════════════════════════════════════════
+            SECTION 2 — Emergency Contact
+        ══════════════════════════════════════════════════════════════ */}
         <Card className="p-6">
           <SectionHeader icon={Phone} title="Emergency Contact" />
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <FieldGroup>
               <Label htmlFor="emergencyContactName">Contact Name</Label>
-              <Input
-                id="emergencyContactName"
-                name="emergencyContactName"
-                defaultValue={employee?.emergencyContactName ?? ""}
-              />
+              <Input id="emergencyContactName" name="emergencyContactName" defaultValue={employee?.emergencyContactName ?? ""} />
             </FieldGroup>
             <FieldGroup>
               <Label htmlFor="emergencyContactRelationship">Relationship</Label>
-              <Input
-                id="emergencyContactRelationship"
-                name="emergencyContactRelationship"
-                placeholder="e.g. Spouse, Parent, Sibling"
-                defaultValue={employee?.emergencyContactRelationship ?? ""}
-              />
+              <Input id="emergencyContactRelationship" name="emergencyContactRelationship" placeholder="e.g. Spouse, Parent, Sibling" defaultValue={employee?.emergencyContactRelationship ?? ""} />
             </FieldGroup>
             <FieldGroup>
               <Label htmlFor="emergencyContactPhone">Phone Number</Label>
-              <Input
-                id="emergencyContactPhone"
-                name="emergencyContactPhone"
-                placeholder="+251 9XX XXX XXX"
-                defaultValue={employee?.emergencyContactPhone ?? ""}
-              />
+              <Input id="emergencyContactPhone" name="emergencyContactPhone" placeholder="+251 9XX XXX XXX" defaultValue={employee?.emergencyContactPhone ?? ""} />
             </FieldGroup>
             <FieldGroup>
               <Label htmlFor="emergencyContactAddress">Address (Optional)</Label>
-              <Input
-                id="emergencyContactAddress"
-                name="emergencyContactAddress"
-                defaultValue={employee?.emergencyContactAddress ?? ""}
-              />
+              <Input id="emergencyContactAddress" name="emergencyContactAddress" defaultValue={employee?.emergencyContactAddress ?? ""} />
             </FieldGroup>
           </div>
         </Card>
 
-        {/* ── Section 3: Employment Information ────────────────────────── */}
+        {/* ══════════════════════════════════════════════════════════════
+            SECTION 3 — Employment Information
+        ══════════════════════════════════════════════════════════════ */}
         <Card className="p-6">
           <SectionHeader icon={Briefcase} title="Employment Information" />
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <FieldGroup>
               <Label htmlFor="department">Department</Label>
-              <Input
-                id="department"
-                name="department"
-                defaultValue={employee?.department ?? ""}
-              />
+              <Select id="department" name="department" defaultValue={employee?.department ?? ""}>
+                <option value="">Select department…</option>
+                <option value="Administration">Administration</option>
+                <option value="Finance &amp; Accounting">Finance &amp; Accounting</option>
+                <option value="Human Resources">Human Resources</option>
+                <option value="Information Technology">Information Technology</option>
+                <option value="Cooperative Operations">Cooperative Operations</option>
+                <option value="Field Extension">Field Extension</option>
+                <option value="Marketing &amp; Sales">Marketing &amp; Sales</option>
+                <option value="Procurement &amp; Logistics">Procurement &amp; Logistics</option>
+                <option value="Audit &amp; Compliance">Audit &amp; Compliance</option>
+                <option value="Planning &amp; Development">Planning &amp; Development</option>
+                <option value="Legal">Legal</option>
+                <option value="Training &amp; Capacity Building">Training &amp; Capacity Building</option>
+                <option value="Other">Other</option>
+              </Select>
             </FieldGroup>
             <FieldGroup>
               <Label htmlFor="position">Position / Job Title</Label>
-              <Input
-                id="position"
-                name="position"
-                defaultValue={employee?.position ?? ""}
-              />
+              <Input id="position" name="position" defaultValue={employee?.position ?? ""} />
             </FieldGroup>
 
             <FieldGroup>
               <Label htmlFor="employmentType">Employment Type</Label>
-              <Select
-                id="employmentType"
-                name="employmentType"
-                defaultValue={employee?.employmentType ?? ""}
-              >
+              <Select id="employmentType" name="employmentType" defaultValue={employee?.employmentType ?? ""}>
                 <option value="">Not specified</option>
                 <option value="Permanent">Permanent</option>
                 <option value="Contract">Contract</option>
@@ -373,24 +335,12 @@ export function EmployeeForm({
 
             <FieldGroup>
               <Label htmlFor="hireDate">Hire Date</Label>
-              <Input
-                id="hireDate"
-                name="hireDate"
-                type="date"
-                defaultValue={toDateInputValue(employee?.hireDate)}
-              />
+              <Input id="hireDate" name="hireDate" type="date" defaultValue={toDateInputValue(employee?.hireDate)} />
             </FieldGroup>
 
             <FieldGroup>
-              <Label htmlFor="employmentStatus">
-                Employment Status<RequiredMark />
-              </Label>
-              <Select
-                id="employmentStatus"
-                name="employmentStatus"
-                required
-                defaultValue={employee?.employmentStatus ?? "ACTIVE"}
-              >
+              <Label htmlFor="employmentStatus">Employment Status<RequiredMark /></Label>
+              <Select id="employmentStatus" name="employmentStatus" required defaultValue={employee?.employmentStatus ?? "ACTIVE"}>
                 <option value="ACTIVE">Active</option>
                 <option value="ON_LEAVE">On Leave</option>
                 <option value="RESIGNED">Resigned</option>
@@ -400,83 +350,18 @@ export function EmployeeForm({
                 <option value="INACTIVE">Inactive</option>
               </Select>
             </FieldGroup>
-
-            <FieldGroup>
-              <Label htmlFor="cooperativeId">Cooperative</Label>
-              <Select
-                id="cooperativeId"
-                name="cooperativeId"
-                defaultValue={employee?.cooperativeId ?? ""}
-              >
-                <option value="">Unassigned</option>
-                {cooperatives.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </Select>
-            </FieldGroup>
-
-            {/* Username — read-only on edit, auto-generated on create */}
-            {isEdit ? (
-              <ReadOnlyField
-                label="Username"
-                value={employee?.username ?? "—"}
-                hint="Username is auto-generated and cannot be changed manually."
-              />
-            ) : (
-              <div className="rounded-lg border border-brand-100 bg-brand-50 px-4 py-3 text-sm text-brand-800 sm:col-span-2">
-                A username will be automatically generated from the employee&apos;s name when you save.
-              </div>
-            )}
-
-            {/* Role selector (only shown when linked user exists or on create) */}
-            <FieldGroup>
-              <Label htmlFor="role">System Role</Label>
-              <Select
-                id="role"
-                name="role"
-                defaultValue={employee?.userRole ?? "EMPLOYEE"}
-              >
-                {ROLES.map((r) => (
-                  <option key={r} value={r}>
-                    {roleLabel(r)}
-                  </option>
-                ))}
-              </Select>
-            </FieldGroup>
-
-            {!isEdit && (
-              <FieldGroup>
-                <Label htmlFor="userId">Link Existing Account (optional)</Label>
-                <Select
-                  id="userId"
-                  name="userId"
-                  defaultValue=""
-                >
-                  <option value="">Create new account</option>
-                  {linkableUsers.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name} — {u.email}
-                    </option>
-                  ))}
-                </Select>
-              </FieldGroup>
-            )}
           </div>
         </Card>
 
-        {/* ── Section 4: Education ─────────────────────────────────────── */}
+        {/* ══════════════════════════════════════════════════════════════
+            SECTION 4 — Education
+        ══════════════════════════════════════════════════════════════ */}
         <Card className="p-6">
           <SectionHeader icon={GraduationCap} title="Education" />
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <FieldGroup>
               <Label htmlFor="educationLevel">Education Level</Label>
-              <Select
-                id="educationLevel"
-                name="educationLevel"
-                defaultValue={employee?.educationLevel ?? ""}
-              >
+              <Select id="educationLevel" name="educationLevel" defaultValue={employee?.educationLevel ?? ""}>
                 <option value="">Not specified</option>
                 <option value="Primary">Primary</option>
                 <option value="Secondary">Secondary</option>
@@ -489,63 +374,23 @@ export function EmployeeForm({
             </FieldGroup>
             <FieldGroup>
               <Label htmlFor="fieldOfStudy">Field of Study</Label>
-              <Input
-                id="fieldOfStudy"
-                name="fieldOfStudy"
-                defaultValue={employee?.fieldOfStudy ?? ""}
-              />
+              <Input id="fieldOfStudy" name="fieldOfStudy" defaultValue={employee?.fieldOfStudy ?? ""} />
             </FieldGroup>
             <FieldGroup>
               <Label htmlFor="institutionName">Institution Name</Label>
-              <Input
-                id="institutionName"
-                name="institutionName"
-                defaultValue={employee?.institutionName ?? ""}
-              />
+              <Input id="institutionName" name="institutionName" defaultValue={employee?.institutionName ?? ""} />
             </FieldGroup>
             <FieldGroup>
               <Label htmlFor="graduationYear">Graduation Year</Label>
-              <Input
-                id="graduationYear"
-                name="graduationYear"
-                placeholder="e.g. 2018"
-                defaultValue={employee?.graduationYear ?? ""}
-              />
+              <Input id="graduationYear" name="graduationYear" placeholder="e.g. 2018" defaultValue={employee?.graduationYear ?? ""} />
             </FieldGroup>
           </div>
         </Card>
 
-        {/* ── Section 5: System Account (edit only) ────────────────────── */}
-        {isEdit && (
-          <Card className="p-6">
-            <SectionHeader icon={ShieldCheck} title="System Access" />
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <ReadOnlyField
-                label="Username"
-                value={employee?.username ?? "Not assigned"}
-                hint="Auto-generated — cannot be changed manually."
-              />
-              <FieldGroup>
-                <Label htmlFor="role">System Role</Label>
-                <Select
-                  id="role"
-                  name="role"
-                  defaultValue={employee?.userRole ?? "EMPLOYEE"}
-                >
-                  {ROLES.map((r) => (
-                    <option key={r} value={r}>
-                      {roleLabel(r)}
-                    </option>
-                  ))}
-                </Select>
-              </FieldGroup>
-            </div>
-          </Card>
-        )}
-
       </form>
 
-      {/* Buttons on /new (no Documents card below) */}
+      {/* Action buttons on /new (no Documents card below).
+          On /[id] the page renders <EmployeeFormActions> after Documents. */}
       {!isEdit && <EmployeeFormActions isEdit={false} isPending={isPending} />}
     </div>
   );

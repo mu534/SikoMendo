@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { FileText, Trash2 } from "lucide-react";
 import { requirePermission } from "@/lib/session";
 import { can } from "@/lib/permissions";
-import { getEmployeeById, listAssignableCooperatives, listLinkableUsers } from "@/features/employees/queries";
+import { getEmployeeById } from "@/features/employees/queries";
 import { updateEmployee, deleteEmployeeDocument } from "@/features/employees/actions";
 import { EmployeeForm, EmployeeFormActions } from "@/features/employees/employee-form";
 import { DocumentUploadForm } from "@/features/employees/document-upload-form";
@@ -28,21 +28,10 @@ export default async function EmployeeDetailPage({
   const canManage = can(session.user.role, "MANAGE_EMPLOYEES");
   const canManageDocuments = can(session.user.role, "MANAGE_DOCUMENTS");
 
-  const [cooperatives, linkableUsers] = canManage
-    ? await Promise.all([
-        listAssignableCooperatives(),
-        listLinkableUsers(employee.userId),
-      ])
-    : [[], []];
-
-  // Flatten to plain serialisable values — RSC cannot pass Date / Prisma
-  // objects as props to Client Components.
   const formValues = canManage
     ? {
         id: employee.id,
         employeeId: employee.employeeId,
-        username: employee.user?.username ?? null,
-        userRole: employee.user?.role ?? null,
         firstName: employee.firstName,
         middleName: employee.middleName ?? null,
         lastName: employee.lastName,
@@ -72,8 +61,6 @@ export default async function EmployeeDetailPage({
         fieldOfStudy: employee.fieldOfStudy ?? null,
         institutionName: employee.institutionName ?? null,
         graduationYear: employee.graduationYear ?? null,
-        cooperativeId: employee.cooperativeId ?? null,
-        userId: employee.userId ?? null,
         profileImageUrl: employee.profileImageUrl ?? null,
       }
     : null;
@@ -98,9 +85,6 @@ export default async function EmployeeDetailPage({
             {employee.user?.username && (
               <span className="text-xs text-ink-900/50">@{employee.user.username}</span>
             )}
-            {employee.cooperative && (
-              <span className="text-xs text-ink-900/50">{employee.cooperative.name}</span>
-            )}
           </div>
         </div>
       </div>
@@ -110,8 +94,6 @@ export default async function EmployeeDetailPage({
         <EmployeeForm
           action={updateEmployee.bind(null, employee.id)}
           employee={formValues}
-          cooperatives={cooperatives}
-          linkableUsers={linkableUsers}
         />
       ) : (
         <Card className="max-w-3xl p-6">
@@ -137,17 +119,12 @@ export default async function EmployeeDetailPage({
             <ReadField label="Employment Type" value={employee.employmentType} />
             <ReadField label="Employment Status" value={employee.employmentStatus} />
             <ReadField label="Hire Date" value={formatDate(employee.hireDate)} />
-            <ReadField label="Cooperative" value={employee.cooperative?.name} />
 
             {/* Education */}
             <ReadField label="Education Level" value={employee.educationLevel} />
             <ReadField label="Field of Study" value={employee.fieldOfStudy} />
             <ReadField label="Institution" value={employee.institutionName} />
             <ReadField label="Graduation Year" value={employee.graduationYear} />
-
-            {/* System */}
-            <ReadField label="Username" value={employee.user?.username} />
-            <ReadField label="System Role" value={employee.user?.role} />
           </dl>
         </Card>
       )}

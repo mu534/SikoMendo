@@ -111,8 +111,6 @@ export async function createEmployee(
   });
 }
 
-// ── Update ────────────────────────────────────────────────────────────────────
-
 export async function updateEmployee(
   id: string,
   _prevState: unknown,
