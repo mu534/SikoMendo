@@ -11,9 +11,9 @@ const optionalDate = z
   .transform((v) => (v && v.trim() !== "" ? new Date(v) : null));
 
 export const employeeSchema = z.object({
-  firstName: z.string().min(1, "First name is required").trim(),
+  firstName: z.preprocess((v) => (v ? String(v).trim() : ""), z.string().min(1, "First name is required")),
   middleName: optionalString,
-  lastName: z.string().min(1, "Last name is required").trim(),
+  lastName: z.preprocess((v) => (v ? String(v).trim() : ""), z.string().min(1, "Last name is required")),
   email: z
     .string()
     .optional()
@@ -34,7 +34,10 @@ export const employeeSchema = z.object({
   department: optionalString,
   position: optionalString,
   hireDate: optionalDate,
-  employmentStatus: z.enum(["ACTIVE", "ON_LEAVE", "RESIGNED", "RETIRED", "SUSPENDED", "TERMINATED", "INACTIVE"]),
+  employmentStatus: z.preprocess(
+    (v) => (v && String(v).trim() !== "" ? String(v).trim() : "ACTIVE"),
+    z.enum(["ACTIVE", "ON_LEAVE", "RESIGNED", "RETIRED", "SUSPENDED", "TERMINATED", "INACTIVE"])
+  ),
   employmentType: optionalString,
   educationLevel: optionalString,
   fieldOfStudy: optionalString,
@@ -47,30 +50,33 @@ export const employeeSchema = z.object({
 export type EmployeeInput = z.infer<typeof employeeSchema>;
 
 export function employeeFormDataToObject(formData: FormData) {
+  // formData.get() returns null for missing fields; Zod z.string() rejects null.
+  // Wrap every value so missing fields become "" instead of null.
+  const s = (key: string) => formData.get(key) ?? "";
   return {
-    firstName: formData.get("firstName"),
-    middleName: formData.get("middleName"),
-    lastName: formData.get("lastName"),
-    email: formData.get("email"),
-    phone: formData.get("phone"),
-    gender: formData.get("gender"),
-    dateOfBirth: formData.get("dateOfBirth"),
-    maritalStatus: formData.get("maritalStatus"),
-    address: formData.get("address"),
-    emergencyContactName: formData.get("emergencyContactName"),
-    emergencyContactPhone: formData.get("emergencyContactPhone"),
-    emergencyContactRelationship: formData.get("emergencyContactRelationship"),
-    emergencyContactAddress: formData.get("emergencyContactAddress"),
-    department: formData.get("department"),
-    position: formData.get("position"),
-    hireDate: formData.get("hireDate"),
-    employmentStatus: formData.get("employmentStatus"),
-    employmentType: formData.get("employmentType"),
-    educationLevel: formData.get("educationLevel"),
-    fieldOfStudy: formData.get("fieldOfStudy"),
-    institutionName: formData.get("institutionName"),
-    graduationYear: formData.get("graduationYear"),
-    cooperativeId: formData.get("cooperativeId"),
-    userId: formData.get("userId"),
+    firstName: s("firstName"),
+    middleName: s("middleName"),
+    lastName: s("lastName"),
+    email: s("email"),
+    phone: s("phone"),
+    gender: s("gender"),
+    dateOfBirth: s("dateOfBirth"),
+    maritalStatus: s("maritalStatus"),
+    address: s("address"),
+    emergencyContactName: s("emergencyContactName"),
+    emergencyContactPhone: s("emergencyContactPhone"),
+    emergencyContactRelationship: s("emergencyContactRelationship"),
+    emergencyContactAddress: s("emergencyContactAddress"),
+    department: s("department"),
+    position: s("position"),
+    hireDate: s("hireDate"),
+    employmentStatus: s("employmentStatus"),
+    employmentType: s("employmentType"),
+    educationLevel: s("educationLevel"),
+    fieldOfStudy: s("fieldOfStudy"),
+    institutionName: s("institutionName"),
+    graduationYear: s("graduationYear"),
+    cooperativeId: s("cooperativeId"),
+    userId: s("userId"),
   };
 }

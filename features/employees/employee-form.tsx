@@ -11,18 +11,12 @@ import { PhotoInput } from "./photo-input";
 export const EMPLOYEE_FORM_ID = "employee-form";
 
 type EmploymentStatus =
-  | "ACTIVE"
-  | "ON_LEAVE"
-  | "RESIGNED"
-  | "RETIRED"
-  | "SUSPENDED"
-  | "TERMINATED"
-  | "INACTIVE";
+  | "ACTIVE" | "ON_LEAVE" | "RESIGNED" | "RETIRED"
+  | "SUSPENDED" | "TERMINATED" | "INACTIVE";
 
 export type EmployeeFormValues = {
   id?: string;
   employeeId?: string;
-
   firstName: string;
   middleName?: string | null;
   lastName: string;
@@ -32,23 +26,19 @@ export type EmployeeFormValues = {
   dateOfBirth?: string | null;
   maritalStatus?: string | null;
   address?: string | null;
-
   emergencyContactName?: string | null;
   emergencyContactPhone?: string | null;
   emergencyContactRelationship?: string | null;
   emergencyContactAddress?: string | null;
-
   department?: string | null;
   position?: string | null;
   employmentType?: string | null;
   hireDate?: string | null;
   employmentStatus: EmploymentStatus;
-
   educationLevel?: string | null;
   fieldOfStudy?: string | null;
   institutionName?: string | null;
   graduationYear?: string | null;
-
   profileImageUrl?: string | null;
 };
 
@@ -74,27 +64,8 @@ function RequiredMark() {
   return <span className="ml-0.5 text-red-500" aria-hidden="true">*</span>;
 }
 
-function ReadOnlyField({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value?: string | null;
-  hint?: string;
-}) {
-  return (
-    <FieldGroup>
-      <Label>{label}</Label>
-      <div className="rounded-lg border border-ink-900/10 bg-sand-100 px-3.5 py-2.5 text-sm text-ink-900/60">
-        {value || "—"}
-      </div>
-      {hint && <p className="mt-1 text-xs text-ink-900/45">{hint}</p>}
-    </FieldGroup>
-  );
-}
-
 // ── Standalone action buttons ─────────────────────────────────────────────────
+// Uses HTML `form` attribute so they can sit outside the <form> on edit page.
 export function EmployeeFormActions({
   isPending,
   isEdit,
@@ -113,18 +84,10 @@ export function EmployeeFormActions({
             </svg>
             Saving…
           </span>
-        ) : isEdit ? (
-          "Save changes"
-        ) : (
-          "Create employee"
-        )}
+        ) : isEdit ? "Save changes" : "Create employee"}
       </Button>
-      <Button type="reset" form={EMPLOYEE_FORM_ID} variant="outline">
-        Reset
-      </Button>
-      <ButtonLink href="/employees" variant="ghost">
-        Cancel
-      </ButtonLink>
+      <Button type="reset" form={EMPLOYEE_FORM_ID} variant="outline">Reset</Button>
+      <ButtonLink href="/employees" variant="ghost">Cancel</ButtonLink>
     </div>
   );
 }
@@ -141,7 +104,7 @@ export function EmployeeForm({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [state, formAction, isPending] = useActionState(action as any, null);
 
-  // On create: redirect to the new employee's page
+  // On create: redirect to new employee's page
   useEffect(() => {
     if (state && (state as { success: boolean; data?: { id: string } }).success && !employee) {
       router.push(`/employees/${(state as { data: { id: string } }).data.id}`);
@@ -178,39 +141,37 @@ export function EmployeeForm({
         </div>
       )}
 
+      {/* NOTE: form id is used by EmployeeFormActions via the HTML `form` attribute */}
       <form id={EMPLOYEE_FORM_ID} action={formAction} className="space-y-5">
 
-        {/* ══════════════════════════════════════════════════════════════
-            SECTION 1 — Personal Information
-        ══════════════════════════════════════════════════════════════ */}
+        {/* ── Section 1: Personal Information ──────────────────────────── */}
         <Card className="p-6">
           <SectionHeader icon={User} title="Personal Information" />
           <div className="space-y-5">
-
             <PhotoInput
               name="photo"
               currentName={`${employee?.firstName ?? ""} ${employee?.lastName ?? ""}`}
               currentUrl={employee?.profileImageUrl}
             />
 
-            {/* Employee ID — read-only on edit, auto-generated info on create */}
+            {/* Employee ID info */}
             {isEdit && employee.employeeId && (
-              <ReadOnlyField
-                label="Employee ID"
-                value={employee.employeeId}
-                hint="Employee ID is assigned automatically and cannot be changed."
-              />
+              <div className="rounded-lg border border-ink-900/10 bg-sand-100 px-4 py-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-ink-900/45">Employee ID</p>
+                <p className="mt-1 text-sm font-medium text-ink-900">{employee.employeeId}</p>
+                <p className="mt-0.5 text-xs text-ink-900/45">Automatically assigned — cannot be changed.</p>
+              </div>
             )}
             {!isEdit && (
               <div className="rounded-lg border border-brand-100 bg-brand-50 px-4 py-3 text-sm text-brand-800">
-                Employee ID will be automatically assigned when you save (e.g. EMP-0008).
+                Employee ID will be automatically assigned on save (e.g. EMP-0008).
               </div>
             )}
 
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <FieldGroup>
                 <Label htmlFor="firstName">First Name<RequiredMark /></Label>
-                <Input id="firstName" name="firstName" required defaultValue={employee?.firstName} />
+                <Input id="firstName" name="firstName" required defaultValue={employee?.firstName ?? ""} />
               </FieldGroup>
 
               <FieldGroup>
@@ -220,7 +181,7 @@ export function EmployeeForm({
 
               <FieldGroup>
                 <Label htmlFor="lastName">Last Name<RequiredMark /></Label>
-                <Input id="lastName" name="lastName" required defaultValue={employee?.lastName} />
+                <Input id="lastName" name="lastName" required defaultValue={employee?.lastName ?? ""} />
               </FieldGroup>
 
               <FieldGroup>
@@ -266,9 +227,7 @@ export function EmployeeForm({
           </div>
         </Card>
 
-        {/* ══════════════════════════════════════════════════════════════
-            SECTION 2 — Emergency Contact
-        ══════════════════════════════════════════════════════════════ */}
+        {/* ── Section 2: Emergency Contact ─────────────────────────────── */}
         <Card className="p-6">
           <SectionHeader icon={Phone} title="Emergency Contact" />
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -291,9 +250,7 @@ export function EmployeeForm({
           </div>
         </Card>
 
-        {/* ══════════════════════════════════════════════════════════════
-            SECTION 3 — Employment Information
-        ══════════════════════════════════════════════════════════════ */}
+        {/* ── Section 3: Employment Information ────────────────────────── */}
         <Card className="p-6">
           <SectionHeader icon={Briefcase} title="Employment Information" />
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -302,20 +259,21 @@ export function EmployeeForm({
               <Select id="department" name="department" defaultValue={employee?.department ?? ""}>
                 <option value="">Select department…</option>
                 <option value="Administration">Administration</option>
-                <option value="Finance &amp; Accounting">Finance &amp; Accounting</option>
+                <option value="Finance & Accounting">Finance &amp; Accounting</option>
                 <option value="Human Resources">Human Resources</option>
                 <option value="Information Technology">Information Technology</option>
                 <option value="Cooperative Operations">Cooperative Operations</option>
                 <option value="Field Extension">Field Extension</option>
-                <option value="Marketing &amp; Sales">Marketing &amp; Sales</option>
-                <option value="Procurement &amp; Logistics">Procurement &amp; Logistics</option>
-                <option value="Audit &amp; Compliance">Audit &amp; Compliance</option>
-                <option value="Planning &amp; Development">Planning &amp; Development</option>
+                <option value="Marketing & Sales">Marketing &amp; Sales</option>
+                <option value="Procurement & Logistics">Procurement &amp; Logistics</option>
+                <option value="Audit & Compliance">Audit &amp; Compliance</option>
+                <option value="Planning & Development">Planning &amp; Development</option>
                 <option value="Legal">Legal</option>
-                <option value="Training &amp; Capacity Building">Training &amp; Capacity Building</option>
+                <option value="Training & Capacity Building">Training &amp; Capacity Building</option>
                 <option value="Other">Other</option>
               </Select>
             </FieldGroup>
+
             <FieldGroup>
               <Label htmlFor="position">Position / Job Title</Label>
               <Input id="position" name="position" defaultValue={employee?.position ?? ""} />
@@ -353,9 +311,7 @@ export function EmployeeForm({
           </div>
         </Card>
 
-        {/* ══════════════════════════════════════════════════════════════
-            SECTION 4 — Education
-        ══════════════════════════════════════════════════════════════ */}
+        {/* ── Section 4: Education ─────────────────────────────────────── */}
         <Card className="p-6">
           <SectionHeader icon={GraduationCap} title="Education" />
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -389,8 +345,8 @@ export function EmployeeForm({
 
       </form>
 
-      {/* Action buttons on /new (no Documents card below).
-          On /[id] the page renders <EmployeeFormActions> after Documents. */}
+      {/* On /new: buttons render here (Documents card doesn't exist yet).
+          On /[id]: the page renders <EmployeeFormActions> after the Documents card. */}
       {!isEdit && <EmployeeFormActions isEdit={false} isPending={isPending} />}
     </div>
   );
