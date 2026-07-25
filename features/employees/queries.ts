@@ -67,7 +67,6 @@ export async function listEmployees({
   const [items, total] = await Promise.all([
     prisma.employee.findMany({
       where,
-      include: { cooperative: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,

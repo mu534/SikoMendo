@@ -2,7 +2,7 @@ import Link from "next/link";
 import { UserPlus, Users as UsersIcon, ArchiveRestore } from "lucide-react";
 import { requirePermission } from "@/lib/session";
 import { can } from "@/lib/permissions";
-import { listEmployees, listAssignableCooperatives } from "@/features/employees/queries";
+import { listEmployees } from "@/features/employees/queries";
 import { archiveEmployee, restoreEmployee } from "@/features/employees/actions";
 import { parsePageParam, parseStringParam, formatDate } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
@@ -14,13 +14,15 @@ import { Toolbar } from "@/components/ui/toolbar";
 import { Table, THead, TH, TBody, TR, TD, EmptyRow } from "@/components/ui/table";
 import { Pagination } from "@/components/ui/pagination";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
-import type { Employee, Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 
-type EmployeeRow = Prisma.EmployeeGetPayload<{ include: { cooperative: { select: { name: true } } } }>;
-type CooperativeOption = { id: string; name: string };
+type EmployeeRow = Prisma.EmployeeGetPayload<{ include: Record<never, never> }>;
 
 const STATUS_TONE = {
   ACTIVE: "success",
+  ON_LEAVE: "warning",
+  RESIGNED: "neutral",
+  RETIRED: "neutral",
   INACTIVE: "neutral",
   SUSPENDED: "warning",
   TERMINATED: "danger",
@@ -37,14 +39,15 @@ export default async function EmployeesPage({
   const params = await searchParams;
   const q = parseStringParam(params.q);
   const status = parseStringParam(params.status);
-  const cooperativeId = parseStringParam(params.cooperativeId);
   const showArchived = parseStringParam(params.archived) === "1";
   const page = parsePageParam(params.page);
 
-  const [{ items, total, totalPages }, cooperatives] = await Promise.all([
-    listEmployees({ q, status, cooperativeId, showArchived, page }),
-    listAssignableCooperatives(),
-  ]);
+  const { items, total, totalPages } = await listEmployees({
+    q,
+    status,
+    showArchived,
+    page,
+  });
 
   return (
     <div className="space-y-6">
@@ -52,11 +55,16 @@ export default async function EmployeesPage({
         <div>
           <h2 className="font-display text-xl font-semibold text-ink-900">Employee records</h2>
           <p className="mt-1 text-sm text-ink-900/60">
-            {showArchived ? "Archived employee records." : "All active employee records across Siko Mendo Union."}
+            {showArchived
+              ? "Archived employee records."
+              : "All active employee records across Siko Mendo Union."}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <ButtonLink href={showArchived ? "/employees" : "/employees?archived=1"} variant="outline">
+          <ButtonLink
+            href={showArchived ? "/employees" : "/employees?archived=1"}
+            variant="outline"
+          >
             <ArchiveRestore className="h-4 w-4" />
             {showArchived ? "Back to active" : "View archived"}
           </ButtonLink>
@@ -70,21 +78,20 @@ export default async function EmployeesPage({
       </div>
 
       <Card>
-        <Toolbar basePath="/employees" searchPlaceholder="Search by name, ID, or email" searchDefault={q}>
+        <Toolbar
+          basePath="/employees"
+          searchPlaceholder="Search by name, ID, department, or position"
+          searchDefault={q}
+        >
           <Select name="status" defaultValue={status} className="w-44">
             <option value="">All statuses</option>
             <option value="ACTIVE">Active</option>
-            <option value="INACTIVE">Inactive</option>
+            <option value="ON_LEAVE">On Leave</option>
+            <option value="RESIGNED">Resigned</option>
+            <option value="RETIRED">Retired</option>
             <option value="SUSPENDED">Suspended</option>
             <option value="TERMINATED">Terminated</option>
-          </Select>
-          <Select name="cooperativeId" defaultValue={cooperativeId} className="w-56">
-            <option value="">All cooperatives</option>
-            {cooperatives.map((c: CooperativeOption) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
+            <option value="INACTIVE">Inactive</option>
           </Select>
           {showArchived && <input type="hidden" name="archived" value="1" />}
         </Toolbar>
@@ -93,7 +100,7 @@ export default async function EmployeesPage({
           <THead>
             <TH>Employee</TH>
             <TH>Department / Position</TH>
-            <TH>Cooperative</TH>
+            <TH>Employment Type</TH>
             <TH>Status</TH>
             <TH>Hired</TH>
             {canManage && <TH className="text-right">Actions</TH>}
@@ -108,11 +115,20 @@ export default async function EmployeesPage({
             {items.map((employee: EmployeeRow) => (
               <TR key={employee.id}>
                 <TD>
-                  <Link href={`/employees/${employee.id}`} className="flex items-center gap-3">
-                    <Avatar name={`${employee.firstName} ${employee.lastName}`} imageUrl={employee.profileImageUrl} size="sm" />
+                  <Link
+                    href={`/employees/${employee.id}`}
+                    className="flex items-center gap-3"
+                  >
+                    <Avatar
+                      name={`${employee.firstName} ${employee.lastName}`}
+                      imageUrl={employee.profileImageUrl}
+                      size="sm"
+                    />
                     <div>
                       <p className="font-medium text-ink-900">
-                        {employee.firstName} {employee.lastName}
+                        {employee.firstName}
+                        {employee.middleName ? ` ${employee.middleName}` : ""}{" "}
+                        {employee.lastName}
                       </p>
                       <p className="text-xs text-ink-900/50">{employee.employeeId}</p>
                     </div>
@@ -122,17 +138,25 @@ export default async function EmployeesPage({
                   <p className="text-ink-900/80">{employee.position ?? "—"}</p>
                   <p className="text-xs text-ink-900/50">{employee.department ?? "—"}</p>
                 </TD>
-                <TD>{employee.cooperative?.name ?? "—"}</TD>
+                <TD>{employee.employmentType ?? "—"}</TD>
                 <TD>
-                  <Badge tone={STATUS_TONE[employee.employmentStatus as keyof typeof STATUS_TONE]}>
-                    {employee.employmentStatus}
+                  <Badge
+                    tone={
+                      STATUS_TONE[employee.employmentStatus as keyof typeof STATUS_TONE] ??
+                      "neutral"
+                    }
+                  >
+                    {employee.employmentStatus.replace("_", " ")}
                   </Badge>
                 </TD>
                 <TD>{formatDate(employee.hireDate)}</TD>
                 {canManage && (
                   <TD className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <Link href={`/employees/${employee.id}`} className="text-sm font-medium text-brand-700 hover:underline">
+                      <Link
+                        href={`/employees/${employee.id}`}
+                        className="text-sm font-medium text-brand-700 hover:underline"
+                      >
                         Edit
                       </Link>
                       {showArchived ? (
@@ -173,7 +197,7 @@ export default async function EmployeesPage({
 
         <Pagination
           basePath="/employees"
-          params={{ q, status, cooperativeId, archived: showArchived ? "1" : undefined }}
+          params={{ q, status, archived: showArchived ? "1" : undefined }}
           page={page}
           totalPages={totalPages}
           totalItems={total}
