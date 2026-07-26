@@ -40,6 +40,13 @@ export type EmployeeFormValues = {
   institutionName?: string | null;
   graduationYear?: string | null;
   profileImageUrl?: string | null;
+  userId?: string | null;
+};
+
+export type LinkableUser = {
+  id: string;
+  name: string;
+  username: string | null;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -96,9 +103,11 @@ export function EmployeeFormActions({
 export function EmployeeForm({
   action,
   employee,
+  linkableUsers = [],
 }: {
   action: (prevState: unknown, formData: FormData) => Promise<unknown>;
   employee?: EmployeeFormValues;
+  linkableUsers?: LinkableUser[];
 }) {
   const router = useRouter();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -341,6 +350,28 @@ export function EmployeeForm({
               <Input id="graduationYear" name="graduationYear" placeholder="e.g. 2018" defaultValue={employee?.graduationYear ?? ""} />
             </FieldGroup>
           </div>
+        </Card>
+
+        {/* ── Section 5: System Access ─────────────────────────────────── */}
+        <Card className="p-6">
+          <SectionHeader icon={User} title="System Access" />
+          <p className="mb-4 text-sm text-ink-900/60">
+            Link this employee record to a user account so they can sign in and see their own
+            attendance on the dashboard. Only accounts without an existing employee record (or
+            the one already linked here) are shown.
+          </p>
+          <FieldGroup>
+            <Label htmlFor="userId">Linked User Account</Label>
+            <Select id="userId" name="userId" defaultValue={employee?.userId ?? ""}>
+              <option value="">No linked account</option>
+              {linkableUsers.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name}
+                  {u.username ? ` (@${u.username})` : ""}
+                </option>
+              ))}
+            </Select>
+          </FieldGroup>
         </Card>
 
       </form>

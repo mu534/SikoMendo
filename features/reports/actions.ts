@@ -36,23 +36,10 @@ export async function generateReport(
 
     // Build the actual file (real data, rendered as PDF or CSV) and upload it
     // so report history rows have a real, working download link.
-    let buffer: Buffer, mimeType: string, fileName: string, parameters: Record<string, unknown>;
-    try {
-      ({ buffer, mimeType, fileName, parameters } = await buildReportFile(type, format));
-    } catch (err) {
-      console.error("[generateReport] buildReportFile failed:", err);
-      throw new Error(`File generation failed: ${err instanceof Error ? err.message : String(err)}`);
-    }
+    const { buffer, mimeType, fileName, parameters } = await buildReportFile(type, format);
 
-    let fileUrl: string | undefined;
-    try {
-      const file = new File([new Uint8Array(buffer)], fileName, { type: mimeType });
-      const asset = await uploadToCloudinary(file, "siko-mendo/reports", { resourceType: "auto" });
-      fileUrl = asset.url;
-    } catch (err) {
-      // Upload failure is non-fatal — save the report record without a file URL.
-      console.error("[generateReport] Cloudinary upload failed:", err);
-    }
+    const file = new File([new Uint8Array(buffer)], fileName, { type: mimeType });
+    const asset = await uploadToCloudinary(file, "siko-mendo/reports", { resourceType: "auto" });
 
     const report = await prisma.report.create({
       data: {
@@ -60,7 +47,7 @@ export async function generateReport(
         type,
         format,
         parameters: parameters as Prisma.InputJsonValue,
-        fileUrl: fileUrl,
+        fileUrl: asset.url,
         generatedById: session!.user.id,
       },
     });

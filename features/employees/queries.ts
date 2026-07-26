@@ -102,7 +102,7 @@ export async function listLinkableUsers(currentUserId?: string | null) {
       ? { OR: [{ employee: null }, { id: currentUserId }] }
       : { employee: null },
     orderBy: { name: "asc" },
-    select: { id: true, name: true, email: true },
+    select: { id: true, name: true, username: true },
   });
 }
 

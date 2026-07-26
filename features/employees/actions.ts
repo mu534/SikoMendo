@@ -40,6 +40,11 @@ export async function createEmployee(
       throw new Error(parsed.error.issues[0]?.message ?? "Invalid input.");
     }
 
+    if (parsed.data.userId) {
+      const takenBy = await prisma.employee.findUnique({ where: { userId: parsed.data.userId } });
+      if (takenBy) throw new Error("That user account is already linked to another employee.");
+    }
+
     const photo = getPhotoFile(formData);
     const asset = photo
       ? await uploadToCloudinary(photo, "siko-mendo/employees", { resourceType: "image" })
@@ -85,6 +90,13 @@ export async function updateEmployee(
 
     const existing = await prisma.employee.findUnique({ where: { id } });
     if (!existing) throw new Error("Employee not found.");
+
+    if (parsed.data.userId && parsed.data.userId !== existing.userId) {
+      const takenBy = await prisma.employee.findUnique({ where: { userId: parsed.data.userId } });
+      if (takenBy && takenBy.id !== id) {
+        throw new Error("That user account is already linked to another employee.");
+      }
+    }
 
     const photo = getPhotoFile(formData);
     const asset = photo
