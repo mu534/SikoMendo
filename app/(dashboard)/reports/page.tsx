@@ -1,8 +1,9 @@
-import { FileBarChart, FileText, Users, Building2, CalendarCheck, ShieldCheck, Download } from "lucide-react";
+import { FileBarChart, FileText, Users, Building2, CalendarCheck, CalendarOff, ShieldCheck, Download } from "lucide-react";
 import { requirePermission } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { listReports } from "@/features/reports/queries";
 import { generateReport } from "@/features/reports/actions";
+import { listEmployeesForLeaveFilter } from "@/features/leave/queries";
 import { parsePageParam } from "@/lib/utils";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,7 @@ const REPORT_TYPE_LABELS: Record<string, string> = {
   COOPERATIVE_LISTING: "Cooperative Listing",
   HEADCOUNT: "Headcount",
   AUDIT_LOG: "Audit Log",
+  LEAVE_SUMMARY: "Leave Summary",
 };
 
 const REPORT_TYPE_ICONS: Record<string, typeof FileText> = {
@@ -27,6 +29,7 @@ const REPORT_TYPE_ICONS: Record<string, typeof FileText> = {
   COOPERATIVE_LISTING: Building2,
   HEADCOUNT: Users,
   AUDIT_LOG: ShieldCheck,
+  LEAVE_SUMMARY: CalendarOff,
 };
 
 export default async function ReportsPage({
@@ -41,6 +44,7 @@ export default async function ReportsPage({
   const page = parsePageParam(params.page);
 
   const { items, total, totalPages } = await listReports(page);
+  const leaveFilterEmployees = canGenerate ? await listEmployeesForLeaveFilter() : [];
 
   return (
     <div className="space-y-6">
@@ -63,7 +67,7 @@ export default async function ReportsPage({
                 </div>
                 <h3 className="font-display text-base font-semibold text-ink-900">Generate Report</h3>
               </div>
-              <GenerateReportForm action={generateReport} />
+              <GenerateReportForm action={generateReport} leaveFilterEmployees={leaveFilterEmployees} />
             </Card>
           </div>
         )}

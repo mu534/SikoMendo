@@ -3,7 +3,16 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import ExcelJS from "exceljs";
 import prisma from "@/lib/prisma";
-import type { ReportType, ReportFormat } from "@prisma/client";
+import { LEAVE_TYPE_LABELS, LEAVE_STATUS_LABELS, type LeaveStatusValue, type LeaveTypeValue } from "@/features/leave/schemas";
+import type { ReportType, ReportFormat, Prisma } from "@prisma/client";
+
+export type LeaveReportFilters = {
+  employeeId?: string;
+  leaveType?: string;
+  status?: string;
+  startDate?: string;
+  endDate?: string;
+};
 
 type ReportContent = {
   /** Heading printed inside the file itself (can be more specific than the DB title, e.g. include the month). */
@@ -126,7 +135,57 @@ async function buildAuditLogContent(): Promise<ReportContent> {
   };
 }
 
-async function getReportContent(type: ReportType): Promise<ReportContent> {
+async function buildLeaveSummaryContent(filters: LeaveReportFilters = {}): Promise<ReportContent> {
+  const andClauses: Prisma.LeaveRequestWhereInput[] = [];
+
+  if (filters.employeeId) andClauses.push({ employeeId: filters.employeeId });
+  if (filters.leaveType) andClauses.push({ leaveType: filters.leaveType as LeaveTypeValue });
+  if (filters.status) andClauses.push({ status: filters.status as LeaveStatusValue });
+  if (filters.startDate) andClauses.push({ startDate: { gte: new Date(`${filters.startDate}T00:00:00.000Z`) } });
+  if (filters.endDate) andClauses.push({ endDate: { lte: new Date(`${filters.endDate}T00:00:00.000Z`) } });
+
+  const where: Prisma.LeaveRequestWhereInput = andClauses.length > 0 ? { AND: andClauses } : {};
+
+  const leaves = await prisma.leaveRequest.findMany({
+    where,
+    include: {
+      employee: { select: { employeeId: true, firstName: true, lastName: true, department: true } },
+      approver: { select: { name: true } },
+    },
+    orderBy: { appliedDate: "desc" },
+  });
+
+  return {
+    docTitle: "Leave Summary",
+    headers: [
+      "Leave ID",
+      "Employee",
+      "Department",
+      "Leave Type",
+      "Start Date",
+      "End Date",
+      "Days",
+      "Status",
+      "Applied",
+      "Approver",
+    ],
+    rows: leaves.map((l) => [
+      l.leaveId,
+      `${l.employee.firstName} ${l.employee.lastName} (${l.employee.employeeId})`,
+      l.employee.department ?? "—",
+      LEAVE_TYPE_LABELS[l.leaveType as LeaveTypeValue],
+      l.startDate.toISOString().slice(0, 10),
+      l.endDate.toISOString().slice(0, 10),
+      l.totalDays,
+      LEAVE_STATUS_LABELS[l.status as LeaveStatusValue],
+      l.appliedDate.toISOString().slice(0, 10),
+      l.approver?.name ?? "—",
+    ]),
+    parameters: { totalRequests: leaves.length, filters },
+  };
+}
+
+async function getReportContent(type: ReportType, filters?: LeaveReportFilters): Promise<ReportContent> {
   switch (type) {
     case "EMPLOYEE_DIRECTORY":
       return buildEmployeeDirectoryContent();
@@ -138,6 +197,8 @@ async function getReportContent(type: ReportType): Promise<ReportContent> {
       return buildHeadcountContent();
     case "AUDIT_LOG":
       return buildAuditLogContent();
+    case "LEAVE_SUMMARY":
+      return buildLeaveSummaryContent(filters);
   }
 }
 
@@ -174,14 +235,15 @@ async function buildCsvBuffer(content: ReportContent): Promise<Buffer> {
 
 export async function buildReportFile(
   type: ReportType,
-  format: ReportFormat
+  format: ReportFormat,
+  filters?: LeaveReportFilters
 ): Promise<{
   buffer: Buffer;
   mimeType: string;
   fileName: string;
   parameters: Record<string, unknown>;
 }> {
-  const content = await getReportContent(type);
+  const content = await getReportContent(type, filters);
   const datePart = new Date().toISOString().slice(0, 10);
   const safeTitle = content.docTitle
     .toLowerCase()

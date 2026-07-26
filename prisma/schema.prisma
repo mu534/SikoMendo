@@ -54,11 +54,28 @@ enum ReportType {
   COOPERATIVE_LISTING
   HEADCOUNT
   AUDIT_LOG
+  LEAVE_SUMMARY
 }
 
 enum ReportFormat {
   PDF
   CSV
+}
+
+enum LeaveType {
+  ANNUAL
+  SICK
+  EMERGENCY
+  MATERNITY
+  PATERNITY
+  UNPAID
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
 }
 
 // ─── Better Auth Tables ───────────────────────────────
@@ -90,6 +107,7 @@ model User {
   auditLogs           AuditLog[]
   recordedAttendances Attendance[] @relation("RecordedBy")
   uploadedDocuments   Document[]
+  approvedLeaves      LeaveRequest[] @relation("LeaveApprover")
 
   @@map("user")
 }
@@ -184,6 +202,7 @@ model Employee {
   cooperative   Cooperative? @relation(fields: [cooperativeId], references: [id], onDelete: SetNull)
   attendances   Attendance[]
   documents     Document[]
+  leaveRequests LeaveRequest[]
 
   // Timestamps & soft delete
   createdAt DateTime  @default(now())
@@ -289,6 +308,39 @@ model Document {
   @@index([type])
   @@index([deletedAt])
   @@map("document")
+}
+
+model LeaveRequest {
+  id              String      @id @default(cuid())
+  leaveId         String      @unique // Business-facing ID (e.g., "LR-0001")
+  leaveType       LeaveType
+  startDate       DateTime    @db.Date
+  endDate         DateTime    @db.Date
+  totalDays       Int
+  reason          String
+  documentUrl     String? // Optional supporting document (Cloudinary URL)
+  documentKey     String?
+  status          LeaveStatus @default(PENDING)
+  appliedDate     DateTime    @default(now())
+  decisionDate    DateTime?
+  rejectionReason String?
+
+  // Relations
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  approverId String?
+  approver   User?    @relation("LeaveApprover", fields: [approverId], references: [id], onDelete: SetNull)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([leaveType])
+  @@index([startDate])
+  @@index([approverId])
+  @@map("leave_request")
 }
 
 model Report {

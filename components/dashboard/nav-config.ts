@@ -4,6 +4,7 @@ import {
   Users,
   Building2,
   CalendarCheck,
+  CalendarOff,
   FileBarChart,
   UserCircle,
 } from "lucide-react";
@@ -23,6 +24,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/employees", label: "Employees", icon: Users, requires: "VIEW_EMPLOYEES" },
   { href: "/cooperatives", label: "Cooperatives", icon: Building2, requires: "VIEW_COOPERATIVES" },
   { href: "/attendance", label: "Attendance", icon: CalendarCheck, requires: "VIEW_ATTENDANCE" },
+  { href: "/leave", label: "Leave", icon: CalendarOff },
   { href: "/reports", label: "Reports", icon: FileBarChart, requires: "VIEW_REPORTS" },
   { href: "/profile", label: "My Profile", icon: UserCircle },
 ];

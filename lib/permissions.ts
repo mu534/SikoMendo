@@ -28,7 +28,10 @@ export type Action =
   | "VIEW_REPORTS"
   | "DASHBOARD_ANALYTICS"
   | "VIEW_OWN_PROFILE"
-  | "UPDATE_OWN_INFO";
+  | "UPDATE_OWN_INFO"
+  | "VIEW_ALL_LEAVE"
+  | "MANAGE_LEAVE"
+  | "MANAGE_OWN_LEAVE";
 
 // Define which actions each role can perform (hierarchical)
 export const PERMISSIONS: Record<Role, Action[]> = {
@@ -47,6 +50,9 @@ export const PERMISSIONS: Record<Role, Action[]> = {
     "DASHBOARD_ANALYTICS",
     "VIEW_OWN_PROFILE",
     "UPDATE_OWN_INFO",
+    "VIEW_ALL_LEAVE",
+    "MANAGE_LEAVE",
+    "MANAGE_OWN_LEAVE",
   ],
   HR_OFFICER: [
     "MANAGE_EMPLOYEES",
@@ -61,6 +67,7 @@ export const PERMISSIONS: Record<Role, Action[]> = {
     "DASHBOARD_ANALYTICS",
     "VIEW_OWN_PROFILE",
     "UPDATE_OWN_INFO",
+    "MANAGE_OWN_LEAVE",
   ],
   MANAGER: [
     "VIEW_EMPLOYEES",
@@ -70,8 +77,11 @@ export const PERMISSIONS: Record<Role, Action[]> = {
     "DASHBOARD_ANALYTICS",
     "VIEW_OWN_PROFILE",
     "UPDATE_OWN_INFO",
+    "VIEW_ALL_LEAVE",
+    "MANAGE_LEAVE",
+    "MANAGE_OWN_LEAVE",
   ],
-  EMPLOYEE: ["VIEW_OWN_PROFILE", "UPDATE_OWN_INFO"],
+  EMPLOYEE: ["VIEW_OWN_PROFILE", "UPDATE_OWN_INFO", "MANAGE_OWN_LEAVE"],
 };
 
 export function can(role: string | undefined, action: Action) {

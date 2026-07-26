@@ -14,10 +14,16 @@ const REPORT_TITLES: Record<ReportType, string> = {
   COOPERATIVE_LISTING: "Cooperative Listing",
   HEADCOUNT: "Headcount Report",
   AUDIT_LOG: "Audit Log",
+  LEAVE_SUMMARY: "Leave Summary",
 };
 
 const VALID_TYPES = new Set(Object.keys(REPORT_TITLES));
 const VALID_FORMATS = new Set(["PDF", "CSV"]);
+
+function getStringField(formData: FormData, key: string): string | undefined {
+  const value = formData.get(key);
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
 
 export async function generateReport(
   _prevState: unknown,
@@ -34,9 +40,21 @@ export async function generateReport(
 
     const title = REPORT_TITLES[type];
 
+    // Leave Summary supports extra filters (employee, leave type, status, date range).
+    const filters =
+      type === "LEAVE_SUMMARY"
+        ? {
+            employeeId: getStringField(formData, "leaveEmployeeId"),
+            leaveType: getStringField(formData, "leaveType"),
+            status: getStringField(formData, "leaveStatus"),
+            startDate: getStringField(formData, "leaveStartDate"),
+            endDate: getStringField(formData, "leaveEndDate"),
+          }
+        : undefined;
+
     // Build the actual file (real data, rendered as PDF or CSV) and upload it
     // so report history rows have a real, working download link.
-    const { buffer, mimeType, fileName, parameters } = await buildReportFile(type, format);
+    const { buffer, mimeType, fileName, parameters } = await buildReportFile(type, format, filters);
 
     const file = new File([new Uint8Array(buffer)], fileName, { type: mimeType });
     const asset = await uploadToCloudinary(file, "siko-mendo/reports", { resourceType: "auto" });
