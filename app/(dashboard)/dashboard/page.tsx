@@ -1,7 +1,17 @@
 import { Users, Building2, CalendarCheck, CalendarX, FileBarChart, UserCheck } from "lucide-react";
 import { requireSession } from "@/lib/session";
 import { can } from "@/lib/permissions";
-import { getOrganizationStats, getRecentAuditLogs, getOwnAttendanceSummary } from "@/features/Dashboard/queries";
+import {
+  getOrganizationStats,
+  getRecentAuditLogs,
+  getOwnAttendanceSummary,
+  getAttendanceTrend,
+  getLeaveStatusBreakdown,
+  getEmployeesByDepartment,
+} from "@/features/Dashboard/queries";
+import { AttendanceTrendChart } from "@/features/Dashboard/attendance-trend-chart";
+import { LeaveStatusChart } from "@/features/Dashboard/leave-status-chart";
+import { DepartmentHeadcountChart } from "@/features/Dashboard/department-headcount-chart";
 import prisma from "@/lib/prisma";
 import { StatCard, Card, CardHeader } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/utils";
@@ -20,7 +30,13 @@ export default async function DashboardPage() {
 }
 
 async function OrganizationDashboard({ userName }: { userName: string }) {
-  const [stats, logs] = await Promise.all([getOrganizationStats(), getRecentAuditLogs()]);
+  const [stats, logs, attendanceTrend, leaveBreakdown, departmentHeadcount] = await Promise.all([
+    getOrganizationStats(),
+    getRecentAuditLogs(),
+    getAttendanceTrend(30),
+    getLeaveStatusBreakdown(),
+    getEmployeesByDepartment(),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -35,6 +51,30 @@ async function OrganizationDashboard({ userName }: { userName: string }) {
         <StatCard label="Present today" value={stats.presentToday} icon={<CalendarCheck className="h-5 w-5" />} />
         <StatCard label="Absent today" value={stats.absentToday} icon={<CalendarX className="h-5 w-5" />} />
       </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <Card>
+            <CardHeader title="Attendance trend" description="Present vs. absent over the last 30 days." />
+            <div className="p-6 pt-4">
+              <AttendanceTrendChart data={attendanceTrend} />
+            </div>
+          </Card>
+        </div>
+        <Card>
+          <CardHeader title="Leave requests" description="Breakdown by current status." />
+          <div className="p-6 pt-4">
+            <LeaveStatusChart data={leaveBreakdown} />
+          </div>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader title="Headcount by department" description="Active employees, grouped by department." />
+        <div className="p-6 pt-4">
+          <DepartmentHeadcountChart data={departmentHeadcount} />
+        </div>
+      </Card>
 
       <Card>
         <CardHeader title="Recent activity" description="The latest changes recorded across the system." />
