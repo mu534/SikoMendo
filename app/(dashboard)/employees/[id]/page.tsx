@@ -1,17 +1,22 @@
 import { notFound } from "next/navigation";
-import { FileText, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { FileText, Trash2, CalendarOff } from "lucide-react";
 import { requirePermission } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { getEmployeeById, listLinkableUsers } from "@/features/employees/queries";
 import { updateEmployee, deleteEmployeeDocument } from "@/features/employees/actions";
 import { EmployeeForm, EmployeeFormActions } from "@/features/employees/employee-form";
 import { DocumentUploadForm } from "@/features/employees/document-upload-form";
+import { listAllLeaveRequests } from "@/features/leave/queries";
+import { LeaveStatusBadge } from "@/features/leave/leave-status-badge";
+import { LEAVE_TYPE_LABELS } from "@/features/leave/schemas";
 import { formatDate, formatBytes } from "@/lib/utils";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
+import { Table, THead, TH, TBody, TR, TD } from "@/components/ui/table";
 import type { Document } from "@prisma/client";
 
 export default async function EmployeeDetailPage({
@@ -67,6 +72,11 @@ export default async function EmployeeDetailPage({
     : null;
 
   const linkableUsers = canManage ? await listLinkableUsers(employee.userId) : [];
+
+  const canViewLeave = can(session.user.role, "VIEW_ALL_LEAVE");
+  const leaveHistory = canViewLeave
+    ? await listAllLeaveRequests({ employeeId: employee.id, page: 1 })
+    : null;
 
   return (
     <div className="space-y-6">
@@ -187,6 +197,61 @@ export default async function EmployeeDetailPage({
         )}
         {canManageDocuments && <DocumentUploadForm employeeId={employee.id} />}
       </Card>
+
+      {/* Leave history — visible to Admins/Managers, who can also approve/reject leave */}
+      {canViewLeave && leaveHistory && (
+        <Card>
+          <CardHeader
+            title="Leave History"
+            description={`${leaveHistory.total} leave request${leaveHistory.total === 1 ? "" : "s"} on record.`}
+          />
+          {leaveHistory.items.length === 0 ? (
+            <EmptyState icon={<CalendarOff className="h-8 w-8" />} title="No leave requests yet" />
+          ) : (
+            <>
+              <Table>
+                <THead>
+                  <TH>Leave</TH>
+                  <TH>Dates</TH>
+                  <TH>Days</TH>
+                  <TH>Status</TH>
+                  <TH>Applied</TH>
+                </THead>
+                <TBody>
+                  {leaveHistory.items.map((leave) => (
+                    <TR key={leave.id}>
+                      <TD>
+                        <Link href={`/leave/${leave.id}`} className="font-medium text-ink-900 hover:underline">
+                          {LEAVE_TYPE_LABELS[leave.leaveType]}
+                        </Link>
+                        <p className="text-xs text-ink-900/50">{leave.leaveId}</p>
+                      </TD>
+                      <TD>
+                        {formatDate(leave.startDate)} – {formatDate(leave.endDate)}
+                      </TD>
+                      <TD>{leave.totalDays}</TD>
+                      <TD>
+                        <LeaveStatusBadge status={leave.status} />
+                      </TD>
+                      <TD>{formatDate(leave.appliedDate)}</TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </Table>
+              {leaveHistory.totalPages > 1 && (
+                <div className="border-t border-ink-900/8 px-6 py-4">
+                  <Link
+                    href={`/leave?employee=${employee.id}`}
+                    className="text-sm font-medium text-brand-700 hover:underline"
+                  >
+                    View all {leaveHistory.total} requests →
+                  </Link>
+                </div>
+              )}
+            </>
+          )}
+        </Card>
+      )}
 
       {/* Save / Reset / Cancel — rendered after Documents so they're always at the bottom */}
       {canManage && <EmployeeFormActions isEdit />}

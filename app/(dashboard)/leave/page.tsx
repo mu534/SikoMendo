@@ -38,10 +38,11 @@ async function AllLeaveRequests({ params }: { params: Record<string, string | st
   const status = parseStringParam(params.status);
   const leaveType = parseStringParam(params.type);
   const employeeId = parseStringParam(params.employee);
+  const sort = parseStringParam(params.sort);
   const page = parsePageParam(params.page);
 
   const [{ items, total, totalPages }, employees] = await Promise.all([
-    listAllLeaveRequests({ q, status, leaveType, employeeId, page }),
+    listAllLeaveRequests({ q, status, leaveType, employeeId, sort, page }),
     listEmployeesForLeaveFilter(),
   ]);
 
@@ -77,6 +78,11 @@ async function AllLeaveRequests({ params }: { params: Record<string, string | st
                 {LEAVE_STATUS_LABELS[s]}
               </option>
             ))}
+          </Select>
+          <Select name="sort" defaultValue={sort} className="w-40">
+            <option value="">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="start_date">Start date</option>
           </Select>
         </Toolbar>
 
@@ -132,7 +138,7 @@ async function AllLeaveRequests({ params }: { params: Record<string, string | st
 
         <Pagination
           basePath="/leave"
-          params={{ q, status, type: leaveType, employee: employeeId }}
+          params={{ q, status, type: leaveType, employee: employeeId, sort }}
           page={page}
           totalPages={totalPages}
           totalItems={total}
