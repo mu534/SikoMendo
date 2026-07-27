@@ -74,3 +74,27 @@ export async function generateReport(
     return { id: report.id, title: report.title };
   });
 }
+
+export async function deleteReport(id: string): Promise<ActionResult<{ id: string }>> {
+  const session = await getServerSession();
+
+  return withPermission(session, "GENERATE_REPORTS", async () => {
+    const existing = await prisma.report.findUnique({ where: { id } });
+    if (!existing) throw new Error("Report not found.");
+
+    await prisma.report.delete({ where: { id } });
+
+    await prisma.auditLog.create({
+      data: {
+        action: "DELETE",
+        entity: "Report",
+        entityId: id,
+        changes: { title: existing.title, type: existing.type } as Prisma.InputJsonValue,
+        userId: session!.user.id,
+      },
+    });
+
+    revalidatePath("/reports");
+    return { id };
+  });
+}

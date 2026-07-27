@@ -172,6 +172,7 @@ export default async function EmployeeDetailPage({
                   >
                     <ConfirmSubmitButton
                       confirmMessage={`Delete "${doc.title}"?`}
+                      confirmLabel="Delete"
                       size="sm"
                       variant="ghost"
                       className="text-red-600"
