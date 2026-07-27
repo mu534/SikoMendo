@@ -12,6 +12,7 @@ const STATUS_OPTIONS = [
   { value: "LATE", label: "Late" },
   { value: "HALF_DAY", label: "Half day" },
   { value: "EXCUSED", label: "Excused" },
+  { value: "ON_LEAVE", label: "On leave" },
   { value: "ABSENT", label: "Absent" },
 ];
 
@@ -20,6 +21,7 @@ const STATUS_TONE = {
   LATE: "warning",
   HALF_DAY: "warning",
   EXCUSED: "neutral",
+  ON_LEAVE: "brand",
   ABSENT: "danger",
 } as const;
 

@@ -8,7 +8,7 @@ const optionalTime = z
 export const attendanceEntrySchema = z.object({
   employeeId: z.string().min(1),
   date: z.string().min(1), // "YYYY-MM-DD"
-  status: z.enum(["PRESENT", "ABSENT", "LATE", "HALF_DAY", "EXCUSED"]),
+  status: z.enum(["PRESENT", "ABSENT", "LATE", "HALF_DAY", "EXCUSED", "ON_LEAVE"]),
   checkIn: optionalTime,
   checkOut: optionalTime,
   notes: z

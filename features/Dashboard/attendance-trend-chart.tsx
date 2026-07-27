@@ -4,7 +4,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { EmptyState } from "@/components/ui/empty-state";
 import { CalendarCheck } from "lucide-react";
 
-type TrendPoint = { date: string; label: string; present: number; absent: number };
+type TrendPoint = { date: string; label: string; present: number; absent: number; onLeave: number };
 
 function CustomTooltip({
   active,
@@ -30,7 +30,7 @@ function CustomTooltip({
 }
 
 export function AttendanceTrendChart({ data }: { data: TrendPoint[] }) {
-  const hasActivity = data.some((d) => d.present > 0 || d.absent > 0);
+  const hasActivity = data.some((d) => d.present > 0 || d.absent > 0 || d.onLeave > 0);
 
   if (!hasActivity) {
     return (
@@ -54,6 +54,10 @@ export function AttendanceTrendChart({ data }: { data: TrendPoint[] }) {
             <stop offset="0%" stopColor="#dc2626" stopOpacity={0.25} />
             <stop offset="100%" stopColor="#dc2626" stopOpacity={0} />
           </linearGradient>
+          <linearGradient id="onLeaveGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#c8902a" stopOpacity={0.3} />
+            <stop offset="100%" stopColor="#c8902a" stopOpacity={0} />
+          </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="#161a17" strokeOpacity={0.06} vertical={false} />
         <XAxis
@@ -67,6 +71,7 @@ export function AttendanceTrendChart({ data }: { data: TrendPoint[] }) {
         <YAxis tick={{ fontSize: 11, fill: "#161a17", opacity: 0.5 }} axisLine={false} tickLine={false} allowDecimals={false} width={28} />
         <Tooltip content={<CustomTooltip />} />
         <Area type="monotone" dataKey="present" name="Present" stroke="#2f8350" strokeWidth={2} fill="url(#presentGradient)" />
+        <Area type="monotone" dataKey="onLeave" name="On Leave" stroke="#c8902a" strokeWidth={2} fill="url(#onLeaveGradient)" />
         <Area type="monotone" dataKey="absent" name="Absent" stroke="#dc2626" strokeWidth={2} fill="url(#absentGradient)" />
       </AreaChart>
     </ResponsiveContainer>

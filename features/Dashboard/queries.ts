@@ -56,11 +56,11 @@ export async function getAttendanceTrend(days = 30) {
     select: { date: true, status: true },
   });
 
-  const byDate = new Map<string, { present: number; absent: number }>();
+  const byDate = new Map<string, { present: number; absent: number; onLeave: number }>();
   for (let i = 0; i < days; i++) {
     const d = new Date(start);
     d.setDate(d.getDate() + i);
-    byDate.set(d.toISOString().slice(0, 10), { present: 0, absent: 0 });
+    byDate.set(d.toISOString().slice(0, 10), { present: 0, absent: 0, onLeave: 0 });
   }
 
   for (const record of records) {
@@ -69,6 +69,7 @@ export async function getAttendanceTrend(days = 30) {
     if (!bucket) continue;
     if (record.status === "PRESENT") bucket.present += 1;
     else if (record.status === "ABSENT") bucket.absent += 1;
+    else if (record.status === "ON_LEAVE") bucket.onLeave += 1;
   }
 
   return Array.from(byDate.entries()).map(([date, counts]) => ({

@@ -38,6 +38,7 @@ enum AttendanceStatus {
   LATE
   HALF_DAY
   EXCUSED
+  ON_LEAVE
 }
 
 enum DocumentType {

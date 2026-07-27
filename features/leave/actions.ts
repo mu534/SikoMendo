@@ -40,6 +40,43 @@ async function getOwnEmployeeOrThrow(userId: string) {
   return employee;
 }
 
+/** Generates one Date per day in [startDate, endDate], inclusive. */
+function eachDateInRange(startDate: Date, endDate: Date): Date[] {
+  const dates: Date[] = [];
+  const cursor = new Date(startDate);
+  while (cursor <= endDate) {
+    dates.push(new Date(cursor));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return dates;
+}
+
+/**
+ * Marks each day of an approved leave as "On Leave" in Attendance — but only
+ * for days that don't already have an attendance record, so we never
+ * overwrite a real check-in/check-out that was already recorded.
+ */
+async function markAttendanceForApprovedLeave(
+  employeeId: string,
+  startDate: Date,
+  endDate: Date,
+  leaveId: string,
+  recordedById: string
+) {
+  const dates = eachDateInRange(startDate, endDate);
+
+  await prisma.attendance.createMany({
+    data: dates.map((date) => ({
+      employeeId,
+      date,
+      status: "ON_LEAVE" as const,
+      notes: `Approved leave (${leaveId})`,
+      recordedById,
+    })),
+    skipDuplicates: true,
+  });
+}
+
 // ── Employee: submit a new leave request ────────────────────────────────────
 
 export async function submitLeaveRequest(
@@ -155,6 +192,16 @@ export async function decideLeaveRequest(
       },
     });
 
+    if (parsed.data.decision === "APPROVED") {
+      await markAttendanceForApprovedLeave(
+        existing.employeeId,
+        existing.startDate,
+        existing.endDate,
+        existing.leaveId,
+        session!.user.id
+      );
+    }
+
     await logAudit(
       parsed.data.decision === "APPROVED" ? "APPROVE" : "REJECT",
       id,
@@ -164,6 +211,10 @@ export async function decideLeaveRequest(
 
     revalidatePath("/leave");
     revalidatePath(`/leave/${id}`);
+    if (parsed.data.decision === "APPROVED") {
+      revalidatePath("/attendance");
+      revalidatePath("/dashboard");
+    }
     return { id };
   });
 }
