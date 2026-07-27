@@ -136,8 +136,7 @@ async function buildAuditLogContent(): Promise<ReportContent> {
 }
 
 async function buildLeaveSummaryContent(filters: LeaveReportFilters = {}): Promise<ReportContent> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const andClauses: any[] = [];
+  const andClauses: Prisma.LeaveRequestWhereInput[] = [];
 
   if (filters.employeeId) andClauses.push({ employeeId: filters.employeeId });
   if (filters.leaveType) andClauses.push({ leaveType: filters.leaveType as LeaveTypeValue });
