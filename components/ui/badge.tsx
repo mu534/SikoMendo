@@ -8,12 +8,14 @@ const TONES = {
   danger: "bg-red-50 text-red-700",
 } as const;
 
+export type BadgeTone = keyof typeof TONES;
+
 export function Badge({
   tone = "neutral",
   className,
   children,
 }: {
-  tone?: keyof typeof TONES;
+  tone?: BadgeTone;
   className?: string;
   children: React.ReactNode;
 }) {

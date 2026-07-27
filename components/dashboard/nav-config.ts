@@ -6,6 +6,7 @@ import {
   CalendarCheck,
   CalendarOff,
   FileBarChart,
+  ShieldCheck,
   UserCircle,
 } from "lucide-react";
 import type { Action } from "@/lib/permissions";
@@ -26,5 +27,6 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/attendance", label: "Attendance", icon: CalendarCheck, requires: "VIEW_ATTENDANCE" },
   { href: "/leave", label: "Leave", icon: CalendarOff },
   { href: "/reports", label: "Reports", icon: FileBarChart, requires: "VIEW_REPORTS" },
+  { href: "/audit-log", label: "Audit Log", icon: ShieldCheck, requires: "VIEW_AUDIT_LOG" },
   { href: "/profile", label: "My Profile", icon: UserCircle },
 ];
