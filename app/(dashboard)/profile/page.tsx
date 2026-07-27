@@ -1,6 +1,7 @@
 import { UserCircle, KeyRound, ShieldCheck } from "lucide-react";
 import { requireSession } from "@/lib/session";
 import { roleLabel } from "@/lib/permissions";
+import prisma from "@/lib/prisma";
 import { Card } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +21,11 @@ function SectionHeader({ icon: Icon, title }: { icon: React.ElementType; title: 
 export default async function ProfilePage() {
   const session = await requireSession();
   const { user } = session;
+
+  const nameFields = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { firstName: true, middleName: true, lastName: true },
+  });
 
   return (
     <div className="space-y-6">
@@ -82,7 +88,13 @@ export default async function ProfilePage() {
             <p className="mb-4 text-sm text-ink-900/60">
               Your username and role are managed by an Administrator and cannot be changed here.
             </p>
-            <UpdateProfileForm name={user.name} />
+            <UpdateProfileForm
+              name={user.name}
+              firstName={nameFields?.firstName}
+              middleName={nameFields?.middleName}
+              lastName={nameFields?.lastName}
+              image={user.image}
+            />
           </Card>
 
           {/* Change password */}

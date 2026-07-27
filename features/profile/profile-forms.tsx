@@ -3,13 +3,25 @@
 import { useActionState, useEffect, useState } from "react";
 import { Input, Label, FieldGroup, FieldError } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
+import { PhotoInput } from "@/features/employees/photo-input";
 import { updateOwnProfile, changeOwnPassword } from "./actions";
 
-// ── Update name form ──────────────────────────────────────────────────────────
+// ── Update profile form ────────────────────────────────────────────────────────
 
-export function UpdateProfileForm({ name }: { name: string }) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [state, formAction, isPending] = useActionState(updateOwnProfile as any, null);
+export function UpdateProfileForm({
+  name,
+  firstName,
+  middleName,
+  lastName,
+  image,
+}: {
+  name: string;
+  firstName?: string | null;
+  middleName?: string | null;
+  lastName?: string | null;
+  image?: string | null;
+}) {
+  const [state, formAction, isPending] = useActionState(updateOwnProfile, null);
 
   const [toast, setToast] = useState<string | null>(null);
   useEffect(() => {
@@ -25,6 +37,12 @@ export function UpdateProfileForm({ name }: { name: string }) {
       ? (state as { error: { message: string } }).error.message
       : null;
 
+  // Best-effort split of the existing combined name, used only as a starting
+  // point the first time — firstName/middleName/lastName take priority once saved.
+  const [fallbackFirst, ...fallbackRest] = name.trim().split(/\s+/);
+  const fallbackLast = fallbackRest.pop() ?? "";
+  const fallbackMiddle = fallbackRest.join(" ");
+
   return (
     <form action={formAction} className="space-y-4">
       {toast && (
@@ -38,10 +56,22 @@ export function UpdateProfileForm({ name }: { name: string }) {
         </div>
       )}
 
-      <FieldGroup>
-        <Label htmlFor="profile-name">Full name</Label>
-        <Input id="profile-name" name="name" required defaultValue={name} />
-      </FieldGroup>
+      <PhotoInput name="photo" currentName={name} currentUrl={image} />
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <FieldGroup>
+          <Label htmlFor="firstName">First name</Label>
+          <Input id="firstName" name="firstName" required defaultValue={firstName ?? fallbackFirst ?? ""} />
+        </FieldGroup>
+        <FieldGroup>
+          <Label htmlFor="middleName">Middle name</Label>
+          <Input id="middleName" name="middleName" defaultValue={middleName ?? fallbackMiddle} placeholder="Optional" />
+        </FieldGroup>
+        <FieldGroup>
+          <Label htmlFor="lastName">Last name</Label>
+          <Input id="lastName" name="lastName" required defaultValue={lastName ?? fallbackLast} />
+        </FieldGroup>
+      </div>
 
       <Button type="submit" disabled={isPending}>
         {isPending ? "Saving…" : "Save changes"}
