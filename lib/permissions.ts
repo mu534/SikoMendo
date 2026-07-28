@@ -32,7 +32,8 @@ export type Action =
   | "VIEW_ALL_LEAVE"
   | "MANAGE_LEAVE"
   | "MANAGE_OWN_LEAVE"
-  | "VIEW_AUDIT_LOG";
+  | "VIEW_AUDIT_LOG"
+  | "MANAGE_LEAVE_POLICY";
 
 // Define which actions each role can perform (hierarchical)
 export const PERMISSIONS: Record<Role, Action[]> = {
@@ -55,6 +56,7 @@ export const PERMISSIONS: Record<Role, Action[]> = {
     "MANAGE_LEAVE",
     "MANAGE_OWN_LEAVE",
     "VIEW_AUDIT_LOG",
+    "MANAGE_LEAVE_POLICY",
   ],
   HR_OFFICER: [
     "MANAGE_EMPLOYEES",

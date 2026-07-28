@@ -347,6 +347,17 @@ model LeaveRequest {
   @@map("leave_request")
 }
 
+model LeaveEntitlement {
+  id          String    @id @default(cuid())
+  leaveType   LeaveType @unique
+  // Org-wide default days allowed per calendar year. Null = unlimited (no cap enforced).
+  daysPerYear Int?
+
+  updatedAt DateTime @updatedAt
+
+  @@map("leave_entitlement")
+}
+
 model Report {
   id         String       @id @default(cuid())
   title      String

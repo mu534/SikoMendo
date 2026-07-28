@@ -7,6 +7,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { submitLeaveRequest } from "./actions";
 import { LEAVE_TYPES, LEAVE_TYPE_LABELS } from "./schemas";
+import type { LeaveBalanceEntry } from "./queries";
 
 type ActionState = { success: true; data: { id: string } } | { success: false; error: { message: string } } | null;
 
@@ -19,15 +20,20 @@ function calculateTotalDays(start: string, end: string): number | null {
   return diff > 0 ? diff : null;
 }
 
-export function LeaveRequestForm() {
+export function LeaveRequestForm({ balances = [] }: { balances?: LeaveBalanceEntry[] }) {
   const router = useRouter();
   const [state, formAction, isPending] = useActionState(submitLeaveRequest, null);
   const typedState = state as ActionState;
 
+  const [leaveType, setLeaveType] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
   const totalDays = useMemo(() => calculateTotalDays(startDate, endDate), [startDate, endDate]);
+  const selectedBalance = useMemo(
+    () => balances.find((b) => b.leaveType === leaveType) ?? null,
+    [balances, leaveType]
+  );
 
   useEffect(() => {
     if (typedState?.success) {
@@ -49,7 +55,13 @@ export function LeaveRequestForm() {
 
         <FieldGroup>
           <Label htmlFor="leaveType">Leave Type</Label>
-          <Select id="leaveType" name="leaveType" required defaultValue="">
+          <Select
+            id="leaveType"
+            name="leaveType"
+            required
+            value={leaveType}
+            onChange={(e) => setLeaveType(e.target.value)}
+          >
             <option value="" disabled>
               Select a leave type…
             </option>
@@ -59,6 +71,13 @@ export function LeaveRequestForm() {
               </option>
             ))}
           </Select>
+          {selectedBalance && (
+            <p className="mt-1.5 text-xs text-ink-900/50">
+              {selectedBalance.remaining === null
+                ? "No yearly cap for this leave type."
+                : `${selectedBalance.remaining} of ${selectedBalance.entitled} day(s) remaining this year.`}
+            </p>
+          )}
         </FieldGroup>
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">

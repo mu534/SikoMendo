@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { requirePermission } from "@/lib/session";
 import prisma from "@/lib/prisma";
+import { getEmployeeLeaveBalances } from "@/features/leave/queries";
 import { LeaveRequestForm } from "@/features/leave/leave-request-form";
 
 export default async function NewLeaveRequestPage() {
@@ -11,6 +12,8 @@ export default async function NewLeaveRequestPage() {
     redirect("/leave");
   }
 
+  const balances = await getEmployeeLeaveBalances(employee.id);
+
   return (
     <div className="space-y-6">
       <div>
@@ -19,7 +22,7 @@ export default async function NewLeaveRequestPage() {
           Total days are calculated automatically from your start and end dates.
         </p>
       </div>
-      <LeaveRequestForm />
+      <LeaveRequestForm balances={balances} />
     </div>
   );
 }

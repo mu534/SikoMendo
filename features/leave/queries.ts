@@ -158,3 +158,56 @@ export async function listEmployeesForLeaveFilter() {
     orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
   });
 }
+
+// ── Leave balances / entitlements ────────────────────────────────────────────
+
+export type LeaveBalanceEntry = {
+  leaveType: LeaveTypeValue;
+  /** Org-wide days allowed per calendar year. Null = unlimited (no cap enforced). */
+  entitled: number | null;
+  used: number;
+  /** Null when entitled is unlimited. */
+  remaining: number | null;
+};
+
+/** Org-wide default entitlement per leave type. Types with no configured row are unlimited. */
+export async function getLeaveEntitlements(): Promise<Record<LeaveTypeValue, number | null>> {
+  const rows = await prisma.leaveEntitlement.findMany();
+  const map = Object.fromEntries(LEAVE_TYPES.map((t) => [t, null])) as Record<LeaveTypeValue, number | null>;
+  for (const row of rows) {
+    map[row.leaveType as LeaveTypeValue] = row.daysPerYear;
+  }
+  return map;
+}
+
+/** Days used/remaining per leave type for one employee, for the given calendar year (defaults to current year). */
+export async function getEmployeeLeaveBalances(
+  employeeId: string,
+  year: number = new Date().getFullYear()
+): Promise<LeaveBalanceEntry[]> {
+  const entitlements = await getLeaveEntitlements();
+
+  const yearStart = new Date(Date.UTC(year, 0, 1));
+  const yearEnd = new Date(Date.UTC(year, 11, 31, 23, 59, 59));
+
+  const approved = await prisma.leaveRequest.findMany({
+    where: { employeeId, status: "APPROVED", startDate: { gte: yearStart, lte: yearEnd } },
+    select: { leaveType: true, totalDays: true },
+  });
+
+  const usedByType = new Map<string, number>();
+  for (const req of approved) {
+    usedByType.set(req.leaveType, (usedByType.get(req.leaveType) ?? 0) + req.totalDays);
+  }
+
+  return LEAVE_TYPES.map((leaveType) => {
+    const entitled = entitlements[leaveType];
+    const used = usedByType.get(leaveType) ?? 0;
+    return {
+      leaveType,
+      entitled,
+      used,
+      remaining: entitled === null ? null : Math.max(0, entitled - used),
+    };
+  });
+}

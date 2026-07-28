@@ -1,9 +1,14 @@
 import Link from "next/link";
 import { CalendarOff, Plus, Users } from "lucide-react";
 import { requireSession } from "@/lib/session";
-import { can } from "@/lib/permissions";
+import { can, type Role } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
-import { listAllLeaveRequests, getMyLeaveRequests, listEmployeesForLeaveFilter } from "@/features/leave/queries";
+import {
+  listAllLeaveRequests,
+  getMyLeaveRequests,
+  listEmployeesForLeaveFilter,
+  getEmployeeLeaveBalances,
+} from "@/features/leave/queries";
 import { LeaveStatusBadge } from "@/features/leave/leave-status-badge";
 import { LEAVE_TYPE_LABELS, LEAVE_TYPES, LEAVE_STATUSES, LEAVE_STATUS_LABELS } from "@/features/leave/schemas";
 import { parsePageParam, parseStringParam, formatDate } from "@/lib/utils";
@@ -25,7 +30,7 @@ export default async function LeavePage({
   const params = await searchParams;
 
   if (can(session.user.role, "VIEW_ALL_LEAVE")) {
-    return <AllLeaveRequests params={params} />;
+    return <AllLeaveRequests params={params} role={session.user.role} />;
   }
 
   return <MyLeaveRequests userId={session.user.id} params={params} />;
@@ -33,7 +38,13 @@ export default async function LeavePage({
 
 // ── Manager / Admin: all leave requests ─────────────────────────────────────
 
-async function AllLeaveRequests({ params }: { params: Record<string, string | string[] | undefined> }) {
+async function AllLeaveRequests({
+  params,
+  role,
+}: {
+  params: Record<string, string | string[] | undefined>;
+  role: Role;
+}) {
   const q = parseStringParam(params.q);
   const status = parseStringParam(params.status);
   const leaveType = parseStringParam(params.type);
@@ -48,9 +59,16 @@ async function AllLeaveRequests({ params }: { params: Record<string, string | st
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="font-display text-xl font-semibold text-ink-900">Leave requests</h2>
-        <p className="mt-1 text-sm text-ink-900/60">Review, approve, or reject leave requests across the union.</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-display text-xl font-semibold text-ink-900">Leave requests</h2>
+          <p className="mt-1 text-sm text-ink-900/60">Review, approve, or reject leave requests across the union.</p>
+        </div>
+        {can(role, "MANAGE_LEAVE_POLICY") && (
+          <ButtonLink href="/leave/policy" variant="ghost">
+            Leave Policy
+          </ButtonLink>
+        )}
       </div>
 
       <Card>
@@ -161,9 +179,10 @@ async function MyLeaveRequests({
   const employee = await prisma.employee.findUnique({ where: { userId } });
   const page = parsePageParam(params.page);
 
-  const { items, total, totalPages } = employee
-    ? await getMyLeaveRequests({ employeeId: employee.id, page })
-    : { items: [], total: 0, totalPages: 1 };
+  const [{ items, total, totalPages }, balances] = await Promise.all([
+    employee ? getMyLeaveRequests({ employeeId: employee.id, page }) : Promise.resolve({ items: [], total: 0, totalPages: 1 }),
+    employee ? getEmployeeLeaveBalances(employee.id) : Promise.resolve([]),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -179,6 +198,25 @@ async function MyLeaveRequests({
           </ButtonLink>
         )}
       </div>
+
+      {employee && balances.length > 0 && (
+        <Card className="p-6">
+          <p className="mb-4 text-xs font-medium uppercase tracking-wide text-ink-900/45">
+            {new Date().getFullYear()} balance
+          </p>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+            {balances.map((b) => (
+              <div key={b.leaveType}>
+                <p className="text-xs text-ink-900/50">{LEAVE_TYPE_LABELS[b.leaveType]}</p>
+                <p className="mt-0.5 text-lg font-semibold text-ink-900">
+                  {b.remaining === null ? "∞" : b.remaining}
+                  {b.entitled !== null && <span className="text-sm font-normal text-ink-900/40"> / {b.entitled}</span>}
+                </p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Card>
         {!employee ? (

@@ -11,12 +11,14 @@ import {
   leaveDecisionSchema,
   leaveDecisionFormDataToObject,
   calculateTotalDays,
+  LEAVE_TYPE_LABELS,
+  LEAVE_TYPES,
 } from "./schemas";
-import { generateNextLeaveId, hasOverlappingLeave } from "./queries";
+import { generateNextLeaveId, hasOverlappingLeave, getEmployeeLeaveBalances } from "./queries";
 
-async function logAudit(action: string, entityId: string, changes: unknown, userId?: string) {
+async function logAudit(action: string, entity: string, entityId: string, changes: unknown, userId?: string) {
   await prisma.auditLog.create({
-    data: { action, entity: "LeaveRequest", entityId, changes: changes as object, userId },
+    data: { action, entity, entityId, changes: changes as object, userId },
   });
 }
 
@@ -102,6 +104,16 @@ export async function submitLeaveRequest(
       throw new Error("You already have a pending or approved leave request that overlaps these dates.");
     }
 
+    // Balance check is based on the start date's calendar year — a request spanning
+    // a year boundary is checked against the year it starts in, not split across both.
+    const balances = await getEmployeeLeaveBalances(employee.id, startDate.getUTCFullYear());
+    const balance = balances.find((b) => b.leaveType === parsed.data.leaveType);
+    if (balance && balance.remaining !== null && totalDays > balance.remaining) {
+      throw new Error(
+        `Insufficient ${LEAVE_TYPE_LABELS[parsed.data.leaveType]} balance: ${balance.remaining} day(s) remaining this year, but ${totalDays} requested.`
+      );
+    }
+
     const document = getDocumentFile(formData);
     const asset = document
       ? await uploadToCloudinary(document, "siko-mendo/leave", { resourceType: "auto" })
@@ -124,7 +136,7 @@ export async function submitLeaveRequest(
       },
     });
 
-    await logAudit("CREATE", leaveRequest.id, { leaveId, leaveType: parsed.data.leaveType, totalDays }, session!.user.id);
+    await logAudit("CREATE", "LeaveRequest", leaveRequest.id, { leaveId, leaveType: parsed.data.leaveType, totalDays }, session!.user.id);
 
     revalidatePath("/leave");
     return { id: leaveRequest.id };
@@ -153,7 +165,7 @@ export async function cancelLeaveRequest(id: string): Promise<ActionResult<{ id:
       data: { status: "CANCELLED" },
     });
 
-    await logAudit("CANCEL", id, { from: existing.status, to: "CANCELLED" }, session!.user.id);
+    await logAudit("CANCEL", "LeaveRequest", id, { from: existing.status, to: "CANCELLED" }, session!.user.id);
 
     revalidatePath("/leave");
     revalidatePath(`/leave/${id}`);
@@ -204,6 +216,7 @@ export async function decideLeaveRequest(
 
     await logAudit(
       parsed.data.decision === "APPROVED" ? "APPROVE" : "REJECT",
+      "LeaveRequest",
       id,
       { decision: parsed.data.decision, rejectionReason: parsed.data.rejectionReason ?? null },
       session!.user.id
@@ -216,5 +229,42 @@ export async function decideLeaveRequest(
       revalidatePath("/dashboard");
     }
     return { id };
+  });
+}
+
+// ── Admin: configure org-wide leave entitlement policy ──────────────────────
+
+export async function updateLeaveEntitlements(
+  _prevState: unknown,
+  formData: FormData
+): Promise<ActionResult<null>> {
+  const session = await getServerSession();
+
+  return withPermission(session, "MANAGE_LEAVE_POLICY", async () => {
+    const updates = LEAVE_TYPES.map((leaveType) => {
+      const raw = formData.get(`days_${leaveType}`);
+      const trimmed = typeof raw === "string" ? raw.trim() : "";
+      const daysPerYear = trimmed === "" ? null : Number(trimmed);
+      if (daysPerYear !== null && (!Number.isFinite(daysPerYear) || daysPerYear < 0)) {
+        throw new Error(`Invalid entitlement for ${LEAVE_TYPE_LABELS[leaveType]}.`);
+      }
+      return { leaveType, daysPerYear };
+    });
+
+    await Promise.all(
+      updates.map(({ leaveType, daysPerYear }) =>
+        prisma.leaveEntitlement.upsert({
+          where: { leaveType },
+          create: { leaveType, daysPerYear },
+          update: { daysPerYear },
+        })
+      )
+    );
+
+    await logAudit("UPDATE", "LeaveEntitlement", "policy", { updates }, session!.user.id);
+
+    revalidatePath("/leave/policy");
+    revalidatePath("/leave/new");
+    return null;
   });
 }
