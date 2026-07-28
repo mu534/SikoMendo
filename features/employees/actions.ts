@@ -7,6 +7,7 @@ import { withPermission, type ActionResult } from "@/lib/action-utils";
 import { uploadToCloudinary, deleteFromCloudinary } from "@/lib/cloudinary";
 import { employeeSchema, employeeFormDataToObject } from "./schemas";
 import { generateNextEmployeeId } from "./queries";
+import { parseEmployeeCsv, importEmployeeRows, type ImportRowResult } from "./bulk-import";
 
 async function logAudit(
   action: string,
@@ -215,5 +216,41 @@ export async function deleteEmployeeDocument(
 
     revalidatePath(`/employees/${employeeId}`);
     return { id: documentId };
+  });
+}
+
+// ── Bulk import employees from CSV ──────────────────────────────────────────
+
+export async function bulkImportEmployees(
+  _prevState: unknown,
+  formData: FormData
+): Promise<ActionResult<{ results: ImportRowResult[]; createdCount: number; errorCount: number }>> {
+  const session = await getServerSession();
+
+  return withPermission(session, "MANAGE_EMPLOYEES", async () => {
+    const file = formData.get("file");
+    if (!(file instanceof File) || file.size === 0) {
+      throw new Error("Please choose a CSV file to upload.");
+    }
+
+    const text = await file.text();
+    const { rows, parseErrors } = parseEmployeeCsv(text);
+
+    if (parseErrors.length > 0) {
+      throw new Error(parseErrors[0]);
+    }
+    if (rows.length === 0) {
+      throw new Error("The CSV file has no data rows.");
+    }
+    if (rows.length > 500) {
+      throw new Error("Please import 500 rows or fewer at a time.");
+    }
+
+    const results = await importEmployeeRows(rows, session!.user.id);
+    const createdCount = results.filter((r) => r.status === "created").length;
+    const errorCount = results.length - createdCount;
+
+    revalidatePath("/employees");
+    return { results, createdCount, errorCount };
   });
 }

@@ -1,0 +1,2 @@
+firstName,middleName,lastName,email,phone,gender,dateOfBirth,maritalStatus,address,emergencyContactName,emergencyContactPhone,emergencyContactRelationship,emergencyContactAddress,department,position,hireDate,employmentStatus,employmentType,educationLevel,fieldOfStudy,institutionName,graduationYear
+Amina,,Hussein,amina.hussein@example.com,0911223344,FEMALE,1994-03-12,SINGLE,"Robe, Ethiopia",Fatuma Hussein,0922334455,Sister,"Robe, Ethiopia",Finance,Accountant,2024-01-15,ACTIVE,FULL_TIME,BACHELOR,Accounting,Robe University,2016

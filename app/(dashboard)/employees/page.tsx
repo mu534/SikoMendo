@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { UserPlus, Users as UsersIcon, ArchiveRestore } from "lucide-react";
+import { UserPlus, Users as UsersIcon, ArchiveRestore, Upload } from "lucide-react";
 import { requirePermission } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { listEmployees } from "@/features/employees/queries";
@@ -68,6 +68,12 @@ export default async function EmployeesPage({
             <ArchiveRestore className="h-4 w-4" />
             {showArchived ? "Back to active" : "View archived"}
           </ButtonLink>
+          {canManage && !showArchived && (
+            <ButtonLink href="/employees/import" variant="outline">
+              <Upload className="h-4 w-4" />
+              Import
+            </ButtonLink>
+          )}
           {canManage && !showArchived && (
             <ButtonLink href="/employees/new">
               <UserPlus className="h-4 w-4" />
