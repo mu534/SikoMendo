@@ -30,7 +30,8 @@ export default async function LeavePage({
   const params = await searchParams;
 
   if (can(session.user.role, "VIEW_ALL_LEAVE")) {
-    return <AllLeaveRequests params={params} role={session.user.role} />;
+    const role = session.user.role as Role;
+    return  <AllLeaveRequests params={params} role={role} />;
   }
 
   return <MyLeaveRequests userId={session.user.id} params={params} />;
