@@ -6,6 +6,7 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { getServerSession } from "@/lib/session";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
+import { generateUsernameFromName, generateSecurePassword } from "@/lib/username-utils";
 import { createUserSchema, updateUserSchema } from "./schemas";
 
 async function logAudit(action: string, entityId: string, changes: unknown, userId?: string) {
@@ -77,6 +78,28 @@ export async function createUserAccount(
     );
     revalidatePath("/users");
     return { id: user.id };
+  });
+}
+
+export async function generateUserCredentials(
+  name: string
+): Promise<ActionResult<{ username: string; password: string }>> {
+  const session = await getServerSession();
+
+  return withPermission(session, "MANAGE_USERS", async () => {
+    const trimmed = name.trim();
+    if (trimmed.length < 2) {
+      throw new Error("Enter the full name first so a username can be generated from it.");
+    }
+
+    const parts = trimmed.split(/\s+/);
+    const firstName = parts[0];
+    const lastName = parts.length > 1 ? parts.slice(1).join(" ") : parts[0];
+
+    const username = await generateUsernameFromName(firstName, lastName);
+    const password = generateSecurePassword();
+
+    return { username, password };
   });
 }
 

@@ -3,9 +3,24 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { admin } from "better-auth/plugins";
 import { username } from "better-auth/plugins";
+import { createAccessControl } from "better-auth/plugins/access";
+import { defaultStatements, adminAc, userAc } from "better-auth/plugins/admin/access";
 import prisma from "@/lib/prisma";
 import { ROLES } from "@/lib/permissions";
 import { env } from "@/lib/env";
+
+// better-auth's admin plugin checks the "user:create" (and similar) permissions
+// against a role table that, by default, only has entries for the literal
+// strings "admin" and "user". Our Role enum uses "ADMIN", "HR_OFFICER",
+// "MANAGER", "EMPLOYEE", so without this custom access-control map, that
+// lookup always misses and every admin action gets silently denied — even
+// for our own ADMIN role. Defining the roles explicitly (keyed by our real
+// enum values) fixes that. Only ADMIN gets the plugin's built-in admin
+// permission set; the other roles get none, matching MANAGE_USERS being
+// ADMIN-only in lib/permissions.ts.
+const ac = createAccessControl({ ...defaultStatements });
+const adminAcRole = ac.newRole({ ...adminAc.statements });
+const staffAcRole = ac.newRole({ ...userAc.statements });
 
 export const auth = betterAuth({
   appName: "Siko Mendo Union HRMIS",
@@ -47,6 +62,13 @@ export const auth = betterAuth({
       maxUsernameLength: 40,
     }),
     admin({
+      ac,
+      roles: {
+        ADMIN: adminAcRole,
+        HR_OFFICER: staffAcRole,
+        MANAGER: staffAcRole,
+        EMPLOYEE: staffAcRole,
+      },
       defaultRole: "EMPLOYEE",
       adminRoles: ["ADMIN"],
       defaultBanReason: "Account disabled by an Administrator.",

@@ -31,3 +31,32 @@ export async function generateUsernameFromName(
   // Fallback with timestamp suffix
   return `${sanitized}_${Date.now()}`;
 }
+
+/**
+ * Generates a random, hard-to-guess temporary password.
+ * Guarantees at least one lowercase, one uppercase, one digit, and one
+ * symbol, then fills the rest randomly and shuffles. Ambiguous-looking
+ * characters (0/O, 1/l/I) are excluded so it's easy to read and retype.
+ */
+export function generateSecurePassword(length = 12): string {
+  const lowers = "abcdefghjkmnpqrstuvwxyz";
+  const uppers = "ABCDEFGHJKMNPQRSTUVWXYZ";
+  const digits = "23456789";
+  const symbols = "!@#$%^&*-_+=";
+  const all = lowers + uppers + digits + symbols;
+
+  const pick = (chars: string) => chars[Math.floor(Math.random() * chars.length)];
+
+  const required = [pick(lowers), pick(uppers), pick(digits), pick(symbols)];
+  const rest = Array.from({ length: Math.max(length - required.length, 0) }, () => pick(all));
+
+  const combined = [...required, ...rest];
+
+  // Fisher-Yates shuffle so the required characters aren't always up front.
+  for (let i = combined.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [combined[i], combined[j]] = [combined[j], combined[i]];
+  }
+
+  return combined.join("");
+}
