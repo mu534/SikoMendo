@@ -78,6 +78,23 @@ export async function importEmployeeRows(
       continue;
     }
 
+    if (parsed.data.email) {
+      const duplicate = await prisma.employee.findFirst({
+        where: { email: parsed.data.email, deletedAt: null },
+      });
+      if (duplicate) {
+        results.push({
+          row: rowNumber,
+          status: "error",
+          name: displayName,
+          errors: [
+            `Duplicate email — already exists for ${duplicate.firstName} ${duplicate.lastName} (${duplicate.employeeId}).`,
+          ],
+        });
+        continue;
+      }
+    }
+
     try {
       const employeeId = await generateNextEmployeeId();
       const created = await prisma.employee.create({

@@ -1,13 +1,39 @@
 "use server";
 
+import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 import { getServerSession } from "@/lib/session";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
 import { uploadToCloudinary, deleteFromCloudinary } from "@/lib/cloudinary";
 import { employeeSchema, employeeFormDataToObject } from "./schemas";
 import { generateNextEmployeeId } from "./queries";
 import { parseEmployeeCsv, importEmployeeRows, type ImportRowResult } from "./bulk-import";
+
+/** Employment statuses that mean someone is no longer actively working here. */
+const INACTIVE_STATUSES = new Set(["RESIGNED", "RETIRED", "TERMINATED", "SUSPENDED", "INACTIVE"]);
+
+/**
+ * Bans or unbans the User account linked to an employee, so a login can't
+ * outlive the employment record it belongs to. Never touches the acting
+ * admin's own account, and silently no-ops if there's no linked account.
+ */
+async function setLinkedAccountBanStatus(
+  employeeUserId: string | null,
+  banned: boolean,
+  reason: string,
+  actingUserId?: string
+) {
+  if (!employeeUserId || employeeUserId === actingUserId) return;
+
+  if (banned) {
+    await auth.api.banUser({ headers: await headers(), body: { userId: employeeUserId } });
+    await prisma.user.update({ where: { id: employeeUserId }, data: { banReason: reason } });
+  } else {
+    await auth.api.unbanUser({ headers: await headers(), body: { userId: employeeUserId } });
+  }
+}
 
 async function logAudit(
   action: string,
@@ -44,6 +70,17 @@ export async function createEmployee(
     if (parsed.data.userId) {
       const takenBy = await prisma.employee.findUnique({ where: { userId: parsed.data.userId } });
       if (takenBy) throw new Error("That user account is already linked to another employee.");
+    }
+
+    if (parsed.data.email) {
+      const duplicate = await prisma.employee.findFirst({
+        where: { email: parsed.data.email, deletedAt: null },
+      });
+      if (duplicate) {
+        throw new Error(
+          `An active employee with this email already exists: ${duplicate.firstName} ${duplicate.lastName} (${duplicate.employeeId}).`
+        );
+      }
     }
 
     const photo = getPhotoFile(formData);
@@ -99,6 +136,17 @@ export async function updateEmployee(
       }
     }
 
+    if (parsed.data.email && parsed.data.email !== existing.email) {
+      const duplicate = await prisma.employee.findFirst({
+        where: { email: parsed.data.email, deletedAt: null, id: { not: id } },
+      });
+      if (duplicate) {
+        throw new Error(
+          `An active employee with this email already exists: ${duplicate.firstName} ${duplicate.lastName} (${duplicate.employeeId}).`
+        );
+      }
+    }
+
     const photo = getPhotoFile(formData);
     const asset = photo
       ? await uploadToCloudinary(photo, "siko-mendo/employees", { resourceType: "image" })
@@ -129,6 +177,19 @@ export async function updateEmployee(
       await deleteFromCloudinary(existing.profileImageKey);
     }
 
+    const wasInactive = INACTIVE_STATUSES.has(existing.employmentStatus);
+    const isInactive = INACTIVE_STATUSES.has(parsed.data.employmentStatus);
+    if (isInactive && !wasInactive) {
+      await setLinkedAccountBanStatus(
+        parsed.data.userId,
+        true,
+        `Employment status set to ${parsed.data.employmentStatus}.`,
+        session?.user.id
+      );
+    } else if (!isInactive && wasInactive) {
+      await setLinkedAccountBanStatus(parsed.data.userId, false, "", session?.user.id);
+    }
+
     await logAudit(
       "UPDATE",
       id,
@@ -147,7 +208,8 @@ export async function updateEmployee(
 export async function archiveEmployee(id: string): Promise<ActionResult<{ id: string }>> {
   const session = await getServerSession();
   return withPermission(session, "MANAGE_EMPLOYEES", async () => {
-    await prisma.employee.update({ where: { id }, data: { deletedAt: new Date() } });
+    const employee = await prisma.employee.update({ where: { id }, data: { deletedAt: new Date() } });
+    await setLinkedAccountBanStatus(employee.userId, true, "Employee record archived.", session?.user.id);
     await logAudit("ARCHIVE", id, {}, session?.user.id);
     revalidatePath("/employees");
     return { id };
@@ -157,7 +219,12 @@ export async function archiveEmployee(id: string): Promise<ActionResult<{ id: st
 export async function restoreEmployee(id: string): Promise<ActionResult<{ id: string }>> {
   const session = await getServerSession();
   return withPermission(session, "MANAGE_EMPLOYEES", async () => {
-    await prisma.employee.update({ where: { id }, data: { deletedAt: null } });
+    const employee = await prisma.employee.update({ where: { id }, data: { deletedAt: null } });
+    // Only lift the ban if their employment status doesn't still say they're inactive —
+    // restoring the record shouldn't override a still-current TERMINATED/RESIGNED status.
+    if (!INACTIVE_STATUSES.has(employee.employmentStatus)) {
+      await setLinkedAccountBanStatus(employee.userId, false, "", session?.user.id);
+    }
     await logAudit("RESTORE", id, {}, session?.user.id);
     revalidatePath("/employees");
     return { id };
