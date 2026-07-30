@@ -7,7 +7,7 @@ import { AttendanceRow } from "@/features/attendance/attendance-row";
 import { MarkAllPresentButton } from "@/features/attendance/mark-all-present-button";
 import { parseStringParam } from "@/lib/utils";
 import { Card, StatCard } from "@/components/ui/card";
-import { Input } from "@/components/ui/field";
+import { Input, Select } from "@/components/ui/field";
 import { EmptyState } from "@/components/ui/empty-state";
 
 type EmployeeRow = Awaited<ReturnType<typeof getDailyRegister>>["employees"][number];
@@ -29,8 +29,9 @@ export default async function AttendancePage({
   const params = await searchParams;
   const today = new Date().toISOString().slice(0, 10);
   const date = parseStringParam(params.date) || today;
+  const status = parseStringParam(params.status);
 
-  const { employees, summary } = await getDailyRegister({ date });
+  const { employees, summary } = await getDailyRegister({ date, status });
 
   const unmarkedIds = employees
     .filter((e: EmployeeRow) => e.attendances.length === 0)
@@ -54,11 +55,12 @@ export default async function AttendancePage({
       </div>
 
       {/* Summary stats */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-7">
         <StatCard label="Present" value={summary.present} />
         <StatCard label="Late" value={summary.late} />
         <StatCard label="Half day" value={summary.halfDay} />
         <StatCard label="Excused" value={summary.excused} />
+        <StatCard label="On leave" value={summary.onLeave} />
         <StatCard label="Absent" value={summary.absent} />
         <StatCard label="Unmarked" value={summary.unmarked} />
       </div>
@@ -68,20 +70,35 @@ export default async function AttendancePage({
         {/* Date navigation */}
         <div className="flex flex-wrap items-end gap-3 border-b border-ink-900/8 px-6 py-4">
           <Link
-            href={`/attendance?date=${shiftDate(date, -1)}`}
+            href={`/attendance?date=${shiftDate(date, -1)}${status ? `&status=${status}` : ""}`}
             className="rounded-lg border border-ink-900/15 p-2 hover:bg-sand-100"
             aria-label="Previous day"
           >
             <ChevronLeft className="h-4 w-4" />
           </Link>
 
-          <form action="/attendance" method="get">
-            <label className="mb-1.5 block text-sm font-medium text-ink-900">Date</label>
-            <Input type="date" name="date" defaultValue={date} className="w-44" />
+          <form action="/attendance" method="get" className="flex flex-wrap items-end gap-3">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-ink-900">Date</label>
+              <Input type="date" name="date" defaultValue={date} className="w-44" />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-ink-900">Status</label>
+              <Select name="status" defaultValue={status} className="w-40">
+                <option value="">All statuses</option>
+                <option value="PRESENT">Present</option>
+                <option value="LATE">Late</option>
+                <option value="HALF_DAY">Half day</option>
+                <option value="EXCUSED">Excused</option>
+                <option value="ON_LEAVE">On leave</option>
+                <option value="ABSENT">Absent</option>
+                <option value="UNMARKED">Unmarked</option>
+              </Select>
+            </div>
           </form>
 
           <Link
-            href={`/attendance?date=${shiftDate(date, 1)}`}
+            href={`/attendance?date=${shiftDate(date, 1)}${status ? `&status=${status}` : ""}`}
             className="rounded-lg border border-ink-900/15 p-2 hover:bg-sand-100"
             aria-label="Next day"
           >
@@ -89,7 +106,7 @@ export default async function AttendancePage({
           </Link>
 
           <Link
-            href={`/attendance?date=${today}`}
+            href={`/attendance?date=${today}${status ? `&status=${status}` : ""}`}
             className="text-sm font-medium text-brand-700 hover:underline"
           >
             Today
@@ -100,8 +117,12 @@ export default async function AttendancePage({
         {employees.length === 0 ? (
           <EmptyState
             icon={<CalendarDays className="h-8 w-8" />}
-            title="No active employees to show"
-            description="Add employees with Active status to start tracking attendance."
+            title={status ? "No employees match this filter" : "No active employees to show"}
+            description={
+              status
+                ? "Try a different status, or clear the filter to see everyone."
+                : "Add employees with Active status to start tracking attendance."
+            }
           />
         ) : (
           <div>
