@@ -1,12 +1,12 @@
 import "server-only";
 import prisma from "@/lib/prisma";
 import { PAGE_SIZE } from "@/lib/utils";
-import type { EmploymentStatus, Gender, Prisma } from "@prisma/client";
+import type { EmploymentStatus, Gender, EmploymentType, Prisma } from "@prisma/client";
 
 export type EmployeeListFilters = {
   q?: string;
   status?: string;
-  department?: string;
+  departmentId?: string;
   employmentType?: string;
   gender?: string;
   cooperativeId?: string;
@@ -18,11 +18,17 @@ const EMPLOYMENT_STATUSES: EmploymentStatus[] = [
   "ACTIVE", "ON_LEAVE", "RESIGNED", "RETIRED", "SUSPENDED", "TERMINATED", "INACTIVE",
 ];
 const GENDERS: Gender[] = ["MALE", "FEMALE"];
+const EMPLOYMENT_TYPES: EmploymentType[] = ["PERMANENT", "CONTRACT", "TEMPORARY", "PROBATION", "INTERNSHIP"];
+
+const employeeListInclude = {
+  department: { select: { id: true, name: true } },
+  position: { select: { id: true, name: true } },
+} satisfies Prisma.EmployeeInclude;
 
 export async function listEmployees({
   q,
   status,
-  department,
+  departmentId,
   employmentType,
   gender,
   cooperativeId,
@@ -38,19 +44,19 @@ export async function listEmployees({
         { lastName: { contains: q, mode: "insensitive" } },
         { employeeId: { contains: q, mode: "insensitive" } },
         { email: { contains: q, mode: "insensitive" } },
-        { department: { contains: q, mode: "insensitive" } },
-        { position: { contains: q, mode: "insensitive" } },
+        { department: { name: { contains: q, mode: "insensitive" } } },
+        { position: { name: { contains: q, mode: "insensitive" } } },
       ],
     });
   }
   if (status && EMPLOYMENT_STATUSES.includes(status as EmploymentStatus)) {
     andClauses.push({ employmentStatus: status as EmploymentStatus });
   }
-  if (department) {
-    andClauses.push({ department: { contains: department, mode: "insensitive" } });
+  if (departmentId) {
+    andClauses.push({ departmentId });
   }
-  if (employmentType) {
-    andClauses.push({ employmentType });
+  if (employmentType && EMPLOYMENT_TYPES.includes(employmentType as EmploymentType)) {
+    andClauses.push({ employmentType: employmentType as EmploymentType });
   }
   if (gender && GENDERS.includes(gender as Gender)) {
     andClauses.push({ gender: gender as Gender });
@@ -67,6 +73,7 @@ export async function listEmployees({
   const [items, total] = await Promise.all([
     prisma.employee.findMany({
       where,
+      include: employeeListInclude,
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
@@ -81,6 +88,8 @@ export async function getEmployeeById(id: string) {
   return prisma.employee.findUnique({
     where: { id },
     include: {
+      department: { select: { id: true, name: true } },
+      position: { select: { id: true, name: true, departmentId: true } },
       cooperative: { select: { id: true, name: true } },
       user: { select: { id: true, email: true, username: true, role: true } },
       documents: { where: { deletedAt: null }, orderBy: { createdAt: "desc" } },
@@ -113,58 +122,4 @@ export async function generateNextEmployeeId() {
   });
   const lastNumber = last ? parseInt(last.employeeId.replace(/\D/g, ""), 10) || 0 : 0;
   return `EMP-${String(lastNumber + 1).padStart(4, "0")}`;
-}
-
-// ── Report data queries ───────────────────────────────────────────────────────
-
-export async function getEmployeesForReport(filters: {
-  status?: string;
-  department?: string;
-  gender?: string;
-  employmentType?: string;
-  cooperativeId?: string;
-  month?: string;
-}) {
-  const where: Prisma.EmployeeWhereInput = { deletedAt: null };
-  if (filters.status && EMPLOYMENT_STATUSES.includes(filters.status as EmploymentStatus)) {
-    where.employmentStatus = filters.status as EmploymentStatus;
-  }
-  if (filters.department) where.department = filters.department;
-  if (filters.gender && GENDERS.includes(filters.gender as Gender)) {
-    where.gender = filters.gender as Gender;
-  }
-  if (filters.employmentType) where.employmentType = filters.employmentType;
-  if (filters.cooperativeId) where.cooperativeId = filters.cooperativeId;
-
-  return prisma.employee.findMany({
-    where,
-    include: {
-      cooperative: { select: { name: true } },
-      attendances: filters.month
-        ? {
-            where: {
-              date: {
-                gte: new Date(`${filters.month}-01`),
-                lt: new Date(
-                  new Date(`${filters.month}-01`).setMonth(
-                    new Date(`${filters.month}-01`).getMonth() + 1
-                  )
-                ),
-              },
-            },
-          }
-        : false,
-    },
-    orderBy: [{ department: "asc" }, { firstName: "asc" }],
-  });
-}
-
-export async function getDepartmentList() {
-  const result = await prisma.employee.findMany({
-    where: { deletedAt: null, department: { not: null } },
-    select: { department: true },
-    distinct: ["department"],
-    orderBy: { department: "asc" },
-  });
-  return result.map((r) => r.department as string);
 }

@@ -24,13 +24,54 @@ async function main() {
   console.log("🧹 Cleaning existing data...");
   await prisma.auditLog.deleteMany({});
   await prisma.document.deleteMany({});
+  await prisma.leaveRequest.deleteMany({});
+  await prisma.leaveEntitlement.deleteMany({});
+  await prisma.report.deleteMany({});
   await prisma.attendance.deleteMany({});
   await prisma.employee.deleteMany({});
+  await prisma.position.deleteMany({});
+  await prisma.department.deleteMany({});
   await prisma.cooperative.deleteMany({});
   await prisma.session.deleteMany({});
   await prisma.account.deleteMany({});
   await prisma.verification.deleteMany({});
   await prisma.user.deleteMany({});
+
+  // 0. Departments & Positions — the Union's fixed organizational structure.
+  // Departments are never created through the app; this seed is their only source.
+  console.log("🏢 Seeding departments and positions...");
+
+  const financeDept = await prisma.department.create({
+    data: { name: "Finance Department", description: "Union-wide financial management and accounting." },
+  });
+  const hrDept = await prisma.department.create({
+    data: { name: "Human Resource Department", description: "Employee records, recruitment, and HR policy." },
+  });
+  const marketingDept = await prisma.department.create({
+    data: { name: "Marketing Department", description: "Product marketing and member outreach." },
+  });
+  await prisma.department.create({
+    data: { name: "Input Supply Department", description: "Agricultural input procurement and distribution." },
+  });
+  await prisma.department.create({
+    data: { name: "Legal Affairs Department", description: "Legal compliance and contract review." },
+  });
+  await prisma.department.create({
+    data: { name: "Mechanization Department", description: "Farm machinery services and maintenance." },
+  });
+
+  await prisma.position.create({ data: { name: "Finance Manager", departmentId: financeDept.id } });
+  const cashierPos = await prisma.position.create({ data: { name: "Cashier", departmentId: financeDept.id } });
+  const accountantPos = await prisma.position.create({ data: { name: "Accountant", departmentId: financeDept.id } });
+
+  const hrOfficerPos = await prisma.position.create({ data: { name: "HR Officer", departmentId: hrDept.id } });
+  const hrManagerPos = await prisma.position.create({ data: { name: "HR Manager", departmentId: hrDept.id } });
+
+  const marketingManagerPos = await prisma.position.create({ data: { name: "Marketing Manager", departmentId: marketingDept.id } });
+  const marketingOfficerPos = await prisma.position.create({ data: { name: "Marketing Officer", departmentId: marketingDept.id } });
+
+  // Input Supply / Legal Affairs / Mechanization intentionally start with no seeded
+  // positions — Admin/HR add them via the Departments UI as the org needs them.
 
   // 1. Cooperatives under Siko Mendo Union — Bale Robe, Oromia, Ethiopia
   console.log("📦 Seeding cooperatives...");
@@ -82,8 +123,8 @@ async function main() {
       gender: Gender.MALE,
       dateOfBirth: new Date("1985-05-15"),
       address: "Kebele 01, Robe, Bale Zone",
-      department: "ICT & Systems",
-      position: "System Administrator",
+      departmentId: hrDept.id,
+      positionId: hrManagerPos.id,
       hireDate: new Date("2020-01-06"),
       employmentStatus: EmploymentStatus.ACTIVE,
       userId: adminUser.id,
@@ -101,8 +142,8 @@ async function main() {
       gender: Gender.FEMALE,
       dateOfBirth: new Date("1990-08-22"),
       address: "Kebele 02, Robe, Bale Zone",
-      department: "Human Resources",
-      position: "HR Officer",
+      departmentId: hrDept.id,
+      positionId: hrOfficerPos.id,
       hireDate: new Date("2021-03-15"),
       employmentStatus: EmploymentStatus.ACTIVE,
       userId: hrUser.id,
@@ -120,8 +161,8 @@ async function main() {
       gender: Gender.MALE,
       dateOfBirth: new Date("1978-11-03"),
       address: "Goba town, Bale Zone",
-      department: "Cooperative Operations",
-      position: "Branch Manager",
+      departmentId: marketingDept.id,
+      positionId: marketingManagerPos.id,
       hireDate: new Date("2018-06-10"),
       employmentStatus: EmploymentStatus.ACTIVE,
       userId: managerUser.id,
@@ -139,8 +180,8 @@ async function main() {
       gender: Gender.FEMALE,
       dateOfBirth: new Date("1995-04-12"),
       address: "Goba town, Bale Zone",
-      department: "Cooperative Operations",
-      position: "Member Services Associate",
+      departmentId: marketingDept.id,
+      positionId: marketingOfficerPos.id,
       hireDate: new Date("2023-09-01"),
       employmentStatus: EmploymentStatus.ACTIVE,
       userId: employeeUser.id,
@@ -158,8 +199,8 @@ async function main() {
       gender: Gender.MALE,
       dateOfBirth: new Date("1993-01-30"),
       address: "Goba town, Bale Zone",
-      department: "Field Extension",
-      position: "Field Officer",
+      departmentId: financeDept.id,
+      positionId: cashierPos.id,
       hireDate: new Date("2024-02-15"),
       employmentStatus: EmploymentStatus.ACTIVE,
       cooperativeId: coop2.id,
@@ -176,8 +217,8 @@ async function main() {
       gender: Gender.FEMALE,
       dateOfBirth: new Date("1989-12-05"),
       address: "Robe, Bale Zone",
-      department: "Finance",
-      position: "Accountant",
+      departmentId: financeDept.id,
+      positionId: accountantPos.id,
       hireDate: new Date("2022-11-01"),
       employmentStatus: EmploymentStatus.ACTIVE,
       cooperativeId: coop1.id,

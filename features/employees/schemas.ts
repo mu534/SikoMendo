@@ -10,6 +10,13 @@ const optionalDate = z
   .optional()
   .transform((v) => (v && v.trim() !== "" ? new Date(v) : null));
 
+function optionalEnum<T extends [string, ...string[]]>(values: T) {
+  return z
+    .union([z.enum(values), z.literal("")])
+    .optional()
+    .transform((v) => (v ? v : null));
+}
+
 export const employeeSchema = z.object({
   firstName: z.preprocess((v) => (v ? String(v).trim() : ""), z.string().min(1, "First name is required")),
   middleName: optionalString,
@@ -20,26 +27,23 @@ export const employeeSchema = z.object({
     .transform((v) => (v && v.trim() !== "" ? v.trim() : null))
     .pipe(z.string().email("Enter a valid email").nullable()),
   phone: optionalString,
-  gender: z
-    .union([z.enum(["MALE", "FEMALE"]), z.literal("")])
-    .optional()
-    .transform((v) => (v ? v : null)),
+  gender: optionalEnum(["MALE", "FEMALE"]),
   dateOfBirth: optionalDate,
-  maritalStatus: optionalString,
+  maritalStatus: optionalEnum(["SINGLE", "MARRIED", "DIVORCED", "WIDOWED"]),
   address: optionalString,
   emergencyContactName: optionalString,
   emergencyContactPhone: optionalString,
   emergencyContactRelationship: optionalString,
   emergencyContactAddress: optionalString,
-  department: optionalString,
-  position: optionalString,
+  departmentId: z.preprocess((v) => (v ? String(v).trim() : ""), z.string().min(1, "Department is required")),
+  positionId: z.preprocess((v) => (v ? String(v).trim() : ""), z.string().min(1, "Position is required")),
   hireDate: optionalDate,
   employmentStatus: z.preprocess(
     (v) => (v && String(v).trim() !== "" ? String(v).trim() : "ACTIVE"),
     z.enum(["ACTIVE", "ON_LEAVE", "RESIGNED", "RETIRED", "SUSPENDED", "TERMINATED", "INACTIVE"])
   ),
-  employmentType: optionalString,
-  educationLevel: optionalString,
+  employmentType: optionalEnum(["PERMANENT", "CONTRACT", "TEMPORARY", "PROBATION", "INTERNSHIP"]),
+  educationLevel: optionalEnum(["PRIMARY", "SECONDARY", "CERTIFICATE", "DIPLOMA", "BACHELOR", "MASTER", "PHD"]),
   fieldOfStudy: optionalString,
   institutionName: optionalString,
   graduationYear: optionalString,
@@ -67,8 +71,8 @@ export function employeeFormDataToObject(formData: FormData) {
     emergencyContactPhone: s("emergencyContactPhone"),
     emergencyContactRelationship: s("emergencyContactRelationship"),
     emergencyContactAddress: s("emergencyContactAddress"),
-    department: s("department"),
-    position: s("position"),
+    departmentId: s("departmentId"),
+    positionId: s("positionId"),
     hireDate: s("hireDate"),
     employmentStatus: s("employmentStatus"),
     employmentType: s("employmentType"),

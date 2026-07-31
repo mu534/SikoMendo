@@ -4,6 +4,8 @@ import { FileText, Trash2, CalendarOff } from "lucide-react";
 import { requirePermission } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { getEmployeeById, listLinkableUsers } from "@/features/employees/queries";
+import { listActiveDepartments } from "@/features/departments/queries";
+import { listActivePositions } from "@/features/positions/queries";
 import { updateEmployee, deleteEmployeeDocument } from "@/features/employees/actions";
 import { EmployeeForm, EmployeeFormActions } from "@/features/employees/employee-form";
 import { DocumentUploadForm } from "@/features/employees/document-upload-form";
@@ -50,8 +52,8 @@ export default async function EmployeeDetailPage({
         emergencyContactPhone: employee.emergencyContactPhone ?? null,
         emergencyContactRelationship: employee.emergencyContactRelationship ?? null,
         emergencyContactAddress: employee.emergencyContactAddress ?? null,
-        department: employee.department ?? null,
-        position: employee.position ?? null,
+        departmentId: employee.departmentId,
+        positionId: employee.positionId,
         employmentType: employee.employmentType ?? null,
         hireDate: employee.hireDate ? employee.hireDate.toISOString() : null,
         employmentStatus: employee.employmentStatus as
@@ -72,6 +74,9 @@ export default async function EmployeeDetailPage({
     : null;
 
   const linkableUsers = canManage ? await listLinkableUsers(employee.userId) : [];
+  const [departments, positions] = canManage
+    ? await Promise.all([listActiveDepartments(), listActivePositions()])
+    : [[], []];
 
   const canViewLeave = can(session.user.role, "VIEW_ALL_LEAVE");
   const leaveHistory = canViewLeave
@@ -108,6 +113,8 @@ export default async function EmployeeDetailPage({
           action={updateEmployee.bind(null, employee.id)}
           employee={formValues}
           linkableUsers={linkableUsers}
+          departments={departments}
+          positions={positions}
         />
       ) : (
         <Card className="max-w-3xl p-6">
@@ -128,8 +135,8 @@ export default async function EmployeeDetailPage({
             <ReadField label="Emergency Address" value={employee.emergencyContactAddress} />
 
             {/* Employment */}
-            <ReadField label="Department" value={employee.department} />
-            <ReadField label="Position" value={employee.position} />
+            <ReadField label="Department" value={employee.department.name} />
+            <ReadField label="Position" value={employee.position.name} />
             <ReadField label="Employment Type" value={employee.employmentType} />
             <ReadField label="Employment Status" value={employee.employmentStatus} />
             <ReadField label="Hire Date" value={formatDate(employee.hireDate)} />

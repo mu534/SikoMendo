@@ -16,7 +16,7 @@ type AssignedEmployee = {
   firstName: string;
   lastName: string;
   employeeId: string;
-  position: string | null;
+  position: { name: string };
   profileImageUrl: string | null;
 };
 
@@ -208,7 +208,7 @@ export default async function CooperativeDetailPage({
                     </p>
                     <p className="text-xs text-ink-900/50">
                       {employee.employeeId}
-                      {employee.position ? ` · ${employee.position}` : ""}
+                      {` · ${employee.position.name}`}
                     </p>
                   </div>
                 </Link>

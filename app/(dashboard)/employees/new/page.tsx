@@ -2,12 +2,16 @@ import { requirePermission } from "@/lib/session";
 import { createEmployee } from "@/features/employees/actions";
 import { EmployeeForm } from "@/features/employees/employee-form";
 import { generateNextEmployeeId, listLinkableUsers } from "@/features/employees/queries";
+import { listActiveDepartments } from "@/features/departments/queries";
+import { listActivePositions } from "@/features/positions/queries";
 
 export default async function NewEmployeePage() {
   await requirePermission("MANAGE_EMPLOYEES");
-  const [nextId, linkableUsers] = await Promise.all([
+  const [nextId, linkableUsers, departments, positions] = await Promise.all([
     generateNextEmployeeId(),
     listLinkableUsers(),
+    listActiveDepartments(),
+    listActivePositions(),
   ]);
 
   return (
@@ -18,7 +22,12 @@ export default async function NewEmployeePage() {
           Employee ID <span className="font-medium text-ink-900">{nextId}</span> will be assigned automatically on save.
         </p>
       </div>
-      <EmployeeForm action={createEmployee} linkableUsers={linkableUsers} />
+      <EmployeeForm
+        action={createEmployee}
+        linkableUsers={linkableUsers}
+        departments={departments}
+        positions={positions}
+      />
     </div>
   );
 }

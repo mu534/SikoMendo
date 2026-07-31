@@ -17,7 +17,8 @@ export default async function ImportEmployeesPage() {
         <p className="mt-1 text-sm text-ink-900/60">
           Upload a CSV file to create multiple employee records at once. Download the template below
           to see the exact columns expected — rows with errors are skipped and reported individually,
-          the rest still get created.
+          the rest still get created. The <code>department</code> and <code>position</code> columns must
+          match an existing active department/position name exactly (case-insensitive).
         </p>
       </div>
       <BulkImportForm />

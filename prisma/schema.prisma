@@ -32,6 +32,31 @@ enum Gender {
   FEMALE
 }
 
+enum EmploymentType {
+  PERMANENT
+  CONTRACT
+  TEMPORARY
+  PROBATION
+  INTERNSHIP
+}
+
+enum EducationLevel {
+  PRIMARY
+  SECONDARY
+  CERTIFICATE
+  DIPLOMA
+  BACHELOR
+  MASTER
+  PHD
+}
+
+enum MaritalStatus {
+  SINGLE
+  MARRIED
+  DIVORCED
+  WIDOWED
+}
+
 enum AttendanceStatus {
   PRESENT
   ABSENT
@@ -180,26 +205,28 @@ model Employee {
   gender           Gender?
   dateOfBirth      DateTime?
   address          String?
-  department       String?
-  position         String?
   hireDate         DateTime?
   employmentStatus EmploymentStatus @default(ACTIVE)
   profileImageUrl  String?
   profileImageKey  String?
 
   // Extended fields
-  maritalStatus                String?
-  employmentType               String?
+  maritalStatus                MaritalStatus?
+  employmentType                EmploymentType?
   emergencyContactName         String?
   emergencyContactPhone        String?
   emergencyContactRelationship String?
   emergencyContactAddress      String?
-  educationLevel               String?
+  educationLevel               EducationLevel?
   fieldOfStudy                 String?
   institutionName              String?
   graduationYear               String?
 
   // Relations
+  departmentId  String
+  department    Department   @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  positionId    String
+  position      Position     @relation(fields: [positionId], references: [id], onDelete: Restrict)
   userId        String?      @unique
   user          User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
   cooperativeId String?
@@ -215,9 +242,41 @@ model Employee {
 
   @@index([cooperativeId])
   @@index([employmentStatus])
-  @@index([department])
+  @@index([departmentId])
+  @@index([positionId])
   @@index([deletedAt])
   @@map("employee")
+}
+
+model Department {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  positions Position[]
+  employees Employee[]
+
+  @@map("department")
+}
+
+model Position {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  employees    Employee[]
+
+  @@unique([departmentId, name])
+  @@index([departmentId])
+  @@map("position")
 }
 
 model Cooperative {

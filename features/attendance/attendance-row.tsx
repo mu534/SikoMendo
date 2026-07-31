@@ -36,7 +36,7 @@ type EmployeeWithAttendance = {
   lastName: string;
   middleName: string | null;
   employeeId: string;
-  department: string | null;
+  department: { name: string };
   profileImageUrl: string | null;
   attendances: {
     status: string;
@@ -92,7 +92,7 @@ function EmployeeCell({ employee }: { employee: EmployeeWithAttendance }) {
         <p className="text-sm font-medium text-ink-900">{fullName}</p>
         <p className="text-xs text-ink-900/50">
           {employee.employeeId}
-          {employee.department ? ` · ${employee.department}` : ""}
+          {` · ${employee.department.name}`}
         </p>
       </div>
     </div>

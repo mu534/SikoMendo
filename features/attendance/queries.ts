@@ -16,6 +16,7 @@ export async function getDailyRegister({ date, status }: { date: string; status?
     },
     include: {
       attendances: { where: { date: dateValue } },
+      department: { select: { name: true } },
     },
     orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
   });

@@ -99,13 +99,12 @@ export async function getLeaveStatusBreakdown() {
 
 /** Active employee headcount grouped by department, for a bar chart. */
 export async function getEmployeesByDepartment() {
-  const counts = await prisma.employee.groupBy({
-    by: ["department"],
-    _count: true,
-    where: { deletedAt: null },
+  const departments = await prisma.department.findMany({
+    include: { _count: { select: { employees: { where: { deletedAt: null } } } } },
   });
 
-  return counts
-    .map((c) => ({ department: c.department ?? "Unassigned", count: c._count }))
+  return departments
+    .map((d) => ({ department: d.name, count: d._count.employees }))
+    .filter((entry) => entry.count > 0)
     .sort((a, b) => b.count - a.count);
 }

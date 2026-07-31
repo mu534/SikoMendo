@@ -28,8 +28,12 @@ type ReportContent = {
 async function buildEmployeeDirectoryContent(): Promise<ReportContent> {
   const employees = await prisma.employee.findMany({
     where: { deletedAt: null },
-    include: { cooperative: { select: { name: true } } },
-    orderBy: [{ department: "asc" }, { firstName: "asc" }],
+    include: {
+      cooperative: { select: { name: true } },
+      department: { select: { name: true } },
+      position: { select: { name: true } },
+    },
+    orderBy: [{ department: { name: "asc" } }, { firstName: "asc" }],
   });
 
   return {
@@ -38,8 +42,8 @@ async function buildEmployeeDirectoryContent(): Promise<ReportContent> {
     rows: employees.map((e) => [
       e.employeeId,
       `${e.firstName}${e.middleName ? ` ${e.middleName}` : ""} ${e.lastName}`,
-      e.department ?? "—",
-      e.position ?? "—",
+      e.department.name,
+      e.position.name,
       e.cooperative?.name ?? "—",
       e.employmentStatus.replace("_", " "),
       e.phone ?? "—",
@@ -96,10 +100,9 @@ async function buildCooperativeListingContent(): Promise<ReportContent> {
 }
 
 async function buildHeadcountContent(): Promise<ReportContent> {
-  const byDept = await prisma.employee.groupBy({
-    by: ["department"],
-    _count: true,
-    where: { deletedAt: null },
+  const departments = await prisma.department.findMany({
+    include: { _count: { select: { employees: { where: { deletedAt: null } } } } },
+    orderBy: { name: "asc" },
   });
   const [total, active] = await Promise.all([
     prisma.employee.count({ where: { deletedAt: null } }),
@@ -109,7 +112,7 @@ async function buildHeadcountContent(): Promise<ReportContent> {
   return {
     docTitle: "Headcount Report",
     headers: ["Department", "Employee Count"],
-    rows: byDept.map((d) => [d.department ?? "Unassigned", d._count]),
+    rows: departments.map((d) => [d.name, d._count.employees]),
     parameters: { total, active },
   };
 }
@@ -149,7 +152,7 @@ async function buildLeaveSummaryContent(filters: LeaveReportFilters = {}): Promi
   const leaves = await prisma.leaveRequest.findMany({
     where,
     include: {
-      employee: { select: { employeeId: true, firstName: true, lastName: true, department: true } },
+      employee: { select: { employeeId: true, firstName: true, lastName: true, department: { select: { name: true } } } },
       approver: { select: { name: true } },
     },
     orderBy: { appliedDate: "desc" },
@@ -172,7 +175,7 @@ async function buildLeaveSummaryContent(filters: LeaveReportFilters = {}): Promi
     rows: leaves.map((l) => [
       l.leaveId,
       `${l.employee.firstName} ${l.employee.lastName} (${l.employee.employeeId})`,
-      l.employee.department ?? "—",
+      l.employee.department.name,
       LEAVE_TYPE_LABELS[l.leaveType as LeaveTypeValue],
       l.startDate.toISOString().slice(0, 10),
       l.endDate.toISOString().slice(0, 10),

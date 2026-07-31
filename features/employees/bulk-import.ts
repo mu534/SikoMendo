@@ -67,7 +67,55 @@ export async function importEmployeeRows(
     const rowNumber = i + 2; // +1 for 0-index, +1 for the header row
     const displayName = `${row.firstName ?? ""} ${row.lastName ?? ""}`.trim() || `Row ${rowNumber}`;
 
-    const parsed = employeeSchema.safeParse({ ...row, cooperativeId: "", userId: "" });
+    // The CSV uses department/position names (user-friendly); resolve them to the
+    // IDs the schema actually expects. Case-insensitive, since spreadsheet entry
+    // is prone to casing slips.
+    const departmentName = row.department?.trim();
+    const positionName = row.position?.trim();
+
+    if (!departmentName) {
+      results.push({ row: rowNumber, status: "error", name: displayName, errors: ["department: Department is required"] });
+      continue;
+    }
+
+    const department = await prisma.department.findFirst({
+      where: { name: { equals: departmentName, mode: "insensitive" }, isActive: true },
+    });
+    if (!department) {
+      results.push({
+        row: rowNumber,
+        status: "error",
+        name: displayName,
+        errors: [`department: "${departmentName}" doesn't match any active department.`],
+      });
+      continue;
+    }
+
+    if (!positionName) {
+      results.push({ row: rowNumber, status: "error", name: displayName, errors: ["position: Position is required"] });
+      continue;
+    }
+
+    const position = await prisma.position.findFirst({
+      where: { name: { equals: positionName, mode: "insensitive" }, departmentId: department.id, isActive: true },
+    });
+    if (!position) {
+      results.push({
+        row: rowNumber,
+        status: "error",
+        name: displayName,
+        errors: [`position: "${positionName}" doesn't match any active position in ${department.name}.`],
+      });
+      continue;
+    }
+
+    const parsed = employeeSchema.safeParse({
+      ...row,
+      departmentId: department.id,
+      positionId: position.id,
+      cooperativeId: "",
+      userId: "",
+    });
     if (!parsed.success) {
       results.push({
         row: rowNumber,

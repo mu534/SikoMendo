@@ -48,7 +48,14 @@ export async function getCooperativeById(id: string) {
       employees: {
         where: { deletedAt: null },
         orderBy: { firstName: "asc" },
-        select: { id: true, firstName: true, lastName: true, employeeId: true, position: true, profileImageUrl: true },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          employeeId: true,
+          position: { select: { name: true } },
+          profileImageUrl: true,
+        },
       },
       _count: { select: { employees: true } },
     },

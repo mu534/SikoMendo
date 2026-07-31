@@ -3,6 +3,7 @@ import { UserPlus, Users as UsersIcon, ArchiveRestore, Upload } from "lucide-rea
 import { requirePermission } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { listEmployees } from "@/features/employees/queries";
+import { listActiveDepartments } from "@/features/departments/queries";
 import { archiveEmployee, restoreEmployee } from "@/features/employees/actions";
 import { parsePageParam, parseStringParam, formatDate } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
@@ -14,9 +15,8 @@ import { Toolbar } from "@/components/ui/toolbar";
 import { Table, THead, TH, TBody, TR, TD, EmptyRow } from "@/components/ui/table";
 import { Pagination } from "@/components/ui/pagination";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
-import type { Prisma } from "@prisma/client";
 
-type EmployeeRow = Prisma.EmployeeGetPayload<{ include: Record<never, never> }>;
+type EmployeeRow = Awaited<ReturnType<typeof listEmployees>>["items"][number];
 
 const STATUS_TONE = {
   ACTIVE: "success",
@@ -39,15 +39,14 @@ export default async function EmployeesPage({
   const params = await searchParams;
   const q = parseStringParam(params.q);
   const status = parseStringParam(params.status);
+  const departmentId = parseStringParam(params.department);
   const showArchived = parseStringParam(params.archived) === "1";
   const page = parsePageParam(params.page);
 
-  const { items, total, totalPages } = await listEmployees({
-    q,
-    status,
-    showArchived,
-    page,
-  });
+  const [{ items, total, totalPages }, departments] = await Promise.all([
+    listEmployees({ q, status, departmentId, showArchived, page }),
+    listActiveDepartments(),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -99,6 +98,14 @@ export default async function EmployeesPage({
             <option value="TERMINATED">Terminated</option>
             <option value="INACTIVE">Inactive</option>
           </Select>
+          <Select name="department" defaultValue={departmentId} className="w-48">
+            <option value="">All departments</option>
+            {departments.map((dept) => (
+              <option key={dept.id} value={dept.id}>
+                {dept.name}
+              </option>
+            ))}
+          </Select>
           {showArchived && <input type="hidden" name="archived" value="1" />}
         </Toolbar>
 
@@ -141,8 +148,8 @@ export default async function EmployeesPage({
                   </Link>
                 </TD>
                 <TD>
-                  <p className="text-ink-900/80">{employee.position ?? "—"}</p>
-                  <p className="text-xs text-ink-900/50">{employee.department ?? "—"}</p>
+                  <p className="text-ink-900/80">{employee.position.name}</p>
+                  <p className="text-xs text-ink-900/50">{employee.department.name}</p>
                 </TD>
                 <TD>{employee.employmentType ?? "—"}</TD>
                 <TD>
@@ -203,7 +210,7 @@ export default async function EmployeesPage({
 
         <Pagination
           basePath="/employees"
-          params={{ q, status, archived: showArchived ? "1" : undefined }}
+          params={{ q, status, department: departmentId, archived: showArchived ? "1" : undefined }}
           page={page}
           totalPages={totalPages}
           totalItems={total}

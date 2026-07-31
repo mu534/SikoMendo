@@ -30,8 +30,8 @@ export type EmployeeFormValues = {
   emergencyContactPhone?: string | null;
   emergencyContactRelationship?: string | null;
   emergencyContactAddress?: string | null;
-  department?: string | null;
-  position?: string | null;
+  departmentId?: string | null;
+  positionId?: string | null;
   employmentType?: string | null;
   hireDate?: string | null;
   employmentStatus: EmploymentStatus;
@@ -42,6 +42,9 @@ export type EmployeeFormValues = {
   profileImageUrl?: string | null;
   userId?: string | null;
 };
+
+export type DepartmentOption = { id: string; name: string };
+export type PositionOption = { id: string; name: string; departmentId: string };
 
 export type LinkableUser = {
   id: string;
@@ -104,14 +107,26 @@ export function EmployeeForm({
   action,
   employee,
   linkableUsers = [],
+  departments,
+  positions,
 }: {
   action: (prevState: unknown, formData: FormData) => Promise<unknown>;
   employee?: EmployeeFormValues;
   linkableUsers?: LinkableUser[];
+  departments: DepartmentOption[];
+  positions: PositionOption[];
 }) {
   const router = useRouter();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [state, formAction, isPending] = useActionState(action as any, null);
+
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState(employee?.departmentId ?? "");
+  const positionsInDepartment = positions.filter((p) => p.departmentId === selectedDepartmentId);
+  // Only pre-fill the position if it actually belongs to the currently selected department.
+  const initialPositionId =
+    employee?.positionId && positionsInDepartment.some((p) => p.id === employee.positionId)
+      ? employee.positionId
+      : "";
 
   // On create: redirect to new employee's page
   useEffect(() => {
@@ -211,10 +226,10 @@ export function EmployeeForm({
                 <Label htmlFor="maritalStatus">Marital Status</Label>
                 <Select id="maritalStatus" name="maritalStatus" defaultValue={employee?.maritalStatus ?? ""}>
                   <option value="">Not specified</option>
-                  <option value="Single">Single</option>
-                  <option value="Married">Married</option>
-                  <option value="Divorced">Divorced</option>
-                  <option value="Widowed">Widowed</option>
+                  <option value="SINGLE">Single</option>
+                  <option value="MARRIED">Married</option>
+                  <option value="DIVORCED">Divorced</option>
+                  <option value="WIDOWED">Widowed</option>
                 </Select>
               </FieldGroup>
 
@@ -264,39 +279,55 @@ export function EmployeeForm({
           <SectionHeader icon={Briefcase} title="Employment Information" />
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <FieldGroup>
-              <Label htmlFor="department">Department</Label>
-              <Select id="department" name="department" defaultValue={employee?.department ?? ""}>
-                <option value="">Select department…</option>
-                <option value="Administration">Administration</option>
-                <option value="Finance & Accounting">Finance &amp; Accounting</option>
-                <option value="Human Resources">Human Resources</option>
-                <option value="Information Technology">Information Technology</option>
-                <option value="Cooperative Operations">Cooperative Operations</option>
-                <option value="Field Extension">Field Extension</option>
-                <option value="Marketing & Sales">Marketing &amp; Sales</option>
-                <option value="Procurement & Logistics">Procurement &amp; Logistics</option>
-                <option value="Audit & Compliance">Audit &amp; Compliance</option>
-                <option value="Planning & Development">Planning &amp; Development</option>
-                <option value="Legal">Legal</option>
-                <option value="Training & Capacity Building">Training &amp; Capacity Building</option>
-                <option value="Other">Other</option>
+              <Label htmlFor="departmentId">Department<RequiredMark /></Label>
+              <Select
+                id="departmentId"
+                name="departmentId"
+                required
+                value={selectedDepartmentId}
+                onChange={(e) => setSelectedDepartmentId(e.target.value)}
+              >
+                <option value="" disabled>
+                  Select department…
+                </option>
+                {departments.map((dept) => (
+                  <option key={dept.id} value={dept.id}>
+                    {dept.name}
+                  </option>
+                ))}
               </Select>
             </FieldGroup>
 
             <FieldGroup>
-              <Label htmlFor="position">Position / Job Title</Label>
-              <Input id="position" name="position" defaultValue={employee?.position ?? ""} />
+              <Label htmlFor="positionId">Position / Job Title<RequiredMark /></Label>
+              <Select
+                id="positionId"
+                name="positionId"
+                required
+                key={selectedDepartmentId}
+                defaultValue={initialPositionId}
+                disabled={!selectedDepartmentId}
+              >
+                <option value="" disabled>
+                  {selectedDepartmentId ? "Select position…" : "Select a department first"}
+                </option>
+                {positionsInDepartment.map((position) => (
+                  <option key={position.id} value={position.id}>
+                    {position.name}
+                  </option>
+                ))}
+              </Select>
             </FieldGroup>
 
             <FieldGroup>
               <Label htmlFor="employmentType">Employment Type</Label>
               <Select id="employmentType" name="employmentType" defaultValue={employee?.employmentType ?? ""}>
                 <option value="">Not specified</option>
-                <option value="Permanent">Permanent</option>
-                <option value="Contract">Contract</option>
-                <option value="Temporary">Temporary</option>
-                <option value="Part-Time">Part-Time</option>
-                <option value="Casual">Casual</option>
+                <option value="PERMANENT">Permanent</option>
+                <option value="CONTRACT">Contract</option>
+                <option value="TEMPORARY">Temporary</option>
+                <option value="PROBATION">Probation</option>
+                <option value="INTERNSHIP">Internship</option>
               </Select>
             </FieldGroup>
 
@@ -328,13 +359,13 @@ export function EmployeeForm({
               <Label htmlFor="educationLevel">Education Level</Label>
               <Select id="educationLevel" name="educationLevel" defaultValue={employee?.educationLevel ?? ""}>
                 <option value="">Not specified</option>
-                <option value="Primary">Primary</option>
-                <option value="Secondary">Secondary</option>
-                <option value="Diploma">Diploma</option>
-                <option value="Bachelor">Bachelor&apos;s Degree</option>
-                <option value="Master">Master&apos;s Degree</option>
-                <option value="PhD">PhD</option>
-                <option value="Other">Other</option>
+                <option value="PRIMARY">Primary</option>
+                <option value="SECONDARY">Secondary</option>
+                <option value="CERTIFICATE">Certificate</option>
+                <option value="DIPLOMA">Diploma</option>
+                <option value="BACHELOR">Bachelor&apos;s Degree</option>
+                <option value="MASTER">Master&apos;s Degree</option>
+                <option value="PHD">PhD</option>
               </Select>
             </FieldGroup>
             <FieldGroup>
