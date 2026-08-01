@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "@/lib/session";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
 import { uploadToCloudinary } from "@/lib/cloudinary";
+import { createNotification } from "@/lib/notifications";
 import {
   leaveRequestSchema,
   leaveRequestFormDataToObject,
@@ -221,6 +222,28 @@ export async function decideLeaveRequest(
       { decision: parsed.data.decision, rejectionReason: parsed.data.rejectionReason ?? null },
       session!.user.id
     );
+
+    const employee = await prisma.employee.findUnique({
+      where: { id: existing.employeeId },
+      select: { userId: true },
+    });
+    if (employee?.userId) {
+      if (parsed.data.decision === "APPROVED") {
+        await createNotification(
+          employee.userId,
+          "LEAVE_APPROVED",
+          "Leave request approved",
+          `Your ${existing.leaveId} leave request has been approved.`
+        );
+      } else {
+        await createNotification(
+          employee.userId,
+          "LEAVE_REJECTED",
+          "Leave request rejected",
+          `Your ${existing.leaveId} leave request was rejected${parsed.data.rejectionReason ? `: ${parsed.data.rejectionReason}` : "."}`
+        );
+      }
+    }
 
     revalidatePath("/leave");
     revalidatePath(`/leave/${id}`);

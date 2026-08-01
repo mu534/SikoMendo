@@ -10,6 +10,8 @@ import { uploadToCloudinary, deleteFromCloudinary } from "@/lib/cloudinary";
 import { employeeSchema, employeeFormDataToObject } from "./schemas";
 import { generateNextEmployeeId } from "./queries";
 import { parseEmployeeCsv, importEmployeeRows, type ImportRowResult } from "./bulk-import";
+import { usernameFromEmployeeId, generateTempPassword } from "@/lib/credentials";
+import { createNotification } from "@/lib/notifications";
 
 /** Employment statuses that mean someone is no longer actively working here. */
 const INACTIVE_STATUSES = new Set(["RESIGNED", "RETIRED", "TERMINATED", "SUSPENDED", "INACTIVE"]);
@@ -58,7 +60,7 @@ function getPhotoFile(formData: FormData): File | null {
 export async function createEmployee(
   _prevState: unknown,
   formData: FormData
-): Promise<ActionResult<{ id: string }>> {
+): Promise<ActionResult<{ id: string; credentials?: { username: string; password: string } }>> {
   const session = await getServerSession();
 
   return withPermission(session, "MANAGE_EMPLOYEES", async () => {
@@ -106,8 +108,50 @@ export async function createEmployee(
       session?.user.id
     );
 
+    // Auto-provision a login account, unless HR/Admin explicitly opted out on the form.
+    const shouldCreateLogin = formData.get("createLogin") === "on" && !parsed.data.userId;
+    let credentials: { username: string; password: string } | undefined;
+
+    if (shouldCreateLogin) {
+      const username = usernameFromEmployeeId(employeeId);
+      const password = generateTempPassword();
+      const internalEmail = `${username}@internal.sikomendo.local`;
+
+      const { user } = await auth.api.createUser({
+        headers: await headers(),
+        body: {
+          name: `${employee.firstName} ${employee.lastName}`,
+          email: internalEmail,
+          password,
+        },
+      });
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          username,
+          displayUsername: username,
+          role: "EMPLOYEE",
+          mustChangePassword: true,
+        },
+      });
+
+      await prisma.employee.update({ where: { id: employee.id }, data: { userId: user.id } });
+
+      await logAudit("CREATE", user.id, { username, source: "employee_auto_provision" }, session?.user.id);
+
+      await createNotification(
+        user.id,
+        "ACCOUNT_CREATED",
+        "Welcome to Siko Mendo HRMIS",
+        `Your account has been created. Sign in with username "${username}" and the temporary password provided by HR — you'll be asked to set a new password on first login.`
+      );
+
+      credentials = { username, password };
+    }
+
     revalidatePath("/employees");
-    return { id: employee.id };
+    return { id: employee.id, credentials };
   });
 }
 

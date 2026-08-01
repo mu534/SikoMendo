@@ -6,8 +6,9 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { getServerSession } from "@/lib/session";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
-import { generateUsernameFromName, generateSecurePassword } from "@/lib/username-utils";
 import { createUserSchema, updateUserSchema } from "./schemas";
+import { generateTempPassword } from "@/lib/credentials";
+import { createNotification } from "@/lib/notifications";
 
 async function logAudit(action: string, entityId: string, changes: unknown, userId?: string) {
   await prisma.auditLog.create({
@@ -78,28 +79,6 @@ export async function createUserAccount(
     );
     revalidatePath("/users");
     return { id: user.id };
-  });
-}
-
-export async function generateUserCredentials(
-  name: string
-): Promise<ActionResult<{ username: string; password: string }>> {
-  const session = await getServerSession();
-
-  return withPermission(session, "MANAGE_USERS", async () => {
-    const trimmed = name.trim();
-    if (trimmed.length < 2) {
-      throw new Error("Enter the full name first so a username can be generated from it.");
-    }
-
-    const parts = trimmed.split(/\s+/);
-    const firstName = parts[0];
-    const lastName = parts.length > 1 ? parts.slice(1).join(" ") : parts[0];
-
-    const username = await generateUsernameFromName(firstName, lastName);
-    const password = generateSecurePassword();
-
-    return { username, password };
   });
 }
 
@@ -192,6 +171,51 @@ export async function deleteUserAccount(userId: string): Promise<ActionResult<{ 
 
     await logAudit("DELETE", userId, {}, session?.user.id);
     revalidatePath("/users");
+    return { id: userId };
+  });
+}
+
+/**
+ * Admin-initiated password reset: generates a brand-new temporary password and
+ * forces the user to set their own on next sign-in. The password is returned
+ * once in the action result and never persisted anywhere in plaintext.
+ */
+export async function resetUserPassword(userId: string): Promise<ActionResult<{ password: string }>> {
+  const session = await getServerSession();
+
+  return withPermission(session, "MANAGE_USERS", async () => {
+    if (session?.user.id === userId) {
+      throw new Error("Use Change Password on your own profile instead.");
+    }
+
+    const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+    if (!targetUser) throw new Error("User not found.");
+
+    const newPassword = generateTempPassword();
+    await auth.api.setUserPassword({ headers: await headers(), body: { userId, newPassword } });
+    await prisma.user.update({ where: { id: userId }, data: { mustChangePassword: true } });
+
+    await logAudit("PASSWORD_RESET", userId, {}, session?.user.id);
+    await createNotification(
+      userId,
+      "PASSWORD_RESET",
+      "Your password was reset",
+      "An administrator reset your password. You'll be asked to set a new one the next time you sign in."
+    );
+
+    revalidatePath(`/users/${userId}`);
+    return { password: newPassword };
+  });
+}
+
+/** Forces a user to set a new password on their next sign-in, without changing their current one. */
+export async function forcePasswordChangeForUser(userId: string): Promise<ActionResult<{ id: string }>> {
+  const session = await getServerSession();
+
+  return withPermission(session, "MANAGE_USERS", async () => {
+    await prisma.user.update({ where: { id: userId }, data: { mustChangePassword: true } });
+    await logAudit("FORCE_PASSWORD_CHANGE", userId, {}, session?.user.id);
+    revalidatePath(`/users/${userId}`);
     return { id: userId };
   });
 }

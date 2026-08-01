@@ -7,6 +7,7 @@ import { Input, Label, Select, Textarea, FieldGroup } from "@/components/ui/fiel
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PhotoInput } from "./photo-input";
+import { CredentialsReveal } from "./credentials-reveal";
 
 export const EMPLOYEE_FORM_ID = "employee-form";
 
@@ -128,12 +129,19 @@ export function EmployeeForm({
       ? employee.positionId
       : "";
 
-  // On create: redirect to new employee's page
+  // On create: redirect to the new employee's page — unless credentials were
+  // generated, in which case we show them once first (see CredentialsReveal below).
+  const createdData =
+    state && (state as { success: boolean; data?: { id: string; credentials?: { username: string; password: string } } }).success && !employee
+      ? (state as { data: { id: string; credentials?: { username: string; password: string } } }).data
+      : null;
+
   useEffect(() => {
-    if (state && (state as { success: boolean; data?: { id: string } }).success && !employee) {
-      router.push(`/employees/${(state as { data: { id: string } }).data.id}`);
+    if (createdData && !createdData.credentials) {
+      router.push(`/employees/${createdData.id}`);
     }
-  }, [state, router, employee]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createdData]);
 
   // On update: show success toast
   const [showToast, setShowToast] = useState(false);
@@ -151,6 +159,16 @@ export function EmployeeForm({
       : null;
 
   const isEdit = !!employee;
+
+  if (createdData?.credentials) {
+    return (
+      <CredentialsReveal
+        employeeId={createdData.id}
+        username={createdData.credentials.username}
+        password={createdData.credentials.password}
+      />
+    );
+  }
 
   return (
     <div className="max-w-3xl space-y-5">
@@ -386,23 +404,44 @@ export function EmployeeForm({
         {/* ── Section 5: System Access ─────────────────────────────────── */}
         <Card className="p-6">
           <SectionHeader icon={User} title="System Access" />
-          <p className="mb-4 text-sm text-ink-900/60">
-            Link this employee record to a user account so they can sign in and see their own
-            attendance on the dashboard. Only accounts without an existing employee record (or
-            the one already linked here) are shown.
-          </p>
-          <FieldGroup>
-            <Label htmlFor="userId">Linked User Account</Label>
-            <Select id="userId" name="userId" defaultValue={employee?.userId ?? ""}>
-              <option value="">No linked account</option>
-              {linkableUsers.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name}
-                  {u.username ? ` (@${u.username})` : ""}
-                </option>
-              ))}
-            </Select>
-          </FieldGroup>
+          {isEdit ? (
+            <>
+              <p className="mb-4 text-sm text-ink-900/60">
+                Link this employee record to a user account so they can sign in and use the employee
+                portal. Only accounts without an existing employee record (or the one already linked
+                here) are shown.
+              </p>
+              <FieldGroup>
+                <Label htmlFor="userId">Linked User Account</Label>
+                <Select id="userId" name="userId" defaultValue={employee?.userId ?? ""}>
+                  <option value="">No linked account</option>
+                  {linkableUsers.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name}
+                      {u.username ? ` (@${u.username})` : ""}
+                    </option>
+                  ))}
+                </Select>
+              </FieldGroup>
+            </>
+          ) : (
+            <label className="flex items-start gap-2.5 text-sm text-ink-900">
+              <input
+                type="checkbox"
+                name="createLogin"
+                defaultChecked
+                className="mt-0.5 h-4 w-4 rounded border-ink-900/25"
+              />
+              <span>
+                Create a login account for this employee
+                <span className="mt-0.5 block text-xs font-normal text-ink-900/50">
+                  A username and temporary password will be generated automatically, shown once after
+                  saving. The employee will be required to set a new password on first login. Uncheck
+                  this if the employee doesn&apos;t need portal access (e.g. seasonal staff).
+                </span>
+              </span>
+            </label>
+          )}
         </Card>
 
       </form>

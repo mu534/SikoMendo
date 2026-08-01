@@ -2,22 +2,36 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Menu, LogOut, ChevronDown } from "lucide-react";
+import { Menu, LogOut, ChevronDown, Bell } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { roleLabel } from "@/lib/permissions";
+import { markNotificationRead, markAllNotificationsRead } from "@/features/notifications/actions";
+import { formatDateTime } from "@/lib/utils";
+
+type NotificationItem = {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  createdAt: Date;
+};
 
 export function Header({
   pageTitle,
   user,
+  notifications,
   onMenuClick,
 }: {
   pageTitle: string;
   user: { name: string; email: string; role: string; image?: string | null };
+  notifications: { items: NotificationItem[]; unreadCount: number };
   onMenuClick: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -25,6 +39,22 @@ export function Header({
     startTransition(async () => {
       await authClient.signOut();
       router.push("/sign-in");
+      router.refresh();
+    });
+  }
+
+  function handleNotificationClick(notification: NotificationItem) {
+    if (!notification.isRead) {
+      startTransition(async () => {
+        await markNotificationRead(notification.id);
+        router.refresh();
+      });
+    }
+  }
+
+  function handleMarkAllRead() {
+    startTransition(async () => {
+      await markAllNotificationsRead();
       router.refresh();
     });
   }
@@ -42,7 +72,60 @@ export function Header({
         <h1 className="font-display text-lg font-semibold text-ink-900">{pageTitle}</h1>
       </div>
 
-      <div className="relative">
+      <div className="flex items-center gap-1.5">
+        <div className="relative">
+          <button
+            onClick={() => setNotifOpen((open) => !open)}
+            className="relative rounded-lg p-2 text-ink-900/60 hover:bg-sand-100"
+            aria-label="Notifications"
+          >
+            <Bell className="h-5 w-5" />
+            {notifications.unreadCount > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-semibold text-white">
+                {notifications.unreadCount > 9 ? "9+" : notifications.unreadCount}
+              </span>
+            )}
+          </button>
+
+          {notifOpen && (
+            <>
+              <button aria-label="Close notifications" className="fixed inset-0 z-10" onClick={() => setNotifOpen(false)} />
+              <div className="absolute right-0 z-20 mt-2 w-80 rounded-xl border border-ink-900/8 bg-white py-2 shadow-lg shadow-ink-900/5">
+                <div className="flex items-center justify-between border-b border-ink-900/8 px-3.5 pb-2.5">
+                  <p className="text-sm font-medium text-ink-900">Notifications</p>
+                  {notifications.unreadCount > 0 && (
+                    <button
+                      onClick={handleMarkAllRead}
+                      disabled={isPending}
+                      className="text-xs font-medium text-brand-700 hover:underline"
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                </div>
+                <div className="max-h-80 overflow-y-auto">
+                  {notifications.items.length === 0 ? (
+                    <p className="px-3.5 py-6 text-center text-sm text-ink-900/40">No notifications yet.</p>
+                  ) : (
+                    notifications.items.map((n) => (
+                      <button
+                        key={n.id}
+                        onClick={() => handleNotificationClick(n)}
+                        className={`block w-full px-3.5 py-2.5 text-left hover:bg-sand-100 ${n.isRead ? "" : "bg-brand-50/50"}`}
+                      >
+                        <p className="text-sm font-medium text-ink-900">{n.title}</p>
+                        <p className="mt-0.5 text-xs text-ink-900/60">{n.message}</p>
+                        <p className="mt-1 text-[11px] text-ink-900/35">{formatDateTime(n.createdAt)}</p>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="relative">
         <button
           onClick={() => setMenuOpen((open) => !open)}
           className="flex items-center gap-2.5 rounded-lg py-1.5 pl-1.5 pr-2.5 hover:bg-sand-100"
@@ -84,6 +167,7 @@ export function Header({
             </div>
           </>
         )}
+      </div>
       </div>
     </header>
   );

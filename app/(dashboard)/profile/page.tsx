@@ -1,11 +1,12 @@
-import { UserCircle, KeyRound, ShieldCheck } from "lucide-react";
+import { UserCircle, KeyRound, ShieldCheck, Briefcase } from "lucide-react";
 import { requireSession } from "@/lib/session";
 import { roleLabel } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
+import { formatDate } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { UpdateProfileForm, ChangePasswordForm } from "@/features/profile/profile-forms";
+import { UpdateProfileForm, ChangePasswordForm, EmployeeContactForm } from "@/features/profile/profile-forms";
 
 function SectionHeader({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
   return (
@@ -25,6 +26,14 @@ export default async function ProfilePage() {
   const nameFields = await prisma.user.findUnique({
     where: { id: user.id },
     select: { firstName: true, middleName: true, lastName: true },
+  });
+
+  const employee = await prisma.employee.findUnique({
+    where: { userId: user.id },
+    include: {
+      department: { select: { name: true } },
+      position: { select: { name: true } },
+    },
   });
 
   return (
@@ -93,9 +102,75 @@ export default async function ProfilePage() {
               firstName={nameFields?.firstName}
               middleName={nameFields?.middleName}
               lastName={nameFields?.lastName}
-              image={user.image}
             />
           </Card>
+
+          {/* Employment details (read-only) + contact info (editable) — only if linked to an employee record */}
+          {employee ? (
+            <>
+              <Card className="p-6">
+                <SectionHeader icon={Briefcase} title="Employment Details" />
+                <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-ink-900/45">Employee ID</dt>
+                    <dd className="mt-1 text-sm text-ink-900/80">{employee.employeeId}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-ink-900/45">Department</dt>
+                    <dd className="mt-1 text-sm text-ink-900/80">{employee.department.name}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-ink-900/45">Position</dt>
+                    <dd className="mt-1 text-sm text-ink-900/80">{employee.position.name}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-ink-900/45">Employment Type</dt>
+                    <dd className="mt-1 text-sm text-ink-900/80">{employee.employmentType ?? "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-ink-900/45">Employment Status</dt>
+                    <dd className="mt-1">
+                      <Badge tone={employee.employmentStatus === "ACTIVE" ? "success" : "neutral"}>
+                        {employee.employmentStatus.replace("_", " ")}
+                      </Badge>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-ink-900/45">Date Hired</dt>
+                    <dd className="mt-1 text-sm text-ink-900/80">
+                      {employee.hireDate ? formatDate(employee.hireDate) : "—"}
+                    </dd>
+                  </div>
+                </dl>
+              </Card>
+
+              <Card className="p-6">
+                <SectionHeader icon={UserCircle} title="Contact Information" />
+                <p className="mb-4 text-sm text-ink-900/60">
+                  Keep your contact details and emergency contact up to date.
+                </p>
+                <EmployeeContactForm
+                  name={user.name}
+                  image={employee.profileImageUrl}
+                  phone={employee.phone}
+                  email={employee.email}
+                  address={employee.address}
+                  emergencyContactName={employee.emergencyContactName}
+                  emergencyContactPhone={employee.emergencyContactPhone}
+                  emergencyContactRelationship={employee.emergencyContactRelationship}
+                  emergencyContactAddress={employee.emergencyContactAddress}
+                />
+              </Card>
+            </>
+          ) : (
+            <Card className="p-6">
+              <SectionHeader icon={Briefcase} title="Employment Details" />
+              <p className="text-sm text-ink-900/60">
+                No employee record is linked to your account yet. Ask HR to link one to see your
+                employment details and manage your contact information here.
+              </p>
+            </Card>
+          )}
 
           {/* Change password */}
           <Card className="p-6">

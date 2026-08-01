@@ -7,9 +7,10 @@ import { Card } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { EditUserForm } from "./EditUserForm";
+import { AccountSecurityPanel } from "@/features/users/account-security-panel";
 
 export default async function EditUserPage({ params }: { params: Promise<{ id: string }> }) {
-  await requirePermission("MANAGE_USERS");
+  const session = await requirePermission("MANAGE_USERS");
   const { id } = await params;
 
   const user = await getUserById(id);
@@ -24,6 +25,7 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
           <div className="mt-1 flex items-center gap-2">
             <Badge tone="brand">{roleLabel(user.role)}</Badge>
             {user.banned ? <Badge tone="danger">Banned</Badge> : <Badge tone="success">Active</Badge>}
+            {user.mustChangePassword && <Badge tone="warning">Must change password</Badge>}
             <span className="text-xs text-ink-900/50">Joined {formatDate(user.createdAt)}</span>
           </div>
           {user.username && (
@@ -37,6 +39,10 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
           user={{ id: user.id, name: user.name, username: user.username, role: user.role }}
         />
       </Card>
+
+      {user.id !== session.user.id && (
+        <AccountSecurityPanel userId={user.id} mustChangePassword={user.mustChangePassword} />
+      )}
     </div>
   );
 }

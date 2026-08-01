@@ -7,6 +7,7 @@ import {
   CalendarCheck,
   CalendarOff,
   FileBarChart,
+  FileText,
   ShieldCheck,
   UserCircle,
 } from "lucide-react";
@@ -26,8 +27,9 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/employees", label: "Employees", icon: Users, requires: "VIEW_EMPLOYEES" },
   { href: "/departments", label: "Departments", icon: Layers, requires: "VIEW_DEPARTMENTS" },
   { href: "/cooperatives", label: "Cooperatives", icon: Building2, requires: "VIEW_COOPERATIVES" },
-  { href: "/attendance", label: "Attendance", icon: CalendarCheck, requires: "VIEW_ATTENDANCE" },
+  { href: "/attendance", label: "Attendance", icon: CalendarCheck },
   { href: "/leave", label: "Leave", icon: CalendarOff },
+  { href: "/my-documents", label: "My Documents", icon: FileText },
   { href: "/reports", label: "Reports", icon: FileBarChart, requires: "VIEW_REPORTS" },
   { href: "/audit-log", label: "Audit Log", icon: ShieldCheck, requires: "VIEW_AUDIT_LOG" },
   { href: "/profile", label: "My Profile", icon: UserCircle },

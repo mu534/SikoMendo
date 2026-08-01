@@ -1,14 +1,22 @@
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
-import { requirePermission } from "@/lib/session";
-import { can } from "@/lib/permissions";
-import { getDailyRegister } from "@/features/attendance/queries";
+import { ChevronLeft, ChevronRight, CalendarDays, CalendarCheck, Clock, CalendarX, TrendingUp } from "lucide-react";
+import { requireSession } from "@/lib/session";
+import { can, type Role } from "@/lib/permissions";
+import prisma from "@/lib/prisma";
+import {
+  getDailyRegister,
+  getMyAttendanceHistory,
+  getMyAttendanceStats,
+} from "@/features/attendance/queries";
 import { AttendanceRow } from "@/features/attendance/attendance-row";
 import { MarkAllPresentButton } from "@/features/attendance/mark-all-present-button";
-import { parseStringParam } from "@/lib/utils";
+import { parseStringParam, parsePageParam, formatDate } from "@/lib/utils";
 import { Card, StatCard } from "@/components/ui/card";
 import { Input, Select } from "@/components/ui/field";
+import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Table, THead, TH, TBody, TR, TD, EmptyRow } from "@/components/ui/table";
+import { Pagination } from "@/components/ui/pagination";
 
 type EmployeeRow = Awaited<ReturnType<typeof getDailyRegister>>["employees"][number];
 
@@ -18,15 +26,41 @@ function shiftDate(date: string, days: number) {
   return d.toISOString().slice(0, 10);
 }
 
+const STATUS_TONE: Record<string, "success" | "warning" | "neutral" | "danger" | "brand"> = {
+  PRESENT: "success",
+  LATE: "warning",
+  HALF_DAY: "warning",
+  EXCUSED: "neutral",
+  ON_LEAVE: "brand",
+  ABSENT: "danger",
+};
+
 export default async function AttendancePage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const session = await requirePermission("VIEW_ATTENDANCE");
-  const canManage = can(session.user.role, "MANAGE_ATTENDANCE");
-
+  const session = await requireSession();
   const params = await searchParams;
+
+  if (can(session.user.role, "VIEW_ATTENDANCE")) {
+    return <AdminAttendanceRegister role={session.user.role} params={params} />;
+  }
+
+  return <MyAttendance userId={session.user.id} params={params} />;
+}
+
+// ── Manager / Admin: daily register for everyone ────────────────────────────
+
+async function AdminAttendanceRegister({
+  role,
+  params,
+}: {
+  role: Role;
+  params: Record<string, string | string[] | undefined>;
+}) {
+  const canManage = can(role, "MANAGE_ATTENDANCE");
+
   const today = new Date().toISOString().slice(0, 10);
   const date = parseStringParam(params.date) || today;
   const status = parseStringParam(params.status);
@@ -146,6 +180,130 @@ export default async function AttendancePage({
           </div>
         )}
       </Card>
+    </div>
+  );
+}
+
+// ── Employee: My Attendance ──────────────────────────────────────────────────
+
+async function MyAttendance({
+  userId,
+  params,
+}: {
+  userId: string;
+  params: Record<string, string | string[] | undefined>;
+}) {
+  const employee = await prisma.employee.findUnique({ where: { userId } });
+
+  const startDate = parseStringParam(params.start);
+  const endDate = parseStringParam(params.end);
+  const status = parseStringParam(params.status);
+  const page = parsePageParam(params.page);
+
+  const [{ items, total, totalPages }, stats] = employee
+    ? await Promise.all([
+        getMyAttendanceHistory({ employeeId: employee.id, startDate, endDate, status, page }),
+        getMyAttendanceStats(employee.id),
+      ])
+    : [{ items: [], total: 0, totalPages: 1 }, null];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="font-display text-xl font-semibold text-ink-900">My Attendance</h2>
+        <p className="mt-1 text-sm text-ink-900/60">View your attendance history and statistics.</p>
+      </div>
+
+      {!employee ? (
+        <Card>
+          <EmptyState
+            icon={<CalendarDays className="h-8 w-8" />}
+            title="No employee record linked yet"
+            description="Ask your HR Officer to link your account to your employee record to see attendance here."
+          />
+        </Card>
+      ) : (
+        <>
+          {stats && (
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <StatCard label="Working days" value={stats.totalWorkingDays} icon={<CalendarCheck className="h-5 w-5" />} />
+              <StatCard label="Late arrivals" value={stats.lateArrivals} icon={<Clock className="h-5 w-5" />} />
+              <StatCard label="Absences" value={stats.absences} icon={<CalendarX className="h-5 w-5" />} />
+              <StatCard
+                label="Attendance rate"
+                value={stats.attendanceRate !== null ? `${stats.attendanceRate}%` : "—"}
+                icon={<TrendingUp className="h-5 w-5" />}
+              />
+            </div>
+          )}
+
+          <Card>
+            <form action="/attendance" method="get" className="flex flex-wrap items-end gap-3 border-b border-ink-900/8 px-6 py-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-ink-900">From</label>
+                <Input type="date" name="start" defaultValue={startDate} className="w-44" />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-ink-900">To</label>
+                <Input type="date" name="end" defaultValue={endDate} className="w-44" />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-ink-900">Status</label>
+                <Select name="status" defaultValue={status} className="w-40">
+                  <option value="">All statuses</option>
+                  <option value="PRESENT">Present</option>
+                  <option value="LATE">Late</option>
+                  <option value="HALF_DAY">Half day</option>
+                  <option value="EXCUSED">Excused</option>
+                  <option value="ON_LEAVE">On leave</option>
+                  <option value="ABSENT">Absent</option>
+                </Select>
+              </div>
+              <button type="submit" className="text-sm font-medium text-brand-700 hover:underline">
+                Apply
+              </button>
+            </form>
+
+            <Table>
+              <THead>
+                <TH>Date</TH>
+                <TH>Status</TH>
+                <TH>Check In</TH>
+                <TH>Check Out</TH>
+                <TH>Notes</TH>
+              </THead>
+              <TBody>
+                {items.length === 0 && (
+                  <EmptyRow colSpan={5}>
+                    <CalendarDays className="mx-auto mb-2 h-8 w-8 text-ink-900/20" />
+                    No attendance records match your filters.
+                  </EmptyRow>
+                )}
+                {items.map((record) => (
+                  <TR key={record.id}>
+                    <TD>{formatDate(record.date)}</TD>
+                    <TD>
+                      <Badge tone={STATUS_TONE[record.status] ?? "neutral"}>{record.status.replace("_", " ")}</Badge>
+                    </TD>
+                    <TD>{record.checkIn ? new Date(record.checkIn).toISOString().slice(11, 16) : "—"}</TD>
+                    <TD>{record.checkOut ? new Date(record.checkOut).toISOString().slice(11, 16) : "—"}</TD>
+                    <TD>{record.notes ?? "—"}</TD>
+                  </TR>
+                ))}
+              </TBody>
+            </Table>
+
+            <Pagination
+              basePath="/attendance"
+              params={{ start: startDate, end: endDate, status }}
+              page={page}
+              totalPages={totalPages}
+              totalItems={total}
+              pageSize={15}
+            />
+          </Card>
+        </>
+      )}
     </div>
   );
 }
