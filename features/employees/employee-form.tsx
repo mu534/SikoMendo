@@ -7,7 +7,6 @@ import { Input, Label, Select, Textarea, FieldGroup } from "@/components/ui/fiel
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PhotoInput } from "./photo-input";
-import { CredentialsReveal } from "./credentials-reveal";
 
 export const EMPLOYEE_FORM_ID = "employee-form";
 
@@ -31,8 +30,8 @@ export type EmployeeFormValues = {
   emergencyContactPhone?: string | null;
   emergencyContactRelationship?: string | null;
   emergencyContactAddress?: string | null;
-  departmentId?: string | null;
-  positionId?: string | null;
+  department?: string | null;
+  position?: string | null;
   employmentType?: string | null;
   hireDate?: string | null;
   employmentStatus: EmploymentStatus;
@@ -41,19 +40,7 @@ export type EmployeeFormValues = {
   institutionName?: string | null;
   graduationYear?: string | null;
   profileImageUrl?: string | null;
-  userId?: string | null;
 };
-
-export type DepartmentOption = { id: string; name: string };
-export type PositionOption = { id: string; name: string; departmentId: string };
-
-export type LinkableUser = {
-  id: string;
-  name: string;
-  username: string | null;
-};
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function toDateInputValue(date?: string | null) {
   if (!date) return "";
@@ -75,8 +62,6 @@ function RequiredMark() {
   return <span className="ml-0.5 text-red-500" aria-hidden="true">*</span>;
 }
 
-// ── Standalone action buttons ─────────────────────────────────────────────────
-// Uses HTML `form` attribute so they can sit outside the <form> on edit page.
 export function EmployeeFormActions({
   isPending,
   isEdit,
@@ -103,47 +88,23 @@ export function EmployeeFormActions({
   );
 }
 
-// ── Main form ─────────────────────────────────────────────────────────────────
 export function EmployeeForm({
   action,
   employee,
-  linkableUsers = [],
-  departments,
-  positions,
 }: {
   action: (prevState: unknown, formData: FormData) => Promise<unknown>;
   employee?: EmployeeFormValues;
-  linkableUsers?: LinkableUser[];
-  departments: DepartmentOption[];
-  positions: PositionOption[];
 }) {
   const router = useRouter();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [state, formAction, isPending] = useActionState(action as any, null);
 
-  const [selectedDepartmentId, setSelectedDepartmentId] = useState(employee?.departmentId ?? "");
-  const positionsInDepartment = positions.filter((p) => p.departmentId === selectedDepartmentId);
-  // Only pre-fill the position if it actually belongs to the currently selected department.
-  const initialPositionId =
-    employee?.positionId && positionsInDepartment.some((p) => p.id === employee.positionId)
-      ? employee.positionId
-      : "";
-
-  // On create: redirect to the new employee's page — unless credentials were
-  // generated, in which case we show them once first (see CredentialsReveal below).
-  const createdData =
-    state && (state as { success: boolean; data?: { id: string; credentials?: { username: string; password: string } } }).success && !employee
-      ? (state as { data: { id: string; credentials?: { username: string; password: string } } }).data
-      : null;
-
   useEffect(() => {
-    if (createdData && !createdData.credentials) {
-      router.push(`/employees/${createdData.id}`);
+    if (state && (state as { success: boolean; data?: { id: string } }).success && !employee) {
+      router.push(`/employees/${(state as { data: { id: string } }).data.id}`);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [createdData]);
+  }, [state, router, employee]);
 
-  // On update: show success toast
   const [showToast, setShowToast] = useState(false);
   useEffect(() => {
     if (state && (state as { success: boolean }).success && !!employee) {
@@ -160,16 +121,6 @@ export function EmployeeForm({
 
   const isEdit = !!employee;
 
-  if (createdData?.credentials) {
-    return (
-      <CredentialsReveal
-        employeeId={createdData.id}
-        username={createdData.credentials.username}
-        password={createdData.credentials.password}
-      />
-    );
-  }
-
   return (
     <div className="max-w-3xl space-y-5">
       {showToast && (
@@ -183,7 +134,6 @@ export function EmployeeForm({
         </div>
       )}
 
-      {/* NOTE: form id is used by EmployeeFormActions via the HTML `form` attribute */}
       <form id={EMPLOYEE_FORM_ID} action={formAction} className="space-y-5">
 
         {/* ── Section 1: Personal Information ──────────────────────────── */}
@@ -196,7 +146,6 @@ export function EmployeeForm({
               currentUrl={employee?.profileImageUrl}
             />
 
-            {/* Employee ID info */}
             {isEdit && employee.employeeId && (
               <div className="rounded-lg border border-ink-900/10 bg-sand-100 px-4 py-3">
                 <p className="text-xs font-medium uppercase tracking-wide text-ink-900/45">Employee ID</p>
@@ -215,17 +164,14 @@ export function EmployeeForm({
                 <Label htmlFor="firstName">First Name<RequiredMark /></Label>
                 <Input id="firstName" name="firstName" required defaultValue={employee?.firstName ?? ""} />
               </FieldGroup>
-
               <FieldGroup>
                 <Label htmlFor="middleName">Middle Name</Label>
                 <Input id="middleName" name="middleName" defaultValue={employee?.middleName ?? ""} />
               </FieldGroup>
-
               <FieldGroup>
                 <Label htmlFor="lastName">Last Name<RequiredMark /></Label>
                 <Input id="lastName" name="lastName" required defaultValue={employee?.lastName ?? ""} />
               </FieldGroup>
-
               <FieldGroup>
                 <Label htmlFor="gender">Gender</Label>
                 <Select id="gender" name="gender" defaultValue={employee?.gender ?? ""}>
@@ -234,34 +180,29 @@ export function EmployeeForm({
                   <option value="FEMALE">Female</option>
                 </Select>
               </FieldGroup>
-
               <FieldGroup>
                 <Label htmlFor="dateOfBirth">Date of Birth</Label>
                 <Input id="dateOfBirth" name="dateOfBirth" type="date" defaultValue={toDateInputValue(employee?.dateOfBirth)} />
               </FieldGroup>
-
               <FieldGroup>
                 <Label htmlFor="maritalStatus">Marital Status</Label>
                 <Select id="maritalStatus" name="maritalStatus" defaultValue={employee?.maritalStatus ?? ""}>
                   <option value="">Not specified</option>
-                  <option value="SINGLE">Single</option>
-                  <option value="MARRIED">Married</option>
-                  <option value="DIVORCED">Divorced</option>
-                  <option value="WIDOWED">Widowed</option>
+                  <option value="Single">Single</option>
+                  <option value="Married">Married</option>
+                  <option value="Divorced">Divorced</option>
+                  <option value="Widowed">Widowed</option>
                 </Select>
               </FieldGroup>
-
               <FieldGroup>
                 <Label htmlFor="phone">Phone Number</Label>
                 <Input id="phone" name="phone" placeholder="+251 9XX XXX XXX" defaultValue={employee?.phone ?? ""} />
               </FieldGroup>
-
               <FieldGroup>
                 <Label htmlFor="email">Email Address</Label>
                 <Input id="email" name="email" type="email" defaultValue={employee?.email ?? ""} />
               </FieldGroup>
             </div>
-
             <FieldGroup>
               <Label htmlFor="address">Address</Label>
               <Textarea id="address" name="address" rows={2} defaultValue={employee?.address ?? ""} />
@@ -295,76 +236,45 @@ export function EmployeeForm({
         {/* ── Section 3: Employment Information ────────────────────────── */}
         <Card className="p-6">
           <SectionHeader icon={Briefcase} title="Employment Information" />
-          {isEdit && (
-            <p className="mb-4 rounded-lg bg-sand-100 px-3 py-2.5 text-xs text-ink-900/60">
-              Department, position, and employment type are no longer edited here — use "Record
-              Employment Change" on the Employment History tab so changes are properly tracked over
-              time.
-            </p>
-          )}
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-            {!isEdit && (
-              <>
-                <FieldGroup>
-                  <Label htmlFor="departmentId">Department<RequiredMark /></Label>
-                  <Select
-                    id="departmentId"
-                    name="departmentId"
-                    required
-                    value={selectedDepartmentId}
-                    onChange={(e) => setSelectedDepartmentId(e.target.value)}
-                  >
-                    <option value="" disabled>
-                      Select department…
-                    </option>
-                    {departments.map((dept) => (
-                      <option key={dept.id} value={dept.id}>
-                        {dept.name}
-                      </option>
-                    ))}
-                  </Select>
-                </FieldGroup>
-
-                <FieldGroup>
-                  <Label htmlFor="positionId">Position / Job Title<RequiredMark /></Label>
-                  <Select
-                    id="positionId"
-                    name="positionId"
-                    required
-                    key={selectedDepartmentId}
-                    defaultValue={initialPositionId}
-                    disabled={!selectedDepartmentId}
-                  >
-                    <option value="" disabled>
-                      {selectedDepartmentId ? "Select position…" : "Select a department first"}
-                    </option>
-                    {positionsInDepartment.map((position) => (
-                      <option key={position.id} value={position.id}>
-                        {position.name}
-                      </option>
-                    ))}
-                  </Select>
-                </FieldGroup>
-
-                <FieldGroup>
-                  <Label htmlFor="employmentType">Employment Type</Label>
-                  <Select id="employmentType" name="employmentType" defaultValue={employee?.employmentType ?? ""}>
-                    <option value="">Not specified</option>
-                    <option value="PERMANENT">Permanent</option>
-                    <option value="CONTRACT">Contract</option>
-                    <option value="TEMPORARY">Temporary</option>
-                    <option value="PROBATION">Probation</option>
-                    <option value="INTERNSHIP">Internship</option>
-                  </Select>
-                </FieldGroup>
-              </>
-            )}
-
+            <FieldGroup>
+              <Label htmlFor="department">Department</Label>
+              <Select id="department" name="department" defaultValue={employee?.department ?? ""}>
+                <option value="">Select department…</option>
+                <option value="Administration">Administration</option>
+                <option value="Finance & Accounting">Finance &amp; Accounting</option>
+                <option value="Human Resources">Human Resources</option>
+                <option value="Information Technology">Information Technology</option>
+                <option value="Cooperative Operations">Cooperative Operations</option>
+                <option value="Field Extension">Field Extension</option>
+                <option value="Marketing & Sales">Marketing &amp; Sales</option>
+                <option value="Procurement & Logistics">Procurement &amp; Logistics</option>
+                <option value="Audit & Compliance">Audit &amp; Compliance</option>
+                <option value="Planning & Development">Planning &amp; Development</option>
+                <option value="Legal">Legal</option>
+                <option value="Training & Capacity Building">Training &amp; Capacity Building</option>
+                <option value="Other">Other</option>
+              </Select>
+            </FieldGroup>
+            <FieldGroup>
+              <Label htmlFor="position">Position / Job Title</Label>
+              <Input id="position" name="position" defaultValue={employee?.position ?? ""} />
+            </FieldGroup>
+            <FieldGroup>
+              <Label htmlFor="employmentType">Employment Type</Label>
+              <Select id="employmentType" name="employmentType" defaultValue={employee?.employmentType ?? ""}>
+                <option value="">Not specified</option>
+                <option value="Permanent">Permanent</option>
+                <option value="Contract">Contract</option>
+                <option value="Temporary">Temporary</option>
+                <option value="Part-Time">Part-Time</option>
+                <option value="Casual">Casual</option>
+              </Select>
+            </FieldGroup>
             <FieldGroup>
               <Label htmlFor="hireDate">Hire Date</Label>
               <Input id="hireDate" name="hireDate" type="date" defaultValue={toDateInputValue(employee?.hireDate)} />
             </FieldGroup>
-
             <FieldGroup>
               <Label htmlFor="employmentStatus">Employment Status<RequiredMark /></Label>
               <Select id="employmentStatus" name="employmentStatus" required defaultValue={employee?.employmentStatus ?? "ACTIVE"}>
@@ -388,13 +298,13 @@ export function EmployeeForm({
               <Label htmlFor="educationLevel">Education Level</Label>
               <Select id="educationLevel" name="educationLevel" defaultValue={employee?.educationLevel ?? ""}>
                 <option value="">Not specified</option>
-                <option value="PRIMARY">Primary</option>
-                <option value="SECONDARY">Secondary</option>
-                <option value="CERTIFICATE">Certificate</option>
-                <option value="DIPLOMA">Diploma</option>
-                <option value="BACHELOR">Bachelor&apos;s Degree</option>
-                <option value="MASTER">Master&apos;s Degree</option>
-                <option value="PHD">PhD</option>
+                <option value="Primary">Primary</option>
+                <option value="Secondary">Secondary</option>
+                <option value="Diploma">Diploma</option>
+                <option value="Bachelor">Bachelor&apos;s Degree</option>
+                <option value="Master">Master&apos;s Degree</option>
+                <option value="PhD">PhD</option>
+                <option value="Other">Other</option>
               </Select>
             </FieldGroup>
             <FieldGroup>
@@ -412,53 +322,8 @@ export function EmployeeForm({
           </div>
         </Card>
 
-        {/* ── Section 5: System Access ─────────────────────────────────── */}
-        <Card className="p-6">
-          <SectionHeader icon={User} title="System Access" />
-          {isEdit ? (
-            <>
-              <p className="mb-4 text-sm text-ink-900/60">
-                Link this employee record to a user account so they can sign in and use the employee
-                portal. Only accounts without an existing employee record (or the one already linked
-                here) are shown.
-              </p>
-              <FieldGroup>
-                <Label htmlFor="userId">Linked User Account</Label>
-                <Select id="userId" name="userId" defaultValue={employee?.userId ?? ""}>
-                  <option value="">No linked account</option>
-                  {linkableUsers.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name}
-                      {u.username ? ` (@${u.username})` : ""}
-                    </option>
-                  ))}
-                </Select>
-              </FieldGroup>
-            </>
-          ) : (
-            <label className="flex items-start gap-2.5 text-sm text-ink-900">
-              <input
-                type="checkbox"
-                name="createLogin"
-                defaultChecked
-                className="mt-0.5 h-4 w-4 rounded border-ink-900/25"
-              />
-              <span>
-                Create a login account for this employee
-                <span className="mt-0.5 block text-xs font-normal text-ink-900/50">
-                  A username and temporary password will be generated automatically, shown once after
-                  saving. The employee will be required to set a new password on first login. Uncheck
-                  this if the employee doesn&apos;t need portal access (e.g. seasonal staff).
-                </span>
-              </span>
-            </label>
-          )}
-        </Card>
-
       </form>
 
-      {/* On /new: buttons render here (Documents card doesn't exist yet).
-          On /[id]: the page renders <EmployeeFormActions> after the Documents card. */}
       {!isEdit && <EmployeeFormActions isEdit={false} isPending={isPending} />}
     </div>
   );

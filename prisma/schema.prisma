@@ -1,5 +1,3 @@
-// prisma/schema.prisma
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,7 +6,378 @@ datasource db {
   provider = "postgresql"
 }
 
-// ─── Enums ────────────────────────────────────────────
+model User {
+  id                  String         @id @default(cuid())
+  name                String
+  email               String         @unique
+  emailVerified       Boolean        @default(false)
+  image               String?
+  role                Role           @default(EMPLOYEE)
+  banned              Boolean        @default(false)
+  banReason           String?
+  banExpires          DateTime?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  displayUsername     String?
+  firstName           String?
+  lastName            String?
+  middleName          String?
+  username            String?        @unique
+  mustChangePassword  Boolean        @default(false)
+  passwordChangedAt   DateTime?
+  accounts            Account[]
+  recordedAttendances Attendance[]   @relation("RecordedBy")
+  auditLogs           AuditLog[]
+  uploadedDocuments   Document[]
+  employee            Employee?
+  approvedLeaves      LeaveRequest[] @relation("LeaveApprover")
+  notifications       Notification[]
+  reports             Report[]       @relation("GeneratedBy")
+  sessions            Session[]
+
+  @@map("user")
+}
+
+model Session {
+  id             String   @id @default(cuid())
+  userId         String
+  token          String   @unique
+  expiresAt      DateTime
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  impersonatedBy String?
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  userId                String
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  idToken               String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model Employee {
+  id                           String              @id @default(cuid())
+  employeeId                   String              @unique
+  firstName                    String
+  lastName                     String
+  email                        String?
+  phone                        String?
+  gender                       Gender?
+  dateOfBirth                  DateTime?
+  address                      String?
+  hireDate                     DateTime?
+  employmentStatus             EmploymentStatus    @default(ACTIVE)
+  profileImageUrl              String?
+  userId                       String?             @unique
+  cooperativeId                String?
+  createdAt                    DateTime            @default(now())
+  updatedAt                    DateTime            @updatedAt
+  deletedAt                    DateTime?
+  emergencyContactName         String?
+  emergencyContactPhone        String?
+  fieldOfStudy                 String?
+  graduationYear               String?
+  institutionName              String?
+  profileImageKey              String?
+  departmentId                 String
+  emergencyContactAddress      String?
+  emergencyContactRelationship String?
+  middleName                   String?
+  positionId                   String
+  educationLevel               EducationLevel?
+  employmentType               EmploymentType?
+  maritalStatus                MaritalStatus?
+  managerId                    String?
+  attendances                  Attendance[]
+  contracts                    Contract[]
+  documents                    Document[]
+  cooperative                  Cooperative?        @relation(fields: [cooperativeId], references: [id])
+  department                   Department          @relation(fields: [departmentId], references: [id])
+  manager                      Employee?           @relation("ReportsTo", fields: [managerId], references: [id])
+  directReports                Employee[]          @relation("ReportsTo")
+  position                     Position            @relation(fields: [positionId], references: [id])
+  user                         User?               @relation(fields: [userId], references: [id])
+  employmentHistory            EmploymentHistory[]
+  leaveRequests                LeaveRequest[]
+
+  @@index([cooperativeId])
+  @@index([employmentStatus])
+  @@index([departmentId])
+  @@index([positionId])
+  @@index([managerId])
+  @@index([deletedAt])
+  @@map("employee")
+}
+
+model Department {
+  id                String              @id @default(cuid())
+  name              String              @unique
+  description       String?
+  isActive          Boolean             @default(true)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  employees         Employee[]
+  employmentHistory EmploymentHistory[]
+  positions         Position[]
+
+  @@map("department")
+}
+
+model Position {
+  id                String              @id @default(cuid())
+  name              String
+  description       String?
+  isActive          Boolean             @default(true)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  departmentId      String
+  employees         Employee[]
+  employmentHistory EmploymentHistory[]
+  department        Department          @relation(fields: [departmentId], references: [id])
+
+  @@unique([departmentId, name])
+  @@index([departmentId])
+  @@map("position")
+}
+
+/// Append-only record of an employee's department/position/employment type over
+/// time. Never edited or deleted — a new employment change creates a new row and
+/// closes the previously active one (endDate IS NULL means "currently active").
+model EmploymentHistory {
+  id             String          @id @default(cuid())
+  employeeId     String
+  departmentId   String
+  positionId     String
+  employmentType EmploymentType?
+  effectiveDate  DateTime        @db.Date
+  endDate        DateTime?       @db.Date
+  changeReason   String
+  remarks        String?
+  createdAt      DateTime        @default(now())
+  department     Department      @relation(fields: [departmentId], references: [id])
+  employee       Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  position       Position        @relation(fields: [positionId], references: [id])
+
+  @@index([employeeId])
+  @@index([employeeId, endDate])
+  @@map("employment_history")
+}
+
+/// Append-only contract records — a new contract for the same employee closes
+/// out the previous one (marks it RENEWED) rather than editing it in place.
+model Contract {
+  id           String         @id @default(cuid())
+  employeeId   String
+  contractType EmploymentType
+  startDate    DateTime       @db.Date
+  endDate      DateTime?      @db.Date
+  status       ContractStatus @default(ACTIVE)
+  remarks      String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  employee     Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([employeeId, status])
+  @@index([endDate])
+  @@map("contract")
+}
+
+model Cooperative {
+  id                 String     @id @default(cuid())
+  cooperativeId      String     @unique
+  name               String
+  description        String?
+  location           String?
+  contactPerson      String?
+  contactEmail       String?
+  contactPhone       String?
+  isActive           Boolean    @default(true)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  deletedAt          DateTime?
+  businessType       String?
+  cooperativeType    String?
+  currentAssets      Decimal?   @db.Decimal(15, 2)
+  dateJoinedUnion    DateTime?
+  district           String?
+  femaleMembers      Int?
+  fixedAssets        Decimal?   @db.Decimal(15, 2)
+  kebele             String?
+  maleMembers        Int?
+  numberOfShares     Int?
+  pricePerShare      Decimal?   @db.Decimal(15, 2)
+  registrationDate   DateTime?
+  registrationFee    Decimal?   @db.Decimal(15, 2)
+  registrationNumber String?
+  totalMembers       Int?
+  employees          Employee[]
+
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("cooperative")
+}
+
+model Attendance {
+  id           String           @id @default(cuid())
+  date         DateTime         @db.Date
+  checkIn      DateTime?
+  checkOut     DateTime?
+  status       AttendanceStatus @default(PRESENT)
+  notes        String?
+  employeeId   String
+  recordedById String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  employee     Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  recordedBy   User?            @relation("RecordedBy", fields: [recordedById], references: [id])
+
+  @@unique([employeeId, date])
+  @@index([date])
+  @@index([employeeId])
+  @@index([recordedById])
+  @@map("attendance")
+}
+
+model Document {
+  id           String       @id @default(cuid())
+  title        String
+  type         DocumentType @default(OTHER)
+  fileUrl      String
+  fileKey      String
+  fileName     String
+  fileSize     Int
+  mimeType     String
+  employeeId   String
+  uploadedById String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  deletedAt    DateTime?
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  uploadedBy   User?        @relation(fields: [uploadedById], references: [id])
+
+  @@index([employeeId])
+  @@index([type])
+  @@index([deletedAt])
+  @@map("document")
+}
+
+model LeaveRequest {
+  id              String      @id @default(cuid())
+  leaveId         String      @unique
+  leaveType       LeaveType
+  startDate       DateTime    @db.Date
+  endDate         DateTime    @db.Date
+  totalDays       Int
+  reason          String
+  documentUrl     String?
+  documentKey     String?
+  status          LeaveStatus @default(PENDING)
+  appliedDate     DateTime    @default(now())
+  decisionDate    DateTime?
+  rejectionReason String?
+  employeeId      String
+  approverId      String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  approver        User?       @relation("LeaveApprover", fields: [approverId], references: [id])
+  employee        Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([leaveType])
+  @@index([startDate])
+  @@index([approverId])
+  @@map("leave_request")
+}
+
+model LeaveEntitlement {
+  id          String    @id @default(cuid())
+  leaveType   LeaveType @unique
+  daysPerYear Int?
+  updatedAt   DateTime  @updatedAt
+
+  @@map("leave_entitlement")
+}
+
+model Report {
+  id            String       @id @default(cuid())
+  title         String
+  type          ReportType
+  format        ReportFormat
+  parameters    Json?
+  fileUrl       String?
+  generatedById String
+  createdAt     DateTime     @default(now())
+  generatedBy   User         @relation("GeneratedBy", fields: [generatedById], references: [id], onDelete: Cascade)
+
+  @@index([generatedById])
+  @@index([type])
+  @@map("report")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  entity    String
+  entityId  String?
+  changes   Json?
+  ipAddress String?
+  userId    String?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entity])
+  @@index([createdAt])
+  @@map("audit_log")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  type      NotificationType
+  title     String
+  message   String
+  isRead    Boolean          @default(false)
+  userId    String
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, isRead])
+  @@map("notification")
+}
 
 enum Role {
   ADMIN
@@ -19,12 +388,12 @@ enum Role {
 
 enum EmploymentStatus {
   ACTIVE
+  INACTIVE
+  SUSPENDED
+  TERMINATED
   ON_LEAVE
   RESIGNED
   RETIRED
-  SUSPENDED
-  TERMINATED
-  INACTIVE
 }
 
 enum Gender {
@@ -104,426 +473,11 @@ enum LeaveStatus {
   CANCELLED
 }
 
-// ─── Better Auth Tables ───────────────────────────────
-// These tables are managed by Better Auth.
-// The 'user' table is extended with our custom 'role' field.
-
-model User {
-  id            String    @id @default(cuid())
-  name          String
-  firstName     String?
-  middleName    String?
-  lastName      String?
-  email         String    @unique
-  emailVerified Boolean   @default(false)
-  image         String?
-  role          Role      @default(EMPLOYEE)
-  banned        Boolean   @default(false)
-  banReason     String?
-  banExpires    DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  // Username plugin fields — username is the login credential shown in UI
-  username        String? @unique
-  displayUsername String?
-
-  // First-login forced password change
-  mustChangePassword Boolean   @default(false)
-  passwordChangedAt  DateTime?
-
-  // Relations
-  sessions            Session[]
-  accounts            Account[]
-  employee            Employee?
-  reports             Report[]     @relation("GeneratedBy")
-  auditLogs           AuditLog[]
-  recordedAttendances Attendance[] @relation("RecordedBy")
-  uploadedDocuments   Document[]
-  approvedLeaves      LeaveRequest[] @relation("LeaveApprover")
-  notifications       Notification[]
-
-  @@map("user")
-}
-
-model Session {
-  id        String   @id @default(cuid())
-  userId    String
-  token     String   @unique
-  expiresAt DateTime
-  ipAddress String?
-  userAgent String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  impersonatedBy String?
-
-  @@index([userId])
-  @@map("session")
-}
-
-model Account {
-  id                    String    @id @default(cuid())
-  userId                String
-  accountId             String
-  providerId            String
-  accessToken           String?
-  refreshToken          String?
-  accessTokenExpiresAt  DateTime?
-  refreshTokenExpiresAt DateTime?
-  scope                 String?
-  idToken               String?
-  password              String?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@map("account")
-}
-
-model Verification {
-  id         String   @id @default(cuid())
-  identifier String
-  value      String
-  expiresAt  DateTime
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  @@map("verification")
-  @@index([identifier])
-}
-
-// ─── Domain Models ────────────────────────────────────
-
-model Employee {
-  id               String           @id @default(cuid())
-  employeeId       String           @unique
-  firstName        String
-  middleName       String?
-  lastName         String
-  email            String?
-  phone            String?
-  gender           Gender?
-  dateOfBirth      DateTime?
-  address          String?
-  hireDate         DateTime?
-  employmentStatus EmploymentStatus @default(ACTIVE)
-  profileImageUrl  String?
-  profileImageKey  String?
-
-  // Extended fields
-  maritalStatus                MaritalStatus?
-  employmentType                EmploymentType?
-  emergencyContactName         String?
-  emergencyContactPhone        String?
-  emergencyContactRelationship String?
-  emergencyContactAddress      String?
-  educationLevel               EducationLevel?
-  fieldOfStudy                 String?
-  institutionName              String?
-  graduationYear               String?
-
-  // Relations
-  departmentId  String
-  department    Department   @relation(fields: [departmentId], references: [id], onDelete: Restrict)
-  positionId    String
-  position      Position     @relation(fields: [positionId], references: [id], onDelete: Restrict)
-  userId        String?      @unique
-  user          User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
-  cooperativeId String?
-  cooperative   Cooperative? @relation(fields: [cooperativeId], references: [id], onDelete: SetNull)
-  attendances   Attendance[]
-  documents     Document[]
-  leaveRequests LeaveRequest[]
-
-  // Reporting hierarchy
-  managerId     String?
-  manager       Employee?  @relation("ReportsTo", fields: [managerId], references: [id], onDelete: SetNull)
-  directReports Employee[] @relation("ReportsTo")
-
-  employmentHistory EmploymentHistory[]
-  contracts         Contract[]
-
-  // Timestamps & soft delete
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-
-  @@index([cooperativeId])
-  @@index([employmentStatus])
-  @@index([departmentId])
-  @@index([positionId])
-  @@index([managerId])
-  @@index([deletedAt])
-  @@map("employee")
-}
-
-model Department {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  positions Position[]
-  employees Employee[]
-  employmentHistory EmploymentHistory[]
-
-  @@map("department")
-}
-
-model Position {
-  id           String   @id @default(cuid())
-  name         String
-  description  String?
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  departmentId String
-  department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
-  employees    Employee[]
-  employmentHistory EmploymentHistory[]
-
-  @@unique([departmentId, name])
-  @@index([departmentId])
-  @@map("position")
-}
-
-/// Append-only record of an employee's department/position/employment type over
-/// time. Never edited or deleted — a new employment change creates a new row and
-/// closes the previously active one (endDate IS NULL means "currently active").
-model EmploymentHistory {
-  id             String          @id @default(cuid())
-  employeeId     String
-  employee       Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  departmentId   String
-  department     Department      @relation(fields: [departmentId], references: [id], onDelete: Restrict)
-  positionId     String
-  position       Position        @relation(fields: [positionId], references: [id], onDelete: Restrict)
-  employmentType EmploymentType?
-  effectiveDate  DateTime        @db.Date
-  endDate        DateTime?       @db.Date
-  changeReason   String
-  remarks        String?
-
-  createdAt DateTime @default(now())
-
-  @@index([employeeId])
-  @@index([employeeId, endDate])
-  @@map("employment_history")
-}
-
 enum ContractStatus {
   ACTIVE
   EXPIRED
   TERMINATED
   RENEWED
-}
-
-/// Append-only contract records — a new contract for the same employee closes
-/// out the previous one (marks it RENEWED) rather than editing it in place.
-model Contract {
-  id           String          @id @default(cuid())
-  employeeId   String
-  employee     Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  contractType EmploymentType
-  startDate    DateTime        @db.Date
-  endDate      DateTime?       @db.Date
-  status       ContractStatus  @default(ACTIVE)
-  remarks      String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([employeeId])
-  @@index([employeeId, status])
-  @@index([endDate])
-  @@map("contract")
-}
-
-model Cooperative {
-  id            String  @id @default(cuid())
-  cooperativeId String  @unique // Business-facing unique ID (e.g., "COOP-001")
-  name          String
-  description   String?
-  location      String?
-  contactPerson String?
-  contactEmail  String?
-  contactPhone  String?
-  isActive      Boolean @default(true)
-
-  // Extended registration fields
-  cooperativeType    String?
-  registrationNumber String?
-  registrationDate   DateTime?
-  dateJoinedUnion    DateTime?
-  district           String? // Aana
-  kebele             String? // Ganda
-  businessType       String? // Gosa Hojii
-  registrationFee    Decimal?  @db.Decimal(15, 2)
-  numberOfShares     Int?
-  pricePerShare      Decimal?  @db.Decimal(15, 2)
-  totalMembers       Int?
-  maleMembers        Int?
-  femaleMembers      Int?
-  fixedAssets        Decimal?  @db.Decimal(15, 2)
-  currentAssets      Decimal?  @db.Decimal(15, 2)
-
-  // Relations
-  employees Employee[]
-
-  // Timestamps & soft delete
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-
-  @@index([isActive])
-  @@index([deletedAt])
-  @@map("cooperative")
-}
-
-model Attendance {
-  id       String           @id @default(cuid())
-  date     DateTime         @db.Date
-  checkIn  DateTime?
-  checkOut DateTime?
-  status   AttendanceStatus @default(PRESENT)
-  notes    String?
-
-  // Relations
-  employeeId   String
-  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  recordedById String?
-  recordedBy   User?    @relation("RecordedBy", fields: [recordedById], references: [id], onDelete: SetNull)
-
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Prevent duplicate attendance for same employee on same date
-  @@unique([employeeId, date])
-  @@index([date])
-  @@index([employeeId])
-  @@index([recordedById])
-  @@map("attendance")
-}
-
-model Document {
-  id       String       @id @default(cuid())
-  title    String
-  type     DocumentType @default(OTHER)
-  fileUrl  String // Cloudflare R2 URL or key
-  fileKey  String // R2 object key for deletion
-  fileName String
-  fileSize Int // Bytes
-  mimeType String
-
-  // Relations
-  employeeId   String
-  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  uploadedById String?
-  uploadedBy   User?    @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
-
-  // Timestamps & soft delete
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-
-  @@index([employeeId])
-  @@index([type])
-  @@index([deletedAt])
-  @@map("document")
-}
-
-model LeaveRequest {
-  id              String      @id @default(cuid())
-  leaveId         String      @unique // Business-facing ID (e.g., "LR-0001")
-  leaveType       LeaveType
-  startDate       DateTime    @db.Date
-  endDate         DateTime    @db.Date
-  totalDays       Int
-  reason          String
-  documentUrl     String? // Optional supporting document (Cloudinary URL)
-  documentKey     String?
-  status          LeaveStatus @default(PENDING)
-  appliedDate     DateTime    @default(now())
-  decisionDate    DateTime?
-  rejectionReason String?
-
-  // Relations
-  employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  approverId String?
-  approver   User?    @relation("LeaveApprover", fields: [approverId], references: [id], onDelete: SetNull)
-
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([employeeId])
-  @@index([status])
-  @@index([leaveType])
-  @@index([startDate])
-  @@index([approverId])
-  @@map("leave_request")
-}
-
-model LeaveEntitlement {
-  id          String    @id @default(cuid())
-  leaveType   LeaveType @unique
-  // Org-wide default days allowed per calendar year. Null = unlimited (no cap enforced).
-  daysPerYear Int?
-
-  updatedAt DateTime @updatedAt
-
-  @@map("leave_entitlement")
-}
-
-model Report {
-  id         String       @id @default(cuid())
-  title      String
-  type       ReportType
-  format     ReportFormat
-  parameters Json? // Filter criteria used to generate
-  fileUrl    String? // URL if report was saved
-
-  // Relations
-  generatedById String
-  generatedBy   User   @relation("GeneratedBy", fields: [generatedById], references: [id], onDelete: Cascade)
-
-  // Timestamps (reports are immutable — no updatedAt)
-  createdAt DateTime @default(now())
-
-  @@index([generatedById])
-  @@index([type])
-  @@map("report")
-}
-
-model AuditLog {
-  id        String  @id @default(cuid())
-  action    String // e.g., "CREATE", "UPDATE", "DELETE", "LOGIN"
-  entity    String // e.g., "Employee", "Cooperative"
-  entityId  String? // ID of the affected record
-  changes   Json? // Before/after snapshot
-  ipAddress String?
-
-  // Relations
-  userId String?
-  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  // Timestamp (audit logs are append-only)
-  createdAt DateTime @default(now())
-
-  @@index([userId])
-  @@index([entity])
-  @@index([createdAt])
-  @@map("audit_log")
 }
 
 enum NotificationType {
@@ -532,21 +486,4 @@ enum NotificationType {
   LEAVE_APPROVED
   LEAVE_REJECTED
   PROFILE_UPDATED
-}
-
-model Notification {
-  id      String           @id @default(cuid())
-  type    NotificationType
-  title   String
-  message String
-  isRead  Boolean          @default(false)
-
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-
-  @@index([userId])
-  @@index([userId, isRead])
-  @@map("notification")
 }

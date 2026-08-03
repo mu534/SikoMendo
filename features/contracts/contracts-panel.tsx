@@ -79,12 +79,7 @@ export function ContractsPanel({
               {canManage && (
                 <TD className="text-right">
                   {c.status === "ACTIVE" && (
-                    <form
-                      action={async () => {
-                        "use server";
-                        await terminateContract(c.id, employeeId);
-                      }}
-                    >
+                    <form action={terminateContract.bind(null, c.id, employeeId)}>
                       <ConfirmSubmitButton
                         confirmMessage="Terminate this contract? This can't be undone."
                         confirmLabel="Terminate"
