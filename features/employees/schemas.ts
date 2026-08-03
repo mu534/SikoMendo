@@ -53,6 +53,23 @@ export const employeeSchema = z.object({
 
 export type EmployeeInput = z.infer<typeof employeeSchema>;
 
+// Department/position/employmentType are intentionally excluded from updates —
+// per the Employment History requirement, those only ever change through
+// recordEmploymentChange(), never a direct edit, so "current" info always
+// reflects the latest active history record.
+export const employeeUpdateSchema = employeeSchema.omit({
+  departmentId: true,
+  positionId: true,
+  employmentType: true,
+});
+
+export type EmployeeUpdateInput = z.infer<typeof employeeUpdateSchema>;
+
+export function employeeUpdateFormDataToObject(formData: FormData) {
+  const { departmentId: _d, positionId: _p, employmentType: _e, ...rest } = employeeFormDataToObject(formData);
+  return rest;
+}
+
 export function employeeFormDataToObject(formData: FormData) {
   // formData.get() returns null for missing fields; Zod z.string() rejects null.
   // Wrap every value so missing fields become "" instead of null.

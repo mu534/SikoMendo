@@ -295,59 +295,70 @@ export function EmployeeForm({
         {/* ── Section 3: Employment Information ────────────────────────── */}
         <Card className="p-6">
           <SectionHeader icon={Briefcase} title="Employment Information" />
+          {isEdit && (
+            <p className="mb-4 rounded-lg bg-sand-100 px-3 py-2.5 text-xs text-ink-900/60">
+              Department, position, and employment type are no longer edited here — use "Record
+              Employment Change" on the Employment History tab so changes are properly tracked over
+              time.
+            </p>
+          )}
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <FieldGroup>
-              <Label htmlFor="departmentId">Department<RequiredMark /></Label>
-              <Select
-                id="departmentId"
-                name="departmentId"
-                required
-                value={selectedDepartmentId}
-                onChange={(e) => setSelectedDepartmentId(e.target.value)}
-              >
-                <option value="" disabled>
-                  Select department…
-                </option>
-                {departments.map((dept) => (
-                  <option key={dept.id} value={dept.id}>
-                    {dept.name}
-                  </option>
-                ))}
-              </Select>
-            </FieldGroup>
+            {!isEdit && (
+              <>
+                <FieldGroup>
+                  <Label htmlFor="departmentId">Department<RequiredMark /></Label>
+                  <Select
+                    id="departmentId"
+                    name="departmentId"
+                    required
+                    value={selectedDepartmentId}
+                    onChange={(e) => setSelectedDepartmentId(e.target.value)}
+                  >
+                    <option value="" disabled>
+                      Select department…
+                    </option>
+                    {departments.map((dept) => (
+                      <option key={dept.id} value={dept.id}>
+                        {dept.name}
+                      </option>
+                    ))}
+                  </Select>
+                </FieldGroup>
 
-            <FieldGroup>
-              <Label htmlFor="positionId">Position / Job Title<RequiredMark /></Label>
-              <Select
-                id="positionId"
-                name="positionId"
-                required
-                key={selectedDepartmentId}
-                defaultValue={initialPositionId}
-                disabled={!selectedDepartmentId}
-              >
-                <option value="" disabled>
-                  {selectedDepartmentId ? "Select position…" : "Select a department first"}
-                </option>
-                {positionsInDepartment.map((position) => (
-                  <option key={position.id} value={position.id}>
-                    {position.name}
-                  </option>
-                ))}
-              </Select>
-            </FieldGroup>
+                <FieldGroup>
+                  <Label htmlFor="positionId">Position / Job Title<RequiredMark /></Label>
+                  <Select
+                    id="positionId"
+                    name="positionId"
+                    required
+                    key={selectedDepartmentId}
+                    defaultValue={initialPositionId}
+                    disabled={!selectedDepartmentId}
+                  >
+                    <option value="" disabled>
+                      {selectedDepartmentId ? "Select position…" : "Select a department first"}
+                    </option>
+                    {positionsInDepartment.map((position) => (
+                      <option key={position.id} value={position.id}>
+                        {position.name}
+                      </option>
+                    ))}
+                  </Select>
+                </FieldGroup>
 
-            <FieldGroup>
-              <Label htmlFor="employmentType">Employment Type</Label>
-              <Select id="employmentType" name="employmentType" defaultValue={employee?.employmentType ?? ""}>
-                <option value="">Not specified</option>
-                <option value="PERMANENT">Permanent</option>
-                <option value="CONTRACT">Contract</option>
-                <option value="TEMPORARY">Temporary</option>
-                <option value="PROBATION">Probation</option>
-                <option value="INTERNSHIP">Internship</option>
-              </Select>
-            </FieldGroup>
+                <FieldGroup>
+                  <Label htmlFor="employmentType">Employment Type</Label>
+                  <Select id="employmentType" name="employmentType" defaultValue={employee?.employmentType ?? ""}>
+                    <option value="">Not specified</option>
+                    <option value="PERMANENT">Permanent</option>
+                    <option value="CONTRACT">Contract</option>
+                    <option value="TEMPORARY">Temporary</option>
+                    <option value="PROBATION">Probation</option>
+                    <option value="INTERNSHIP">Internship</option>
+                  </Select>
+                </FieldGroup>
+              </>
+            )}
 
             <FieldGroup>
               <Label htmlFor="hireDate">Hire Date</Label>

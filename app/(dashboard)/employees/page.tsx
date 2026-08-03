@@ -2,9 +2,10 @@ import Link from "next/link";
 import { UserPlus, Users as UsersIcon, ArchiveRestore, Upload } from "lucide-react";
 import { requirePermission } from "@/lib/session";
 import { can } from "@/lib/permissions";
-import { listEmployees } from "@/features/employees/queries";
+import { listEmployees, getSubordinateIds } from "@/features/employees/queries";
 import { listActiveDepartments } from "@/features/departments/queries";
 import { archiveEmployee, restoreEmployee } from "@/features/employees/actions";
+import prisma from "@/lib/prisma";
 import { parsePageParam, parseStringParam, formatDate } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
@@ -43,8 +44,16 @@ export default async function EmployeesPage({
   const showArchived = parseStringParam(params.archived) === "1";
   const page = parsePageParam(params.page);
 
+  // Managers only see employees within their own reporting hierarchy — everyone
+  // else (Admin/HR) sees the full list.
+  let restrictToIds: string[] | undefined;
+  if (session.user.role === "MANAGER") {
+    const ownEmployee = await prisma.employee.findUnique({ where: { userId: session.user.id } });
+    restrictToIds = ownEmployee ? await getSubordinateIds(ownEmployee.id) : [];
+  }
+
   const [{ items, total, totalPages }, departments] = await Promise.all([
-    listEmployees({ q, status, departmentId, showArchived, page }),
+    listEmployees({ q, status, departmentId, showArchived, restrictToIds, page }),
     listActiveDepartments(),
   ]);
 

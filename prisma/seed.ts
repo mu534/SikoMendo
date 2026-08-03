@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 
-import { Role, EmploymentStatus, Gender, AttendanceStatus } from "@prisma/client";
+import { Role, EmploymentStatus, Gender, AttendanceStatus, EmploymentType } from "@prisma/client";
 import prisma from "../lib/prisma";
 
 const DEMO_PASSWORD = "ChangeMe123!";
@@ -28,6 +28,8 @@ async function main() {
   await prisma.leaveEntitlement.deleteMany({});
   await prisma.report.deleteMany({});
   await prisma.attendance.deleteMany({});
+  await prisma.contract.deleteMany({});
+  await prisma.employmentHistory.deleteMany({});
   await prisma.employee.deleteMany({});
   await prisma.position.deleteMany({});
   await prisma.department.deleteMany({});
@@ -224,6 +226,46 @@ async function main() {
       cooperativeId: coop1.id,
     },
   });
+
+  // 3b. Initial employment history, a sample reporting hierarchy, and contracts
+  console.log("📈 Seeding employment history, reporting hierarchy, and contracts...");
+
+  const demoEmployees = [
+    { emp: adminEmp, dept: hrDept, pos: hrManagerPos },
+    { emp: hrEmp, dept: hrDept, pos: hrOfficerPos },
+    { emp: managerEmp, dept: marketingDept, pos: marketingManagerPos },
+    { emp: employeeEmp, dept: marketingDept, pos: marketingOfficerPos },
+    { emp: staffEmp1, dept: financeDept, pos: cashierPos },
+    { emp: staffEmp2, dept: financeDept, pos: accountantPos },
+  ];
+
+  for (const { emp, dept, pos } of demoEmployees) {
+    await prisma.employmentHistory.create({
+      data: {
+        employeeId: emp.id,
+        departmentId: dept.id,
+        positionId: pos.id,
+        employmentType: EmploymentType.PERMANENT,
+        effectiveDate: emp.hireDate ?? new Date(),
+        changeReason: "Initial hire",
+      },
+    });
+
+    await prisma.contract.create({
+      data: {
+        employeeId: emp.id,
+        contractType: EmploymentType.PERMANENT,
+        startDate: emp.hireDate ?? new Date(),
+        status: "ACTIVE",
+      },
+    });
+  }
+
+  // Sample hierarchy: Admin at the top; Manager reports to Admin; the rest report to Manager/HR.
+  await prisma.employee.update({ where: { id: managerEmp.id }, data: { managerId: adminEmp.id } });
+  await prisma.employee.update({ where: { id: employeeEmp.id }, data: { managerId: managerEmp.id } });
+  await prisma.employee.update({ where: { id: staffEmp1.id }, data: { managerId: managerEmp.id } });
+  await prisma.employee.update({ where: { id: staffEmp2.id }, data: { managerId: hrEmp.id } });
 
   // 4. Attendance for the last 5 working days
   console.log("⏰ Seeding attendance records...");

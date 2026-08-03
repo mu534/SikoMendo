@@ -149,6 +149,17 @@ export async function importEmployeeRows(
         data: { ...parsed.data, employeeId },
       });
 
+      await prisma.employmentHistory.create({
+        data: {
+          employeeId: created.id,
+          departmentId: parsed.data.departmentId,
+          positionId: parsed.data.positionId,
+          employmentType: parsed.data.employmentType,
+          effectiveDate: created.hireDate ?? new Date(),
+          changeReason: "Initial hire (bulk import)",
+        },
+      });
+
       await prisma.auditLog.create({
         data: {
           action: "CREATE",

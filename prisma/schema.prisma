@@ -240,6 +240,14 @@ model Employee {
   documents     Document[]
   leaveRequests LeaveRequest[]
 
+  // Reporting hierarchy
+  managerId     String?
+  manager       Employee?  @relation("ReportsTo", fields: [managerId], references: [id], onDelete: SetNull)
+  directReports Employee[] @relation("ReportsTo")
+
+  employmentHistory EmploymentHistory[]
+  contracts         Contract[]
+
   // Timestamps & soft delete
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -249,6 +257,7 @@ model Employee {
   @@index([employmentStatus])
   @@index([departmentId])
   @@index([positionId])
+  @@index([managerId])
   @@index([deletedAt])
   @@map("employee")
 }
@@ -263,6 +272,7 @@ model Department {
 
   positions Position[]
   employees Employee[]
+  employmentHistory EmploymentHistory[]
 
   @@map("department")
 }
@@ -278,10 +288,63 @@ model Position {
   departmentId String
   department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
   employees    Employee[]
+  employmentHistory EmploymentHistory[]
 
   @@unique([departmentId, name])
   @@index([departmentId])
   @@map("position")
+}
+
+/// Append-only record of an employee's department/position/employment type over
+/// time. Never edited or deleted — a new employment change creates a new row and
+/// closes the previously active one (endDate IS NULL means "currently active").
+model EmploymentHistory {
+  id             String          @id @default(cuid())
+  employeeId     String
+  employee       Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  departmentId   String
+  department     Department      @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  positionId     String
+  position       Position        @relation(fields: [positionId], references: [id], onDelete: Restrict)
+  employmentType EmploymentType?
+  effectiveDate  DateTime        @db.Date
+  endDate        DateTime?       @db.Date
+  changeReason   String
+  remarks        String?
+
+  createdAt DateTime @default(now())
+
+  @@index([employeeId])
+  @@index([employeeId, endDate])
+  @@map("employment_history")
+}
+
+enum ContractStatus {
+  ACTIVE
+  EXPIRED
+  TERMINATED
+  RENEWED
+}
+
+/// Append-only contract records — a new contract for the same employee closes
+/// out the previous one (marks it RENEWED) rather than editing it in place.
+model Contract {
+  id           String          @id @default(cuid())
+  employeeId   String
+  employee     Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  contractType EmploymentType
+  startDate    DateTime        @db.Date
+  endDate      DateTime?       @db.Date
+  status       ContractStatus  @default(ACTIVE)
+  remarks      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeId])
+  @@index([employeeId, status])
+  @@index([endDate])
+  @@map("contract")
 }
 
 model Cooperative {

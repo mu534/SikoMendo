@@ -11,6 +11,8 @@ export type EmployeeListFilters = {
   gender?: string;
   cooperativeId?: string;
   showArchived?: boolean;
+  /** When set, restricts results to these employee IDs (used to scope Managers to their reporting hierarchy). */
+  restrictToIds?: string[];
   page: number;
 };
 
@@ -33,9 +35,14 @@ export async function listEmployees({
   gender,
   cooperativeId,
   showArchived,
+  restrictToIds,
   page,
 }: EmployeeListFilters) {
   const andClauses: Prisma.EmployeeWhereInput[] = [];
+
+  if (restrictToIds) {
+    andClauses.push({ id: { in: restrictToIds } });
+  }
 
   if (q) {
     andClauses.push({
@@ -93,6 +100,7 @@ export async function getEmployeeById(id: string) {
       cooperative: { select: { id: true, name: true } },
       user: { select: { id: true, email: true, username: true, role: true } },
       documents: { where: { deletedAt: null }, orderBy: { createdAt: "desc" } },
+      manager: { select: { id: true, firstName: true, lastName: true, employeeId: true } },
     },
   });
 }
@@ -122,4 +130,37 @@ export async function generateNextEmployeeId() {
   });
   const lastNumber = last ? parseInt(last.employeeId.replace(/\D/g, ""), 10) || 0 : 0;
   return `EMP-${String(lastNumber + 1).padStart(4, "0")}`;
+}
+
+// ── Reporting hierarchy ──────────────────────────────────────────────────────
+
+/** All employee IDs reporting up to `managerId`, directly or transitively (BFS). */
+export async function getSubordinateIds(managerId: string): Promise<string[]> {
+  const all: string[] = [];
+  let currentLevel = [managerId];
+
+  while (currentLevel.length > 0) {
+    const next = await prisma.employee.findMany({
+      where: { managerId: { in: currentLevel }, deletedAt: null },
+      select: { id: true },
+    });
+    const nextIds = next.map((e) => e.id);
+    all.push(...nextIds);
+    currentLevel = nextIds;
+  }
+
+  return all;
+}
+
+/** Employees this one could be assigned to report to — excludes themselves and anyone already reporting to them. */
+export async function listAssignableManagers(employeeId: string) {
+  const subordinateIds = await getSubordinateIds(employeeId);
+  return prisma.employee.findMany({
+    where: {
+      deletedAt: null,
+      id: { notIn: [employeeId, ...subordinateIds] },
+    },
+    select: { id: true, firstName: true, lastName: true, employeeId: true },
+    orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+  });
 }
