@@ -6,6 +6,8 @@ import { getEmployeeById } from "@/features/employees/queries";
 import { updateEmployee, deleteEmployeeDocument } from "@/features/employees/actions";
 import { EmployeeForm, EmployeeFormActions } from "@/features/employees/employee-form";
 import { DocumentUploadForm } from "@/features/employees/document-upload-form";
+import { listActiveDepartments } from "@/features/departments/queries";
+import { listActivePositions } from "@/features/positions/queries";
 import { formatDate, formatBytes } from "@/lib/utils";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +30,10 @@ export default async function EmployeeDetailPage({
   const canManage = can(session.user.role, "MANAGE_EMPLOYEES");
   const canManageDocuments = can(session.user.role, "MANAGE_DOCUMENTS");
 
+  const [departments, positions] = canManage
+    ? await Promise.all([listActiveDepartments(), listActivePositions()])
+    : [[], []];
+
   const formValues = canManage
     ? {
         id: employee.id,
@@ -45,8 +51,8 @@ export default async function EmployeeDetailPage({
         emergencyContactPhone: employee.emergencyContactPhone ?? null,
         emergencyContactRelationship: employee.emergencyContactRelationship ?? null,
         emergencyContactAddress: employee.emergencyContactAddress ?? null,
-        department: employee.department ?? null,
-        position: employee.position ?? null,
+        departmentId: employee.departmentId ?? null,
+        positionId: employee.positionId ?? null,
         employmentType: employee.employmentType ?? null,
         hireDate: employee.hireDate ? employee.hireDate.toISOString() : null,
         employmentStatus: employee.employmentStatus as
@@ -94,6 +100,8 @@ export default async function EmployeeDetailPage({
         <EmployeeForm
           action={updateEmployee.bind(null, employee.id)}
           employee={formValues}
+          departments={departments}
+          positions={positions}
         />
       ) : (
         <Card className="max-w-3xl p-6">
@@ -109,8 +117,8 @@ export default async function EmployeeDetailPage({
             <ReadField label="Relationship" value={employee.emergencyContactRelationship} />
             <ReadField label="Emergency Phone" value={employee.emergencyContactPhone} />
             <ReadField label="Emergency Address" value={employee.emergencyContactAddress} />
-            <ReadField label="Department" value={employee.department} />
-            <ReadField label="Position" value={employee.position} />
+            <ReadField label="Department" value={employee.department?.name} />
+            <ReadField label="Position" value={employee.position?.name} />
             <ReadField label="Employment Type" value={employee.employmentType} />
             <ReadField label="Employment Status" value={employee.employmentStatus} />
             <ReadField label="Hire Date" value={formatDate(employee.hireDate)} />

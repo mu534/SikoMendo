@@ -5,8 +5,8 @@ import { Pencil, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, THead, TH, TBody, TR, TD, EmptyRow } from "@/components/ui/table";
-import { setPositionActive } from "./actions";
-import { PositionForm, type PositionFormValues } from "./position-form";
+import { setPositionActive } from "@/features/positions/actions";
+import { PositionForm, type PositionFormValues } from "@/features/positions/position-form";
 
 type PositionRow = PositionFormValues & { _count: { employees: number } };
 
@@ -83,7 +83,7 @@ export function PositionsManager({
                         <Pencil className="h-3.5 w-3.5" />
                         Edit
                       </button>
-                      <form action={() => setPositionActive(position.id, departmentId, !position.isActive)}>
+                      <form action={setPositionActive.bind(null, position.id, departmentId, !position.isActive) as unknown as (formData: FormData) => Promise<void>}>
                         <button type="submit" className="text-sm font-medium text-ink-900/50 hover:text-ink-900">
                           {position.isActive ? "Deactivate" : "Activate"}
                         </button>

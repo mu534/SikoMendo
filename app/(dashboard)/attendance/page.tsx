@@ -44,7 +44,7 @@ export default async function AttendancePage({
   const params = await searchParams;
 
   if (can(session.user.role, "VIEW_ATTENDANCE")) {
-    return <AdminAttendanceRegister role={session.user.role} params={params} />;
+    return <AdminAttendanceRegister role={session.user.role as "ADMIN" | "HR_OFFICER" | "MANAGER" | "EMPLOYEE"} params={params} />;
   }
 
   return <MyAttendance userId={session.user.id} params={params} />;

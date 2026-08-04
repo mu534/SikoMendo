@@ -7,7 +7,8 @@ import { withPermission, type ActionResult } from "@/lib/action-utils";
 import { uploadToCloudinary, deleteFromCloudinary } from "@/lib/cloudinary";
 import { employeeSchema, employeeFormDataToObject } from "./schemas";
 import { generateNextEmployeeId } from "./queries";
-import type { Gender } from "@prisma/client";
+import { parseEmployeeCsv, importEmployeeRows, type ImportRowResult } from "./bulk-import";
+import type { Gender, MaritalStatus, EmploymentType, EducationLevel } from "@prisma/client";
 
 async function logAudit(action: string, entityId: string, changes: unknown, userId?: string) {
   await prisma.auditLog.create({
@@ -51,18 +52,18 @@ export async function createEmployee(
         phone: parsed.data.phone ?? null,
         gender: (parsed.data.gender as Gender) ?? null,
         dateOfBirth: parsed.data.dateOfBirth ?? null,
-        maritalStatus: parsed.data.maritalStatus ?? null,
+        maritalStatus: (parsed.data.maritalStatus as MaritalStatus) ?? null,
         address: parsed.data.address ?? null,
         emergencyContactName: parsed.data.emergencyContactName ?? null,
         emergencyContactPhone: parsed.data.emergencyContactPhone ?? null,
         emergencyContactRelationship: parsed.data.emergencyContactRelationship ?? null,
         emergencyContactAddress: parsed.data.emergencyContactAddress ?? null,
-        department: parsed.data.department ?? null,
-        position: parsed.data.position ?? null,
+        departmentId: parsed.data.departmentId,
+        positionId: parsed.data.positionId,
         hireDate: parsed.data.hireDate ?? null,
         employmentStatus: parsed.data.employmentStatus,
-        employmentType: parsed.data.employmentType ?? null,
-        educationLevel: parsed.data.educationLevel ?? null,
+        employmentType: (parsed.data.employmentType as EmploymentType) ?? null,
+        educationLevel: (parsed.data.educationLevel as EducationLevel) ?? null,
         fieldOfStudy: parsed.data.fieldOfStudy ?? null,
         institutionName: parsed.data.institutionName ?? null,
         graduationYear: parsed.data.graduationYear ?? null,
@@ -106,19 +107,6 @@ export async function updateEmployee(
       ? await uploadToCloudinary(photo, "siko-mendo/employees", { resourceType: "image" })
       : null;
 
-    // Build diff for audit
-    const before: Record<string, unknown> = {};
-    const after: Record<string, unknown> = {};
-    for (const [key, val] of Object.entries(parsed.data)) {
-      const prev = (existing as Record<string, unknown>)[key];
-      const prevStr = prev instanceof Date ? prev.toISOString() : String(prev ?? "");
-      const currStr = val instanceof Date ? val.toISOString() : String(val ?? "");
-      if (prevStr !== currStr) {
-        before[key] = prev;
-        after[key] = val;
-      }
-    }
-
     await prisma.employee.update({
       where: { id },
       data: {
@@ -129,18 +117,18 @@ export async function updateEmployee(
         phone: parsed.data.phone ?? null,
         gender: (parsed.data.gender as Gender) ?? null,
         dateOfBirth: parsed.data.dateOfBirth ?? null,
-        maritalStatus: parsed.data.maritalStatus ?? null,
+        maritalStatus: (parsed.data.maritalStatus as MaritalStatus) ?? null,
         address: parsed.data.address ?? null,
         emergencyContactName: parsed.data.emergencyContactName ?? null,
         emergencyContactPhone: parsed.data.emergencyContactPhone ?? null,
         emergencyContactRelationship: parsed.data.emergencyContactRelationship ?? null,
         emergencyContactAddress: parsed.data.emergencyContactAddress ?? null,
-        department: parsed.data.department ?? null,
-        position: parsed.data.position ?? null,
+        departmentId: parsed.data.departmentId,
+        positionId: parsed.data.positionId,
         hireDate: parsed.data.hireDate ?? null,
         employmentStatus: parsed.data.employmentStatus,
-        employmentType: parsed.data.employmentType ?? null,
-        educationLevel: parsed.data.educationLevel ?? null,
+        employmentType: (parsed.data.employmentType as EmploymentType) ?? null,
+        educationLevel: (parsed.data.educationLevel as EducationLevel) ?? null,
         fieldOfStudy: parsed.data.fieldOfStudy ?? null,
         institutionName: parsed.data.institutionName ?? null,
         graduationYear: parsed.data.graduationYear ?? null,
@@ -152,12 +140,7 @@ export async function updateEmployee(
       await deleteFromCloudinary(existing.profileImageKey);
     }
 
-    await logAudit(
-      "UPDATE",
-      id,
-      { before, after, updatedBy: session?.user.name },
-      session?.user.id
-    );
+    await logAudit("UPDATE", id, { updatedBy: session?.user.name }, session?.user.id);
 
     revalidatePath("/employees");
     revalidatePath(`/employees/${id}`);
@@ -239,5 +222,30 @@ export async function deleteEmployeeDocument(
 
     revalidatePath(`/employees/${employeeId}`);
     return { id: documentId };
+  });
+}
+
+// ── Bulk Import ───────────────────────────────────────────────────────────────
+
+export async function bulkImportEmployees(
+  _prevState: unknown,
+  formData: FormData
+): Promise<ActionResult<{ results: ImportRowResult[]; createdCount: number; errorCount: number }>> {
+  const session = await getServerSession();
+
+  return withPermission(session, "MANAGE_EMPLOYEES", async () => {
+    const file = formData.get("file");
+    if (!(file instanceof File) || file.size === 0) throw new Error("Upload a CSV file.");
+
+    const text = await file.text();
+    const rows = parseEmployeeCsv(text);
+    if (rows.length === 0) throw new Error("CSV is empty or has no data rows.");
+
+    const results = await importEmployeeRows(rows);
+    const createdCount = results.filter((r) => r.status === "created").length;
+    const errorCount = results.filter((r) => r.status === "error").length;
+
+    revalidatePath("/employees");
+    return { results, createdCount, errorCount };
   });
 }

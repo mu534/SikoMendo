@@ -146,7 +146,14 @@ export async function importEmployeeRows(
     try {
       const employeeId = await generateNextEmployeeId();
       const created = await prisma.employee.create({
-        data: { ...parsed.data, employeeId },
+        data: {
+          ...parsed.data,
+          employeeId,
+          employmentType: parsed.data.employmentType as never ?? null,
+          educationLevel: parsed.data.educationLevel as never ?? null,
+          maritalStatus: parsed.data.maritalStatus as never ?? null,
+          gender: parsed.data.gender as never ?? null,
+        },
       });
 
       await prisma.employmentHistory.create({

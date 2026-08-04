@@ -63,17 +63,50 @@ async function main() {
   });
 
   await prisma.position.create({ data: { name: "Finance Manager", departmentId: financeDept.id } });
-  const cashierPos = await prisma.position.create({ data: { name: "Cashier", departmentId: financeDept.id } });
+  await prisma.position.create({ data: { name: "Senior Accountant", departmentId: financeDept.id } });
   const accountantPos = await prisma.position.create({ data: { name: "Accountant", departmentId: financeDept.id } });
+  const cashierPos = await prisma.position.create({ data: { name: "Cashier", departmentId: financeDept.id } });
+  await prisma.position.create({ data: { name: "Finance Officer", departmentId: financeDept.id } });
+  await prisma.position.create({ data: { name: "Internal Auditor", departmentId: financeDept.id } });
 
-  const hrOfficerPos = await prisma.position.create({ data: { name: "HR Officer", departmentId: hrDept.id } });
   const hrManagerPos = await prisma.position.create({ data: { name: "HR Manager", departmentId: hrDept.id } });
+  const hrOfficerPos = await prisma.position.create({ data: { name: "HR Officer", departmentId: hrDept.id } });
+  await prisma.position.create({ data: { name: "Recruitment Officer", departmentId: hrDept.id } });
+  await prisma.position.create({ data: { name: "Training and Development Officer", departmentId: hrDept.id } });
+  await prisma.position.create({ data: { name: "HR Assistant", departmentId: hrDept.id } });
 
   const marketingManagerPos = await prisma.position.create({ data: { name: "Marketing Manager", departmentId: marketingDept.id } });
   const marketingOfficerPos = await prisma.position.create({ data: { name: "Marketing Officer", departmentId: marketingDept.id } });
+  await prisma.position.create({ data: { name: "Business Development Officer", departmentId: marketingDept.id } });
+  await prisma.position.create({ data: { name: "Customer Relations Officer", departmentId: marketingDept.id } });
+  await prisma.position.create({ data: { name: "Market Research Officer", departmentId: marketingDept.id } });
 
-  // Input Supply / Legal Affairs / Mechanization intentionally start with no seeded
-  // positions — Admin/HR add them via the Departments UI as the org needs them.
+  const inputDept = await prisma.department.findFirst({ where: { name: "Input Supply Department" } });
+  if (inputDept) {
+    await prisma.position.create({ data: { name: "Input Supply Manager", departmentId: inputDept.id } });
+    await prisma.position.create({ data: { name: "Procurement Officer", departmentId: inputDept.id } });
+    await prisma.position.create({ data: { name: "Store Keeper", departmentId: inputDept.id } });
+    await prisma.position.create({ data: { name: "Inventory Officer", departmentId: inputDept.id } });
+    await prisma.position.create({ data: { name: "Logistics Officer", departmentId: inputDept.id } });
+    await prisma.position.create({ data: { name: "Distribution Officer", departmentId: inputDept.id } });
+  }
+
+  const legalDept = await prisma.department.findFirst({ where: { name: "Legal Affairs Department" } });
+  if (legalDept) {
+    await prisma.position.create({ data: { name: "Legal Affairs Manager", departmentId: legalDept.id } });
+    await prisma.position.create({ data: { name: "Legal Officer", departmentId: legalDept.id } });
+    await prisma.position.create({ data: { name: "Compliance Officer", departmentId: legalDept.id } });
+    await prisma.position.create({ data: { name: "Contract Administration Officer", departmentId: legalDept.id } });
+  }
+
+  const mechDept = await prisma.department.findFirst({ where: { name: "Mechanization Department" } });
+  if (mechDept) {
+    await prisma.position.create({ data: { name: "Mechanization Manager", departmentId: mechDept.id } });
+    await prisma.position.create({ data: { name: "Agricultural Machinery Officer", departmentId: mechDept.id } });
+    await prisma.position.create({ data: { name: "Maintenance Technician", departmentId: mechDept.id } });
+    await prisma.position.create({ data: { name: "Workshop Supervisor", departmentId: mechDept.id } });
+    await prisma.position.create({ data: { name: "Field Mechanization Officer", departmentId: mechDept.id } });
+  }
 
   // 1. Cooperatives under Siko Mendo Union — Bale Robe, Oromia, Ethiopia
   console.log("📦 Seeding cooperatives...");

@@ -14,6 +14,9 @@ type EmploymentStatus =
   | "ACTIVE" | "ON_LEAVE" | "RESIGNED" | "RETIRED"
   | "SUSPENDED" | "TERMINATED" | "INACTIVE";
 
+export type DepartmentOption = { id: string; name: string };
+export type PositionOption  = { id: string; name: string; departmentId: string };
+
 export type EmployeeFormValues = {
   id?: string;
   employeeId?: string;
@@ -30,8 +33,9 @@ export type EmployeeFormValues = {
   emergencyContactPhone?: string | null;
   emergencyContactRelationship?: string | null;
   emergencyContactAddress?: string | null;
-  department?: string | null;
-  position?: string | null;
+  // FK-based fields
+  departmentId?: string | null;
+  positionId?: string | null;
   employmentType?: string | null;
   hireDate?: string | null;
   employmentStatus: EmploymentStatus;
@@ -91,13 +95,30 @@ export function EmployeeFormActions({
 export function EmployeeForm({
   action,
   employee,
+  departments = [],
+  positions = [],
 }: {
   action: (prevState: unknown, formData: FormData) => Promise<unknown>;
   employee?: EmployeeFormValues;
+  departments?: DepartmentOption[];
+  positions?: PositionOption[];
 }) {
   const router = useRouter();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [state, formAction, isPending] = useActionState(action as any, null);
+
+  // Cascading department→position filter
+  const [selectedDeptId, setSelectedDeptId] = useState(employee?.departmentId ?? "");
+  const filteredPositions = selectedDeptId
+    ? positions.filter((p) => p.departmentId === selectedDeptId)
+    : positions;
+
+  // When the department changes, clear the position selection unless it belongs to the new dept
+  const [selectedPosId, setSelectedPosId] = useState(employee?.positionId ?? "");
+  function handleDeptChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    setSelectedDeptId(e.target.value);
+    setSelectedPosId(""); // reset position when dept changes
+  }
 
   useEffect(() => {
     if (state && (state as { success: boolean; data?: { id: string } }).success && !employee) {
@@ -188,10 +209,10 @@ export function EmployeeForm({
                 <Label htmlFor="maritalStatus">Marital Status</Label>
                 <Select id="maritalStatus" name="maritalStatus" defaultValue={employee?.maritalStatus ?? ""}>
                   <option value="">Not specified</option>
-                  <option value="Single">Single</option>
-                  <option value="Married">Married</option>
-                  <option value="Divorced">Divorced</option>
-                  <option value="Widowed">Widowed</option>
+                  <option value="SINGLE">Single</option>
+                  <option value="MARRIED">Married</option>
+                  <option value="DIVORCED">Divorced</option>
+                  <option value="WIDOWED">Widowed</option>
                 </Select>
               </FieldGroup>
               <FieldGroup>
@@ -237,44 +258,66 @@ export function EmployeeForm({
         <Card className="p-6">
           <SectionHeader icon={Briefcase} title="Employment Information" />
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+
+            {/* Department — cascades to Position */}
             <FieldGroup>
-              <Label htmlFor="department">Department</Label>
-              <Select id="department" name="department" defaultValue={employee?.department ?? ""}>
+              <Label htmlFor="departmentId">Department<RequiredMark /></Label>
+              <Select
+                id="departmentId"
+                name="departmentId"
+                required
+                value={selectedDeptId}
+                onChange={handleDeptChange}
+              >
                 <option value="">Select department…</option>
-                <option value="Administration">Administration</option>
-                <option value="Finance & Accounting">Finance &amp; Accounting</option>
-                <option value="Human Resources">Human Resources</option>
-                <option value="Information Technology">Information Technology</option>
-                <option value="Cooperative Operations">Cooperative Operations</option>
-                <option value="Field Extension">Field Extension</option>
-                <option value="Marketing & Sales">Marketing &amp; Sales</option>
-                <option value="Procurement & Logistics">Procurement &amp; Logistics</option>
-                <option value="Audit & Compliance">Audit &amp; Compliance</option>
-                <option value="Planning & Development">Planning &amp; Development</option>
-                <option value="Legal">Legal</option>
-                <option value="Training & Capacity Building">Training &amp; Capacity Building</option>
-                <option value="Other">Other</option>
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
               </Select>
             </FieldGroup>
+
+            {/* Position — filtered by selected department */}
             <FieldGroup>
-              <Label htmlFor="position">Position / Job Title</Label>
-              <Input id="position" name="position" defaultValue={employee?.position ?? ""} />
+              <Label htmlFor="positionId">Position<RequiredMark /></Label>
+              <Select
+                id="positionId"
+                name="positionId"
+                required
+                value={selectedPosId}
+                onChange={(e) => setSelectedPosId(e.target.value)}
+                disabled={!selectedDeptId}
+              >
+                <option value="">
+                  {selectedDeptId ? "Select position…" : "Select a department first"}
+                </option>
+                {filteredPositions.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </Select>
+              {selectedDeptId && filteredPositions.length === 0 && (
+                <p className="mt-1 text-xs text-ink-900/50">
+                  No active positions in this department. Ask an Admin to add positions.
+                </p>
+              )}
             </FieldGroup>
+
             <FieldGroup>
               <Label htmlFor="employmentType">Employment Type</Label>
               <Select id="employmentType" name="employmentType" defaultValue={employee?.employmentType ?? ""}>
                 <option value="">Not specified</option>
-                <option value="Permanent">Permanent</option>
-                <option value="Contract">Contract</option>
-                <option value="Temporary">Temporary</option>
-                <option value="Part-Time">Part-Time</option>
-                <option value="Casual">Casual</option>
+                <option value="PERMANENT">Permanent</option>
+                <option value="CONTRACT">Contract</option>
+                <option value="TEMPORARY">Temporary</option>
+                <option value="PROBATION">Probation</option>
+                <option value="INTERNSHIP">Internship</option>
               </Select>
             </FieldGroup>
+
             <FieldGroup>
               <Label htmlFor="hireDate">Hire Date</Label>
               <Input id="hireDate" name="hireDate" type="date" defaultValue={toDateInputValue(employee?.hireDate)} />
             </FieldGroup>
+
             <FieldGroup>
               <Label htmlFor="employmentStatus">Employment Status<RequiredMark /></Label>
               <Select id="employmentStatus" name="employmentStatus" required defaultValue={employee?.employmentStatus ?? "ACTIVE"}>
@@ -298,13 +341,13 @@ export function EmployeeForm({
               <Label htmlFor="educationLevel">Education Level</Label>
               <Select id="educationLevel" name="educationLevel" defaultValue={employee?.educationLevel ?? ""}>
                 <option value="">Not specified</option>
-                <option value="Primary">Primary</option>
-                <option value="Secondary">Secondary</option>
-                <option value="Diploma">Diploma</option>
-                <option value="Bachelor">Bachelor&apos;s Degree</option>
-                <option value="Master">Master&apos;s Degree</option>
-                <option value="PhD">PhD</option>
-                <option value="Other">Other</option>
+                <option value="PRIMARY">Primary</option>
+                <option value="SECONDARY">Secondary</option>
+                <option value="CERTIFICATE">Certificate</option>
+                <option value="DIPLOMA">Diploma</option>
+                <option value="BACHELOR">Bachelor&apos;s Degree</option>
+                <option value="MASTER">Master&apos;s Degree</option>
+                <option value="PHD">PhD</option>
               </Select>
             </FieldGroup>
             <FieldGroup>
@@ -323,7 +366,6 @@ export function EmployeeForm({
         </Card>
 
       </form>
-
       {!isEdit && <EmployeeFormActions isEdit={false} isPending={isPending} />}
     </div>
   );

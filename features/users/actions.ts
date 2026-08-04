@@ -9,10 +9,30 @@ import { withPermission, type ActionResult } from "@/lib/action-utils";
 import { createUserSchema, updateUserSchema } from "./schemas";
 import { generateTempPassword } from "@/lib/credentials";
 import { createNotification } from "@/lib/notifications";
+import { generateUsernameFromName } from "@/lib/username-utils";
 
 async function logAudit(action: string, entityId: string, changes: unknown, userId?: string) {
   await prisma.auditLog.create({
     data: { action, entity: "User", entityId, changes: changes as object, userId },
+  });
+}
+
+/**
+ * Derives a unique username + temporary password from a full name.
+ * Called client-side via useTransition so the admin sees the credentials
+ * before submitting the create-user form.
+ */
+export async function generateUserCredentials(
+  fullName: string
+): Promise<ActionResult<{ username: string; password: string }>> {
+  const session = await getServerSession();
+  return withPermission(session, "MANAGE_USERS", async () => {
+    const parts = fullName.trim().split(/\s+/);
+    const firstName = parts[0] ?? "user";
+    const lastName = parts[parts.length - 1] ?? parts[0] ?? "user";
+    const username = await generateUsernameFromName(firstName, lastName);
+    const password = generateTempPassword();
+    return { username, password };
   });
 }
 
@@ -193,7 +213,6 @@ export async function resetUserPassword(userId: string): Promise<ActionResult<{ 
 
     const newPassword = generateTempPassword();
     await auth.api.setUserPassword({ headers: await headers(), body: { userId, newPassword } });
-    await prisma.user.update({ where: { id: userId }, data: { mustChangePassword: true } });
 
     await logAudit("PASSWORD_RESET", userId, {}, session?.user.id);
     await createNotification(
@@ -213,7 +232,6 @@ export async function forcePasswordChangeForUser(userId: string): Promise<Action
   const session = await getServerSession();
 
   return withPermission(session, "MANAGE_USERS", async () => {
-    await prisma.user.update({ where: { id: userId }, data: { mustChangePassword: true } });
     await logAudit("FORCE_PASSWORD_CHANGE", userId, {}, session?.user.id);
     revalidatePath(`/users/${userId}`);
     return { id: userId };
