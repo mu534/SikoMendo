@@ -102,6 +102,22 @@ export async function updateEmployee(
     const existing = await prisma.employee.findUnique({ where: { id } });
     if (!existing) throw new Error("Employee not found.");
 
+    // Department, position, and employment type must only change through
+    // "Record employment change" (features/employment-history/actions.ts),
+    // which closes the previous EmploymentHistory row and opens a new one in
+    // a transaction. Allowing this general edit form to write them directly
+    // let the two go out of sync, so any attempted change here is rejected
+    // rather than silently applied.
+    if (
+      parsed.data.departmentId !== existing.departmentId ||
+      parsed.data.positionId !== existing.positionId ||
+      (parsed.data.employmentType ?? null) !== (existing.employmentType ?? null)
+    ) {
+      throw new Error(
+        "Department, position, and employment type can't be changed from this form. Use \"Record employment change\" on this employee's profile instead — it keeps their employment history accurate."
+      );
+    }
+
     const photo = getPhotoFile(formData);
     const asset = photo
       ? await uploadToCloudinary(photo, "siko-mendo/employees", { resourceType: "image" })
@@ -123,11 +139,8 @@ export async function updateEmployee(
         emergencyContactPhone: parsed.data.emergencyContactPhone ?? null,
         emergencyContactRelationship: parsed.data.emergencyContactRelationship ?? null,
         emergencyContactAddress: parsed.data.emergencyContactAddress ?? null,
-        departmentId: parsed.data.departmentId,
-        positionId: parsed.data.positionId,
         hireDate: parsed.data.hireDate ?? null,
         employmentStatus: parsed.data.employmentStatus,
-        employmentType: (parsed.data.employmentType as EmploymentType) ?? null,
         educationLevel: (parsed.data.educationLevel as EducationLevel) ?? null,
         fieldOfStudy: parsed.data.fieldOfStudy ?? null,
         institutionName: parsed.data.institutionName ?? null,

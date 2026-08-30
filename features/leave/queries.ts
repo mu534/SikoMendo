@@ -4,6 +4,48 @@ import { PAGE_SIZE } from "@/lib/utils";
 import { LEAVE_STATUSES, LEAVE_TYPES, type LeaveStatusValue, type LeaveTypeValue } from "./schemas";
 import type { Prisma } from "@prisma/client";
 
+/**
+ * Resolves who a leave request should route to for a decision, per the
+ * approval workflow:
+ *   1. Direct manager decides first — they own day-to-day team coverage.
+ *   2. HR Officer is the fallback — no manager assigned, the manager has no
+ *      linked login, or the manager's account is disabled.
+ * (Admin can always decide as an override, but is not part of this routing —
+ * see the "decidedVia" tagging in features/leave/actions.ts.)
+ */
+export async function resolveLeaveApprovalRoute(
+  employeeId: string
+): Promise<
+  | { kind: "MANAGER"; userId: string; managerName: string }
+  | { kind: "HR_FALLBACK"; reason: string }
+> {
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    select: {
+      manager: {
+        select: {
+          firstName: true,
+          lastName: true,
+          userId: true,
+          user: { select: { banned: true } },
+        },
+      },
+    },
+  });
+
+  const manager = employee?.manager;
+  if (!manager) {
+    return { kind: "HR_FALLBACK", reason: "No manager is assigned to this employee." };
+  }
+  if (!manager.userId) {
+    return { kind: "HR_FALLBACK", reason: "This employee's manager has no linked login account." };
+  }
+  if (manager.user?.banned) {
+    return { kind: "HR_FALLBACK", reason: "This employee's manager account is currently disabled." };
+  }
+  return { kind: "MANAGER", userId: manager.userId, managerName: `${manager.firstName} ${manager.lastName}` };
+}
+
 export async function generateNextLeaveId() {
   const last = await prisma.leaveRequest.findFirst({
     orderBy: { leaveId: "desc" },

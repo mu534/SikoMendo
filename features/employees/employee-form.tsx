@@ -10,6 +10,14 @@ import { PhotoInput } from "./photo-input";
 
 export const EMPLOYEE_FORM_ID = "employee-form";
 
+const EMPLOYMENT_TYPE_LABELS: Record<string, string> = {
+  PERMANENT: "Permanent",
+  CONTRACT: "Contract",
+  TEMPORARY: "Temporary",
+  PROBATION: "Probation",
+  INTERNSHIP: "Internship",
+};
+
 type EmploymentStatus =
   | "ACTIVE" | "ON_LEAVE" | "RESIGNED" | "RETIRED"
   | "SUSPENDED" | "TERMINATED" | "INACTIVE";
@@ -259,59 +267,104 @@ export function EmployeeForm({
           <SectionHeader icon={Briefcase} title="Employment Information" />
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
 
-            {/* Department — cascades to Position */}
-            <FieldGroup>
-              <Label htmlFor="departmentId">Department<RequiredMark /></Label>
-              <Select
-                id="departmentId"
-                name="departmentId"
-                required
-                value={selectedDeptId}
-                onChange={handleDeptChange}
-              >
-                <option value="">Select department…</option>
-                {departments.map((d) => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
-              </Select>
-            </FieldGroup>
+            {/* Department, Position, and Employment Type: on create, pick them
+                directly. On edit, they're locked — changing them here would
+                bypass EmploymentHistory tracking, so we point to the dedicated
+                "Record employment change" flow instead, which keeps history
+                accurate. The hidden inputs still submit the current values so
+                the rest of the form (name, phone, etc.) can still be saved. */}
+            {isEdit ? (
+              <>
+                <FieldGroup>
+                  <Label htmlFor="departmentId">Department</Label>
+                  <Select id="departmentId" value={selectedDeptId} disabled onChange={() => {}}>
+                    <option value={selectedDeptId}>
+                      {departments.find((d) => d.id === selectedDeptId)?.name ?? "—"}
+                    </option>
+                  </Select>
+                  <input type="hidden" name="departmentId" value={selectedDeptId} />
+                </FieldGroup>
+                <FieldGroup>
+                  <Label htmlFor="positionId">Position</Label>
+                  <Select id="positionId" value={selectedPosId} disabled onChange={() => {}}>
+                    <option value={selectedPosId}>
+                      {positions.find((p) => p.id === selectedPosId)?.name ?? "—"}
+                    </option>
+                  </Select>
+                  <input type="hidden" name="positionId" value={selectedPosId} />
+                </FieldGroup>
+                <FieldGroup>
+                  <Label htmlFor="employmentType">Employment Type</Label>
+                  <Select id="employmentType" value={employee?.employmentType ?? ""} disabled onChange={() => {}}>
+                    <option value={employee?.employmentType ?? ""}>
+                      {EMPLOYMENT_TYPE_LABELS[employee?.employmentType ?? ""] ?? "Not specified"}
+                    </option>
+                  </Select>
+                  <input type="hidden" name="employmentType" value={employee?.employmentType ?? ""} />
+                  <p className="mt-1 text-xs text-ink-900/50">
+                    Locked. Use <span className="font-medium">Record Employment Change</span> on this
+                    employee&apos;s profile to update department, position, or employment type — it keeps
+                    their employment history accurate.
+                  </p>
+                </FieldGroup>
+              </>
+            ) : (
+              <>
+                {/* Department — cascades to Position */}
+                <FieldGroup>
+                  <Label htmlFor="departmentId">Department<RequiredMark /></Label>
+                  <Select
+                    id="departmentId"
+                    name="departmentId"
+                    required
+                    value={selectedDeptId}
+                    onChange={handleDeptChange}
+                  >
+                    <option value="">Select department…</option>
+                    {departments.map((d) => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </Select>
+                </FieldGroup>
 
-            {/* Position — filtered by selected department */}
-            <FieldGroup>
-              <Label htmlFor="positionId">Position<RequiredMark /></Label>
-              <Select
-                id="positionId"
-                name="positionId"
-                required
-                value={selectedPosId}
-                onChange={(e) => setSelectedPosId(e.target.value)}
-                disabled={!selectedDeptId}
-              >
-                <option value="">
-                  {selectedDeptId ? "Select position…" : "Select a department first"}
-                </option>
-                {filteredPositions.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </Select>
-              {selectedDeptId && filteredPositions.length === 0 && (
-                <p className="mt-1 text-xs text-ink-900/50">
-                  No active positions in this department. Ask an Admin to add positions.
-                </p>
-              )}
-            </FieldGroup>
+                {/* Position — filtered by selected department */}
+                <FieldGroup>
+                  <Label htmlFor="positionId">Position<RequiredMark /></Label>
+                  <Select
+                    id="positionId"
+                    name="positionId"
+                    required
+                    value={selectedPosId}
+                    onChange={(e) => setSelectedPosId(e.target.value)}
+                    disabled={!selectedDeptId}
+                  >
+                    <option value="">
+                      {selectedDeptId ? "Select position…" : "Select a department first"}
+                    </option>
+                    {filteredPositions.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </Select>
+                  {selectedDeptId && filteredPositions.length === 0 && (
+                    <p className="mt-1 text-xs text-ink-900/50">
+                      No active positions in this department. Ask an Admin to add positions.
+                    </p>
+                  )}
+                </FieldGroup>
 
-            <FieldGroup>
-              <Label htmlFor="employmentType">Employment Type</Label>
-              <Select id="employmentType" name="employmentType" defaultValue={employee?.employmentType ?? ""}>
-                <option value="">Not specified</option>
-                <option value="PERMANENT">Permanent</option>
-                <option value="CONTRACT">Contract</option>
-                <option value="TEMPORARY">Temporary</option>
-                <option value="PROBATION">Probation</option>
-                <option value="INTERNSHIP">Internship</option>
-              </Select>
-            </FieldGroup>
+                <FieldGroup>
+                  <Label htmlFor="employmentType">Employment Type</Label>
+                  <Select id="employmentType" name="employmentType" defaultValue={employee?.employmentType ?? ""}>
+                    <option value="">Not specified</option>
+                    <option value="PERMANENT">Permanent</option>
+                    <option value="CONTRACT">Contract</option>
+                    <option value="TEMPORARY">Temporary</option>
+                    <option value="PROBATION">Probation</option>
+                    <option value="INTERNSHIP">Internship</option>
+                  </Select>
+                </FieldGroup>
+              </>
+            )}
 
             <FieldGroup>
               <Label htmlFor="hireDate">Hire Date</Label>

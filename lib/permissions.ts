@@ -81,6 +81,8 @@ export const PERMISSIONS: Record<Role, Action[]> = {
     "DASHBOARD_ANALYTICS",
     "VIEW_OWN_PROFILE",
     "UPDATE_OWN_INFO",
+    "VIEW_ALL_LEAVE",
+    "MANAGE_LEAVE",
     "MANAGE_OWN_LEAVE",
     "VIEW_DEPARTMENTS",
     "MANAGE_POSITIONS",

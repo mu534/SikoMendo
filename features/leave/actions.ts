@@ -15,7 +15,7 @@ import {
   LEAVE_TYPE_LABELS,
   LEAVE_TYPES,
 } from "./schemas";
-import { generateNextLeaveId, hasOverlappingLeave, getEmployeeLeaveBalances } from "./queries";
+import { generateNextLeaveId, hasOverlappingLeave, getEmployeeLeaveBalances, resolveLeaveApprovalRoute } from "./queries";
 
 async function logAudit(action: string, entity: string, entityId: string, changes: unknown, userId?: string) {
   await prisma.auditLog.create({
@@ -139,6 +139,36 @@ export async function submitLeaveRequest(
 
     await logAudit("CREATE", "LeaveRequest", leaveRequest.id, { leaveId, leaveType: parsed.data.leaveType, totalDays }, session!.user.id);
 
+    // Route the "new request" notification per the approval workflow: the
+    // employee's direct manager decides first; if there isn't one available
+    // (none assigned, no login, or disabled), HR is the fallback and needs
+    // to know a request is waiting on them instead.
+    const route = await resolveLeaveApprovalRoute(employee.id);
+    const employeeName = `${employee.firstName} ${employee.lastName}`;
+    if (route.kind === "MANAGER") {
+      await createNotification(
+        route.userId,
+        "LEAVE_SUBMITTED",
+        "New leave request awaiting your decision",
+        `${employeeName} submitted a ${LEAVE_TYPE_LABELS[parsed.data.leaveType]} request (${leaveId}, ${totalDays} day${totalDays === 1 ? "" : "s"}) for your review.`
+      );
+    } else {
+      const hrOfficers = await prisma.user.findMany({
+        where: { role: "HR_OFFICER", banned: false },
+        select: { id: true },
+      });
+      await Promise.all(
+        hrOfficers.map((hr) =>
+          createNotification(
+            hr.id,
+            "LEAVE_SUBMITTED",
+            "New leave request needs HR review",
+            `${employeeName} submitted a ${LEAVE_TYPE_LABELS[parsed.data.leaveType]} request (${leaveId}, ${totalDays} day${totalDays === 1 ? "" : "s"}). Routed to HR: ${route.reason}`
+          )
+        )
+      );
+    }
+
     revalidatePath("/leave");
     return { id: leaveRequest.id };
   });
@@ -184,10 +214,50 @@ export async function decideLeaveRequest(
   const session = await getServerSession();
 
   return withPermission(session, "MANAGE_LEAVE", async () => {
-    const existing = await prisma.leaveRequest.findUnique({ where: { id } });
+    const existing = await prisma.leaveRequest.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        status: true,
+        employeeId: true,
+        startDate: true,
+        endDate: true,
+        leaveId: true,
+        employee: { select: { managerId: true } },
+      },
+    });
     if (!existing) throw new Error("Leave request not found.");
     if (existing.status !== "PENDING") {
       throw new Error("This request has already been decided.");
+    }
+
+    // ADMIN and HR_OFFICER administer leave org-wide. A plain MANAGER can only
+    // decide requests from their own direct reports — the manager hierarchy
+    // (Employee.managerId) exists precisely to scope this, so enforce it here
+    // rather than letting any manager approve anyone's leave.
+    if (session!.user.role === "MANAGER") {
+      const approverEmployee = await prisma.employee.findUnique({
+        where: { userId: session!.user.id },
+        select: { id: true },
+      });
+      if (!approverEmployee || existing.employee.managerId !== approverEmployee.id) {
+        throw new Error("You can only decide leave requests for your own direct reports.");
+      }
+    }
+
+    // Tag how this decision was actually routed, so the audit trail shows
+    // whether it followed the normal path (direct manager, or HR stepping in
+    // because no manager was available) or was an exception (HR deciding
+    // while a manager was available, or an Admin override — Admin isn't part
+    // of routine day-to-day approvals per the workflow, just an escape hatch).
+    const route = await resolveLeaveApprovalRoute(existing.employeeId);
+    let decidedVia: string;
+    if (session!.user.role === "MANAGER") {
+      decidedVia = "DIRECT_MANAGER";
+    } else if (session!.user.role === "HR_OFFICER") {
+      decidedVia = route.kind === "HR_FALLBACK" ? "HR_FALLBACK" : "HR_OVERRIDE";
+    } else {
+      decidedVia = "ADMIN_OVERRIDE";
     }
 
     const parsed = leaveDecisionSchema.safeParse(leaveDecisionFormDataToObject(formData));
@@ -219,7 +289,7 @@ export async function decideLeaveRequest(
       parsed.data.decision === "APPROVED" ? "APPROVE" : "REJECT",
       "LeaveRequest",
       id,
-      { decision: parsed.data.decision, rejectionReason: parsed.data.rejectionReason ?? null },
+      { decision: parsed.data.decision, rejectionReason: parsed.data.rejectionReason ?? null, decidedVia },
       session!.user.id
     );
 

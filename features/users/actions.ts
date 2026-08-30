@@ -82,12 +82,15 @@ export async function createUserAccount(
 
     // Set the username and role via Prisma (better-auth createUser doesn't
     // expose username or our custom role enum through its typed API).
+    // mustChangePassword: true forces this brand-new temp password to be
+    // replaced on first sign-in (enforced in app/(dashboard)/layout.tsx).
     await prisma.user.update({
       where: { id: user.id },
       data: {
         username: parsed.data.username,
         displayUsername: parsed.data.username,
         role: parsed.data.role,
+        mustChangePassword: true,
       },
     });
 
@@ -214,6 +217,15 @@ export async function resetUserPassword(userId: string): Promise<ActionResult<{ 
     const newPassword = generateTempPassword();
     await auth.api.setUserPassword({ headers: await headers(), body: { userId, newPassword } });
 
+    // Force this new temp password to be replaced on next sign-in, and kill
+    // any sessions that were active under the old (now-reset) password —
+    // otherwise a session started before the reset stays valid indefinitely.
+    await prisma.user.update({
+      where: { id: userId },
+      data: { mustChangePassword: true },
+    });
+    await prisma.session.deleteMany({ where: { userId } });
+
     await logAudit("PASSWORD_RESET", userId, {}, session?.user.id);
     await createNotification(
       userId,
@@ -232,6 +244,14 @@ export async function forcePasswordChangeForUser(userId: string): Promise<Action
   const session = await getServerSession();
 
   return withPermission(session, "MANAGE_USERS", async () => {
+    const target = await prisma.user.findUnique({ where: { id: userId } });
+    if (!target) throw new Error("User not found.");
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { mustChangePassword: true },
+    });
+
     await logAudit("FORCE_PASSWORD_CHANGE", userId, {}, session?.user.id);
     revalidatePath(`/users/${userId}`);
     return { id: userId };
