@@ -63,11 +63,6 @@ export async function getCooperativeById(id: string) {
 }
 
 export async function generateNextCooperativeId() {
-  const last = await prisma.cooperative.findFirst({
-    orderBy: { cooperativeId: "desc" },
-    select: { cooperativeId: true },
-  });
-
-  const lastNumber = last ? parseInt(last.cooperativeId.replace(/\D/g, ""), 10) || 0 : 0;
-  return `COOP-${String(lastNumber + 1).padStart(3, "0")}`;
+  const [{ nextval }] = await prisma.$queryRaw<{ nextval: bigint }[]>`SELECT nextval('cooperative_id_seq') AS nextval`;
+  return `COOP-${String(nextval).padStart(3, "0")}`;
 }

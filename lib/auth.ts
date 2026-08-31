@@ -54,6 +54,25 @@ export const auth = betterAuth({
     updateAge: 60 * 60 * 24,        // refresh once per day of activity
   },
 
+  // better-auth's rate limiter is disabled by default outside of
+  // NODE_ENV=production, and even then its global default (100 requests per
+  // 10 seconds) is far too loose to slow down password guessing. This adds a
+  // dedicated, much tighter rule for the actual sign-in endpoint.
+  //
+  // NOTE: the key is (IP address + path), not (username + path). If the
+  // whole union office shares one public IP, this limit applies to everyone
+  // there combined, not per-person — 20 attempts per 5 minutes is chosen to
+  // comfortably cover several staff signing in around the same time (even
+  // with a few mistyped passwords) while still capping an automated guessing
+  // attempt to a small, slow trickle instead of unlimited tries. Tune the
+  // numbers below if it turns out too strict or too loose in practice.
+  rateLimit: {
+    enabled: true,
+    customRules: {
+      "/sign-in/username": { window: 60 * 5, max: 20 },
+    },
+  },
+
   plugins: [
     username({
       // Only lowercase letters, digits, dots, hyphens, underscores allowed.

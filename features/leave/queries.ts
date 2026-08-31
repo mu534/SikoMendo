@@ -47,12 +47,8 @@ export async function resolveLeaveApprovalRoute(
 }
 
 export async function generateNextLeaveId() {
-  const last = await prisma.leaveRequest.findFirst({
-    orderBy: { leaveId: "desc" },
-    select: { leaveId: true },
-  });
-  const lastNumber = last ? parseInt(last.leaveId.replace(/\D/g, ""), 10) || 0 : 0;
-  return `LR-${String(lastNumber + 1).padStart(4, "0")}`;
+  const [{ nextval }] = await prisma.$queryRaw<{ nextval: bigint }[]>`SELECT nextval('leave_request_id_seq') AS nextval`;
+  return `LR-${String(nextval).padStart(4, "0")}`;
 }
 
 /** Any PENDING or APPROVED request for this employee whose date range overlaps [startDate, endDate]. */

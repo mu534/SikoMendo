@@ -124,12 +124,8 @@ export async function listLinkableUsers(currentUserId?: string | null) {
 }
 
 export async function generateNextEmployeeId() {
-  const last = await prisma.employee.findFirst({
-    orderBy: { employeeId: "desc" },
-    select: { employeeId: true },
-  });
-  const lastNumber = last ? parseInt(last.employeeId.replace(/\D/g, ""), 10) || 0 : 0;
-  return `EMP-${String(lastNumber + 1).padStart(4, "0")}`;
+  const [{ nextval }] = await prisma.$queryRaw<{ nextval: bigint }[]>`SELECT nextval('employee_id_seq') AS nextval`;
+  return `EMP-${String(nextval).padStart(4, "0")}`;
 }
 
 // ── Reporting hierarchy ──────────────────────────────────────────────────────
