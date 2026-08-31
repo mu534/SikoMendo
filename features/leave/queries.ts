@@ -90,6 +90,7 @@ const leaveInclude = {
       profileImageUrl: true,
       department: true,
       userId: true,
+      managerId: true,
     },
   },
   approver: { select: { id: true, name: true } },
@@ -128,6 +129,8 @@ export type LeaveListFilters = {
   endDate?: string;
   sort?: string;
   page: number;
+  /** When set (a Manager viewing the list), restrict results to this employee's direct reports. */
+  managerEmployeeId?: string;
 };
 
 export async function listAllLeaveRequests({
@@ -139,9 +142,13 @@ export async function listAllLeaveRequests({
   endDate,
   sort,
   page,
+  managerEmployeeId,
 }: LeaveListFilters) {
   const andClauses: Prisma.LeaveRequestWhereInput[] = [];
 
+  if (managerEmployeeId) {
+    andClauses.push({ employee: { managerId: managerEmployeeId } });
+  }
   if (q) {
     andClauses.push({
       OR: [
@@ -193,9 +200,9 @@ export async function listAllLeaveRequests({
 }
 
 /** Lightweight list for filter dropdowns (leave list page, report filters). */
-export async function listEmployeesForLeaveFilter() {
+export async function listEmployeesForLeaveFilter(managerEmployeeId?: string) {
   return prisma.employee.findMany({
-    where: { deletedAt: null },
+    where: { deletedAt: null, ...(managerEmployeeId ? { managerId: managerEmployeeId } : {}) },
     select: { id: true, employeeId: true, firstName: true, lastName: true },
     orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
   });

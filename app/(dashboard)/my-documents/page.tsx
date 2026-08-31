@@ -1,6 +1,7 @@
 import { FileText, Image as ImageIcon, Download, Eye } from "lucide-react";
 import { requireSession } from "@/lib/session";
 import prisma from "@/lib/prisma";
+import { getSignedFileUrl } from "@/lib/cloudinary";
 import { formatDate, formatBytes } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -42,6 +43,7 @@ export default async function MyDocumentsPage() {
             {employee.documents.map((doc) => {
               const isImage = doc.mimeType.startsWith("image/");
               const isPdf = doc.mimeType === "application/pdf";
+              const signedUrl = getSignedFileUrl(doc.fileKey, isImage ? "image" : "raw");
 
               return (
                 <li key={doc.id} className="flex items-center justify-between gap-3 px-6 py-3.5">
@@ -49,7 +51,7 @@ export default async function MyDocumentsPage() {
                     {isImage ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={doc.fileUrl}
+                        src={signedUrl}
                         alt=""
                         className="h-10 w-10 shrink-0 rounded-lg object-cover"
                       />
@@ -69,7 +71,7 @@ export default async function MyDocumentsPage() {
                   <div className="flex shrink-0 items-center gap-4">
                     {(isImage || isPdf) && (
                       <a
-                        href={doc.fileUrl}
+                        href={signedUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:underline"
@@ -79,7 +81,7 @@ export default async function MyDocumentsPage() {
                       </a>
                     )}
                     <a
-                      href={doc.fileUrl}
+                      href={signedUrl}
                       download={doc.fileName}
                       target="_blank"
                       rel="noopener noreferrer"

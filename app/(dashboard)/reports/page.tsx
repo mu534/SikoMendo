@@ -1,6 +1,7 @@
 import { FileBarChart, FileText, Users, Building2, CalendarCheck, CalendarOff, ShieldCheck, Download, Trash2 } from "lucide-react";
 import { requirePermission } from "@/lib/session";
 import { can } from "@/lib/permissions";
+import { getSignedFileUrl } from "@/lib/cloudinary";
 import { listReports } from "@/features/reports/queries";
 import { generateReport, deleteReport } from "@/features/reports/actions";
 import { listEmployeesForLeaveFilter } from "@/features/leave/queries";
@@ -131,7 +132,7 @@ export default async function ReportsPage({
                         <div className="flex items-center justify-end gap-4">
                           {report.fileUrl ? (
                             <a
-                              href={report.fileUrl}
+                              href={report.fileKey ? getSignedFileUrl(report.fileKey, "raw") : report.fileUrl}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 transition hover:text-brand-800 hover:underline"

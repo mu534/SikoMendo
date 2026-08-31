@@ -91,6 +91,16 @@ export async function submitLeaveRequest(
   return withPermission(session, "MANAGE_OWN_LEAVE", async () => {
     const employee = await getOwnEmployeeOrThrow(session!.user.id);
 
+    // Only a direct manager can decide a leave request, so there must be an
+    // active, logged-in manager to route this to before we accept it at all —
+    // otherwise it would sit pending forever with no one able to act on it.
+    const route = await resolveLeaveApprovalRoute(employee.id);
+    if (route.kind !== "MANAGER") {
+      throw new Error(
+        `You can't submit a leave request yet: ${route.reason} Leave requests can only be decided by your direct manager, so please ask HR to assign one to your employee record first.`
+      );
+    }
+
     const parsed = leaveRequestSchema.safeParse(leaveRequestFormDataToObject(formData));
     if (!parsed.success) {
       throw new Error(parsed.error.issues[0]?.message ?? "Invalid input.");
@@ -117,7 +127,7 @@ export async function submitLeaveRequest(
 
     const document = getDocumentFile(formData);
     const asset = document
-      ? await uploadToCloudinary(document, "siko-mendo/leave", { resourceType: "auto" })
+      ? await uploadToCloudinary(document, "siko-mendo/leave", { resourceType: "auto", access: "authenticated" })
       : null;
 
     const leaveId = await generateNextLeaveId();
@@ -133,41 +143,21 @@ export async function submitLeaveRequest(
         reason: parsed.data.reason,
         documentUrl: asset?.url ?? null,
         documentKey: asset?.publicId ?? null,
+        documentResourceType: asset?.resourceType ?? null,
         status: "PENDING",
       },
     });
 
     await logAudit("CREATE", "LeaveRequest", leaveRequest.id, { leaveId, leaveType: parsed.data.leaveType, totalDays }, session!.user.id);
 
-    // Route the "new request" notification per the approval workflow: the
-    // employee's direct manager decides first; if there isn't one available
-    // (none assigned, no login, or disabled), HR is the fallback and needs
-    // to know a request is waiting on them instead.
-    const route = await resolveLeaveApprovalRoute(employee.id);
+    // route was already validated as MANAGER above — notify them directly.
     const employeeName = `${employee.firstName} ${employee.lastName}`;
-    if (route.kind === "MANAGER") {
-      await createNotification(
-        route.userId,
-        "LEAVE_SUBMITTED",
-        "New leave request awaiting your decision",
-        `${employeeName} submitted a ${LEAVE_TYPE_LABELS[parsed.data.leaveType]} request (${leaveId}, ${totalDays} day${totalDays === 1 ? "" : "s"}) for your review.`
-      );
-    } else {
-      const hrOfficers = await prisma.user.findMany({
-        where: { role: "HR_OFFICER", banned: false },
-        select: { id: true },
-      });
-      await Promise.all(
-        hrOfficers.map((hr) =>
-          createNotification(
-            hr.id,
-            "LEAVE_SUBMITTED",
-            "New leave request needs HR review",
-            `${employeeName} submitted a ${LEAVE_TYPE_LABELS[parsed.data.leaveType]} request (${leaveId}, ${totalDays} day${totalDays === 1 ? "" : "s"}). Routed to HR: ${route.reason}`
-          )
-        )
-      );
-    }
+    await createNotification(
+      route.userId,
+      "LEAVE_SUBMITTED",
+      "New leave request awaiting your decision",
+      `${employeeName} submitted a ${LEAVE_TYPE_LABELS[parsed.data.leaveType]} request (${leaveId}, ${totalDays} day${totalDays === 1 ? "" : "s"}) for your review.`
+    );
 
     revalidatePath("/leave");
     return { id: leaveRequest.id };
@@ -230,34 +220,12 @@ export async function decideLeaveRequest(
     if (existing.status !== "PENDING") {
       throw new Error("This request has already been decided.");
     }
-
-    // ADMIN and HR_OFFICER administer leave org-wide. A plain MANAGER can only
-    // decide requests from their own direct reports — the manager hierarchy
-    // (Employee.managerId) exists precisely to scope this, so enforce it here
-    // rather than letting any manager approve anyone's leave.
-    if (session!.user.role === "MANAGER") {
-      const approverEmployee = await prisma.employee.findUnique({
-        where: { userId: session!.user.id },
-        select: { id: true },
-      });
-      if (!approverEmployee || existing.employee.managerId !== approverEmployee.id) {
-        throw new Error("You can only decide leave requests for your own direct reports.");
-      }
-    }
-
-    // Tag how this decision was actually routed, so the audit trail shows
-    // whether it followed the normal path (direct manager, or HR stepping in
-    // because no manager was available) or was an exception (HR deciding
-    // while a manager was available, or an Admin override — Admin isn't part
-    // of routine day-to-day approvals per the workflow, just an escape hatch).
-    const route = await resolveLeaveApprovalRoute(existing.employeeId);
-    let decidedVia: string;
-    if (session!.user.role === "MANAGER") {
-      decidedVia = "DIRECT_MANAGER";
-    } else if (session!.user.role === "HR_OFFICER") {
-      decidedVia = route.kind === "HR_FALLBACK" ? "HR_FALLBACK" : "HR_OVERRIDE";
-    } else {
-      decidedVia = "ADMIN_OVERRIDE";
+    const approverEmployee = await prisma.employee.findUnique({
+      where: { userId: session!.user.id },
+      select: { id: true },
+    });
+    if (!approverEmployee || existing.employee.managerId !== approverEmployee.id) {
+      throw new Error("You can only decide leave requests for your own direct reports.");
     }
 
     const parsed = leaveDecisionSchema.safeParse(leaveDecisionFormDataToObject(formData));
@@ -289,7 +257,7 @@ export async function decideLeaveRequest(
       parsed.data.decision === "APPROVED" ? "APPROVE" : "REJECT",
       "LeaveRequest",
       id,
-      { decision: parsed.data.decision, rejectionReason: parsed.data.rejectionReason ?? null, decidedVia },
+      { decision: parsed.data.decision, rejectionReason: parsed.data.rejectionReason ?? null },
       session!.user.id
     );
 

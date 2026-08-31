@@ -57,7 +57,7 @@ export async function generateReport(
     const { buffer, mimeType, fileName, parameters } = await buildReportFile(type, format, filters);
 
     const file = new File([new Uint8Array(buffer)], fileName, { type: mimeType });
-    const asset = await uploadToCloudinary(file, "siko-mendo/reports", { resourceType: "auto" });
+    const asset = await uploadToCloudinary(file, "siko-mendo/reports", { resourceType: "auto", access: "authenticated" });
 
     const report = await prisma.report.create({
       data: {
@@ -66,6 +66,7 @@ export async function generateReport(
         format,
         parameters: parameters as Prisma.InputJsonValue,
         fileUrl: asset.url,
+        fileKey: asset.publicId,
         generatedById: session!.user.id,
       },
     });

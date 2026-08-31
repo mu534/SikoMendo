@@ -31,7 +31,7 @@ export default async function LeavePage({
 
   if (can(session.user.role, "VIEW_ALL_LEAVE")) {
     const role = session.user.role as Role;
-    return  <AllLeaveRequests params={params} role={role} />;
+    return <AllLeaveRequests params={params} role={role} userId={session.user.id} />;
   }
 
   return <MyLeaveRequests userId={session.user.id} params={params} />;
@@ -42,9 +42,11 @@ export default async function LeavePage({
 async function AllLeaveRequests({
   params,
   role,
+  userId,
 }: {
   params: Record<string, string | string[] | undefined>;
   role: Role;
+  userId: string;
 }) {
   const q = parseStringParam(params.q);
   const status = parseStringParam(params.status);
@@ -53,9 +55,22 @@ async function AllLeaveRequests({
   const sort = parseStringParam(params.sort);
   const page = parsePageParam(params.page);
 
+  // A Manager only manages their own team's leave — HR/Admin (org-wide
+  // VIEW_ALL_LEAVE holders other than Manager) see everyone. Resolve the
+  // manager's own Employee record so both the list and the employee filter
+  // dropdown can be scoped to just their direct reports.
+  let managerEmployeeId: string | undefined;
+  if (role === "MANAGER") {
+    const managerEmployee = await prisma.employee.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+    managerEmployeeId = managerEmployee?.id;
+  }
+
   const [{ items, total, totalPages }, employees] = await Promise.all([
-    listAllLeaveRequests({ q, status, leaveType, employeeId, sort, page }),
-    listEmployeesForLeaveFilter(),
+    listAllLeaveRequests({ q, status, leaveType, employeeId, sort, page, managerEmployeeId }),
+    listEmployeesForLeaveFilter(managerEmployeeId),
   ]);
 
   return (
@@ -63,7 +78,11 @@ async function AllLeaveRequests({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-display text-xl font-semibold text-ink-900">Leave requests</h2>
-          <p className="mt-1 text-sm text-ink-900/60">Review, approve, or reject leave requests across the union.</p>
+          <p className="mt-1 text-sm text-ink-900/60">
+            {role === "MANAGER"
+              ? "Review, approve, or reject leave requests from your direct reports."
+              : "Review leave requests across the union."}
+          </p>
         </div>
         {can(role, "MANAGE_LEAVE_POLICY") && (
           <ButtonLink href="/leave/policy" variant="ghost">

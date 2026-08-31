@@ -15,6 +15,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import type { Document } from "@prisma/client";
+import { getSignedFileUrl } from "@/lib/cloudinary";
 
 export default async function EmployeeDetailPage({
   params,
@@ -146,7 +147,7 @@ export default async function EmployeeDetailPage({
                 className="flex items-center justify-between gap-3 px-6 py-3.5"
               >
                 <a
-                  href={doc.fileUrl}
+                  href={getSignedFileUrl(doc.fileKey, doc.mimeType.startsWith("image/") ? "image" : "raw")}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-3 text-sm hover:underline"

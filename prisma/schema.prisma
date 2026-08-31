@@ -451,6 +451,7 @@ model LeaveRequest {
   reason          String
   documentUrl     String? // Optional supporting document (Cloudinary URL)
   documentKey     String?
+  documentResourceType String? // "image" or "raw" — needed to re-sign the URL for authenticated (private) delivery
   status          LeaveStatus @default(PENDING)
   appliedDate     DateTime    @default(now())
   decisionDate    DateTime?
@@ -491,7 +492,8 @@ model Report {
   type       ReportType
   format     ReportFormat
   parameters Json? // Filter criteria used to generate
-  fileUrl    String? // URL if report was saved
+  fileUrl    String? // URL if report was saved (legacy public uploads; new reports use fileKey)
+  fileKey    String? // Cloudinary public ID, used to generate a signed URL for authenticated delivery
 
   // Relations
   generatedById String

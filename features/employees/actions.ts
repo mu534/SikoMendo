@@ -199,7 +199,7 @@ export async function uploadEmployeeDocument(
     if (!(file instanceof File) || file.size === 0) throw new Error("Choose a file to upload.");
     if (!title) throw new Error("Give the document a title.");
 
-    const asset = await uploadToCloudinary(file, "siko-mendo/documents", { resourceType: "auto" });
+    const asset = await uploadToCloudinary(file, "siko-mendo/documents", { resourceType: "auto", access: "authenticated" });
 
     const document = await prisma.document.create({
       data: {

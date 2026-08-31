@@ -3,6 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, FileText } from "lucide-react";
 import { requireSession } from "@/lib/session";
 import { can } from "@/lib/permissions";
+import { getSignedFileUrl } from "@/lib/cloudinary";
+import prisma from "@/lib/prisma";
 import { getLeaveRequestById } from "@/features/leave/queries";
 import { LeaveStatusBadge } from "@/features/leave/leave-status-badge";
 import { LeaveDecisionForm } from "@/features/leave/leave-decision-form";
@@ -21,8 +23,20 @@ export default async function LeaveDetailPage({ params }: { params: Promise<{ id
   if (!leave) notFound();
 
   const isOwner = leave.employee.userId === session.user.id;
-  const canViewAll = can(session.user.role, "VIEW_ALL_LEAVE");
-  const canDecide = can(session.user.role, "MANAGE_LEAVE");
+  let canViewAll = can(session.user.role, "VIEW_ALL_LEAVE");
+
+  // A Manager's "view all" is scoped to their own team (matching the leave
+  // list), not the whole org — viewing someone else's request directly by
+  // URL shouldn't be possible just because they're a manager somewhere else.
+  if (canViewAll && session.user.role === "MANAGER") {
+    const managerEmployee = await prisma.employee.findUnique({
+      where: { userId: session.user.id },
+      select: { id: true },
+    });
+    canViewAll = !!managerEmployee && leave.employee.managerId === managerEmployee.id;
+  }
+
+  const canDecide = can(session.user.role, "MANAGE_LEAVE") && canViewAll;
 
   if (!isOwner && !canViewAll) {
     redirect("/leave");
@@ -71,7 +85,11 @@ export default async function LeaveDetailPage({ params }: { params: Promise<{ id
               {leave.documentUrl && (
                 <Field label="Supporting Document" full>
                   <a
-                    href={leave.documentUrl}
+                    href={
+                      leave.documentKey
+                        ? getSignedFileUrl(leave.documentKey, leave.documentResourceType === "image" ? "image" : "raw")
+                        : leave.documentUrl
+                    }
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:underline"
