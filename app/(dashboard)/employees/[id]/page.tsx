@@ -148,7 +148,12 @@ export default async function EmployeeDetailPage({
                 className="flex items-center justify-between gap-3 px-6 py-3.5"
               >
                 <a
-                  href={getSignedFileUrl(doc.fileKey, doc.mimeType.startsWith("image/") ? "image" : "raw")}
+                  href={getSignedFileUrl(
+                    doc.fileKey,
+                    doc.fileResourceType === "image" || doc.fileResourceType === "raw"
+                      ? doc.fileResourceType
+                      : doc.mimeType.startsWith("image/") ? "image" : "raw"
+                  )}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-3 text-sm hover:underline"

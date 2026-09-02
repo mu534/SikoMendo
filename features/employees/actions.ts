@@ -207,6 +207,7 @@ export async function uploadEmployeeDocument(
         type: type as never,
         fileUrl: asset.url,
         fileKey: asset.publicId,
+        fileResourceType: asset.resourceType,
         fileName: file.name,
         fileSize: file.size,
         mimeType: file.type || "application/octet-stream",

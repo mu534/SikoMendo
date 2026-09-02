@@ -423,6 +423,7 @@ model Document {
   fileName String
   fileSize Int // Bytes
   mimeType String
+  fileResourceType String? // "image" or "raw" \u2014 Cloudinary stores PDFs as "image" (not "raw") when uploaded with resource_type "auto"; mimeType alone isn't a reliable guide for signing an authenticated URL
 
   // Relations
   employeeId   String
@@ -494,6 +495,7 @@ model Report {
   parameters Json? // Filter criteria used to generate
   fileUrl    String? // URL if report was saved (legacy public uploads; new reports use fileKey)
   fileKey    String? // Cloudinary public ID, used to generate a signed URL for authenticated delivery
+  fileResourceType String? // "image" or "raw" \u2014 Cloudinary stores PDFs as "image" (not "raw") when uploaded with resource_type "auto", so this can't be assumed and must be recorded
 
   // Relations
   generatedById String

@@ -94,9 +94,17 @@ async function main() {
   const tick = (result) => { tally[result] = (tally[result] ?? 0) + 1; };
 
   console.log("Employee documents:");
-  const documents = await prisma.document.findMany({ select: { id: true, fileKey: true, mimeType: true } });
+  const documents = await prisma.document.findMany({
+    select: { id: true, fileKey: true, mimeType: true, fileResourceType: true },
+  });
   for (const doc of documents) {
-    const resourceType = doc.mimeType.startsWith("image/") ? "image" : "raw";
+    // Prefer the recorded type; PDFs uploaded before fileResourceType
+    // existed default to a mimeType-based guess, which is only reliable
+    // for non-PDF files (Cloudinary stores PDFs as "image", not "raw").
+    const resourceType =
+      doc.fileResourceType === "image" || doc.fileResourceType === "raw"
+        ? doc.fileResourceType
+        : doc.mimeType.startsWith("image/") ? "image" : "raw";
     tick(await convert(`Document ${doc.id}`, doc.fileKey, resourceType));
   }
 
@@ -116,10 +124,15 @@ async function main() {
   console.log("\nGenerated reports:");
   const reports = await prisma.report.findMany({
     where: { fileKey: { not: null } },
-    select: { id: true, fileKey: true },
+    select: { id: true, fileKey: true, fileResourceType: true },
   });
   for (const report of reports) {
-    tick(await convert(`Report ${report.id}`, report.fileKey, "raw"));
+    // Reports generated before fileResourceType existed default to "raw" —
+    // PDFs uploaded with resource_type "auto" are actually stored by
+    // Cloudinary as "image" (it can render PDF pages as thumbnails), so a
+    // pre-fix PDF report may need manual checking if this guess is wrong.
+    const resourceType = report.fileResourceType === "image" ? "image" : "raw";
+    tick(await convert(`Report ${report.id}`, report.fileKey, resourceType));
   }
 
   console.log("\n--- Summary ---");

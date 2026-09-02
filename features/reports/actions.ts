@@ -67,6 +67,7 @@ export async function generateReport(
         parameters: parameters as Prisma.InputJsonValue,
         fileUrl: asset.url,
         fileKey: asset.publicId,
+        fileResourceType: asset.resourceType,
         generatedById: session!.user.id,
       },
     });

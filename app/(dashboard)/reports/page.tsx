@@ -132,7 +132,11 @@ export default async function ReportsPage({
                         <div className="flex items-center justify-end gap-4">
                           {report.fileUrl ? (
                             <a
-                              href={report.fileKey ? getSignedFileUrl(report.fileKey, "raw") : report.fileUrl}
+                              href={
+                                report.fileKey
+                                  ? getSignedFileUrl(report.fileKey, report.fileResourceType === "image" ? "image" : "raw")
+                                  : report.fileUrl
+                              }
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 transition hover:text-brand-800 hover:underline"

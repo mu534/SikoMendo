@@ -43,7 +43,16 @@ export default async function MyDocumentsPage() {
             {employee.documents.map((doc) => {
               const isImage = doc.mimeType.startsWith("image/");
               const isPdf = doc.mimeType === "application/pdf";
-              const signedUrl = getSignedFileUrl(doc.fileKey, isImage ? "image" : "raw");
+              // The Cloudinary resource_type used for signing is NOT the
+              // same thing as "is this displayable as an <img> thumbnail" —
+              // Cloudinary stores PDFs under resource_type "image" too (it
+              // can render PDF pages as thumbnails), so this must come from
+              // what was actually recorded at upload time, not from mimeType.
+              const cloudinaryResourceType =
+                doc.fileResourceType === "image" || doc.fileResourceType === "raw"
+                  ? doc.fileResourceType
+                  : isImage ? "image" : "raw"; // fallback for docs uploaded before this field existed
+              const signedUrl = getSignedFileUrl(doc.fileKey, cloudinaryResourceType);
 
               return (
                 <li key={doc.id} className="flex items-center justify-between gap-3 px-6 py-3.5">
