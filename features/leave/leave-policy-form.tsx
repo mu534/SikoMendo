@@ -12,6 +12,9 @@ export function LeavePolicyForm({ entitlements }: { entitlements: Record<LeaveTy
   const [toast, setToast] = useState<string | null>(null);
   useEffect(() => {
     if (state && (state as { success: boolean }).success) {
+      // Reacting to a useActionState result changing (an external system) —
+      // not a derived-state anti-pattern.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setToast("Leave policy updated.");
       const t = setTimeout(() => setToast(null), 3500);
       return () => clearTimeout(t);

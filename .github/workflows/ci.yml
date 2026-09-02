@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-typecheck-test:
+    runs-on: ubuntu-latest
+
+    # These are placeholder values, not real secrets. lib/env.ts validates
+    # that every required environment variable is *present* at import time
+    # (even for lint/typecheck/test, since those steps load the same
+    # modules the app does) — it never actually connects to Postgres or
+    # Cloudinary during these steps, so dummy values are enough here.
+    # Real deployments must set actual secrets via GitHub Environment
+    # secrets or your hosting provider, never committed to the repo.
+    env:
+      DATABASE_URL: "postgresql://user:password@localhost:5432/ci_placeholder"
+      BETTER_AUTH_SECRET: "ci-placeholder-secret-not-real"
+      BETTER_AUTH_URL: "http://localhost:3000"
+      NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+      CLOUDINARY_CLOUD_NAME: "ci-placeholder"
+      CLOUDINARY_API_KEY: "ci-placeholder"
+      CLOUDINARY_API_SECRET: "ci-placeholder"
+      NODE_ENV: "test"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Run tests
+        run: npm test
+
+  # NOTE: `next build` isn't run in this workflow. It would need either a
+  # real reachable Postgres database (for any page that queries data at
+  # build time) or further changes to force fully-dynamic rendering. Add a
+  # build step here once you've decided which approach fits your deployment
+  # (e.g. a docker-compose Postgres service, or a hosted CI database).

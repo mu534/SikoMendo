@@ -220,6 +220,12 @@ export async function decideLeaveRequest(
     if (existing.status !== "PENDING") {
       throw new Error("This request has already been decided.");
     }
+
+    // Leave approval is manager-only: MANAGE_LEAVE is granted solely to the
+    // MANAGER role (see lib/permissions.ts), so anyone reaching this point is
+    // a manager. They can still only decide for their own direct reports —
+    // the manager hierarchy (Employee.managerId) enforces that here rather
+    // than letting any manager approve anyone in the org.
     const approverEmployee = await prisma.employee.findUnique({
       where: { userId: session!.user.id },
       select: { id: true },

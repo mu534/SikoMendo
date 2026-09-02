@@ -137,6 +137,9 @@ export function EmployeeForm({
   const [showToast, setShowToast] = useState(false);
   useEffect(() => {
     if (state && (state as { success: boolean }).success && !!employee) {
+      // Reacting to a useActionState result changing (an external system) —
+      // not a derived-state anti-pattern.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShowToast(true);
       const t = setTimeout(() => setShowToast(false), 4000);
       return () => clearTimeout(t);

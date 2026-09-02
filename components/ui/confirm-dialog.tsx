@@ -27,6 +27,10 @@ export function ConfirmDialog({
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
+    // Standard client-mount detection (needed to avoid an SSR/client
+    // mismatch) — there's no external signal to subscribe to here, this
+    // *is* the mount signal.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
     const frame = requestAnimationFrame(() => setVisible(true));
     return () => cancelAnimationFrame(frame);

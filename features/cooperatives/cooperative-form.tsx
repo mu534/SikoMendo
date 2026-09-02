@@ -96,6 +96,9 @@ export function CooperativeForm({
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   useEffect(() => {
     if (state && (state as { success: boolean }).success === true && !!cooperative) {
+      // Reacting to a useActionState result changing (an external system) —
+      // not a derived-state anti-pattern.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShowSuccessToast(true);
       const t = setTimeout(() => setShowSuccessToast(false), 3500);
       return () => clearTimeout(t);

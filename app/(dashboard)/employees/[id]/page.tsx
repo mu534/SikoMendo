@@ -9,6 +9,7 @@ import { DocumentUploadForm } from "@/features/employees/document-upload-form";
 import { listActiveDepartments } from "@/features/departments/queries";
 import { listActivePositions } from "@/features/positions/queries";
 import { formatDate, formatBytes } from "@/lib/utils";
+import { formatDateWithEthiopian } from "@/lib/ethiopian-calendar";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
@@ -109,7 +110,7 @@ export default async function EmployeeDetailPage({
           <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <ReadField label="Employee ID" value={employee.employeeId} />
             <ReadField label="Gender" value={employee.gender} />
-            <ReadField label="Date of Birth" value={formatDate(employee.dateOfBirth)} />
+            <ReadField label="Date of Birth" value={formatDateWithEthiopian(employee.dateOfBirth)} />
             <ReadField label="Marital Status" value={employee.maritalStatus} />
             <ReadField label="Phone" value={employee.phone} />
             <ReadField label="Email" value={employee.email} />
@@ -122,7 +123,7 @@ export default async function EmployeeDetailPage({
             <ReadField label="Position" value={employee.position?.name} />
             <ReadField label="Employment Type" value={employee.employmentType} />
             <ReadField label="Employment Status" value={employee.employmentStatus} />
-            <ReadField label="Hire Date" value={formatDate(employee.hireDate)} />
+            <ReadField label="Hire Date" value={formatDateWithEthiopian(employee.hireDate)} />
             <ReadField label="Education Level" value={employee.educationLevel} />
             <ReadField label="Field of Study" value={employee.fieldOfStudy} />
             <ReadField label="Institution" value={employee.institutionName} />

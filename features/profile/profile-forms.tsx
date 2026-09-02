@@ -24,6 +24,10 @@ export function UpdateProfileForm({
   const [toast, setToast] = useState<string | null>(null);
   useEffect(() => {
     if (state && (state as { success: boolean }).success) {
+      // Reacting to a useActionState result changing — see the identical
+      // pattern elsewhere in this file for why this is a legitimate effect
+      // use, not a derived-state anti-pattern.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setToast("Profile updated successfully.");
       const t = setTimeout(() => setToast(null), 3500);
       return () => clearTimeout(t);
@@ -104,6 +108,10 @@ export function EmployeeContactForm({
   const [toast, setToast] = useState<string | null>(null);
   useEffect(() => {
     if (state && (state as { success: boolean }).success) {
+      // Reacting to a useActionState result changing (an external system,
+      // per React's own framing of what effects are for) — not a derived-
+      // state anti-pattern.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setToast("Contact information updated successfully.");
       const t = setTimeout(() => setToast(null), 3500);
       return () => clearTimeout(t);
@@ -188,6 +196,10 @@ export function ChangePasswordForm() {
   const [toast, setToast] = useState<string | null>(null);
   useEffect(() => {
     if (state && (state as { success: boolean }).success) {
+      // Reacting to a useActionState result changing — see the identical
+      // pattern above for why this is a legitimate effect use, not a
+      // derived-state anti-pattern.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setToast("Password changed successfully.");
       const t = setTimeout(() => setToast(null), 3500);
       return () => clearTimeout(t);

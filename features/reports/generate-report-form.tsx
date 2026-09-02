@@ -31,6 +31,9 @@ export function GenerateReportForm({
   useEffect(() => {
     if (state && (state as { success: boolean }).success === true) {
       const title = (state as { data: { title: string } }).data.title;
+      // Reacting to a useActionState result changing (an external system) —
+      // not a derived-state anti-pattern.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSuccessMessage(`"${title}" has been generated successfully.`);
       const t = setTimeout(() => setSuccessMessage(null), 4000);
       return () => clearTimeout(t);

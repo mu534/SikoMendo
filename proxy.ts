@@ -5,7 +5,7 @@ import { getSessionCookie } from "better-auth/cookies";
 // Public routes that never require a session. Everything else under the
 // matcher below is treated as protected by default — safer than maintaining
 // a deny-list that someone forgets to update when a new page is added.
-const PUBLIC_PATHS = new Set(["/", "/sign-in"]);
+const PUBLIC_PATHS = new Set(["/", "/sign-in", "/offline"]);
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

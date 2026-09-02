@@ -10,6 +10,7 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { formatDateWithEthiopian } from "@/lib/ethiopian-calendar";
 
 type AssignedEmployee = {
   id: string;
@@ -91,15 +92,11 @@ export default async function CooperativeDetailPage({
             <ReadField label="Registration Number" value={cooperative.registrationNumber} />
             <ReadField
               label="Registration Date"
-              value={cooperative.registrationDate
-                ? new Date(cooperative.registrationDate).toLocaleDateString()
-                : null}
+              value={formatDateWithEthiopian(cooperative.registrationDate)}
             />
             <ReadField
               label="Date Joined Union"
-              value={cooperative.dateJoinedUnion
-                ? new Date(cooperative.dateJoinedUnion).toLocaleDateString()
-                : null}
+              value={formatDateWithEthiopian(cooperative.dateJoinedUnion)}
             />
             <ReadField label="Status" value={cooperative.isActive ? "Active" : "Inactive"} />
             <ReadField label="District / Aanaa" value={cooperative.district} />

@@ -12,6 +12,7 @@ import { cancelLeaveRequest } from "@/features/leave/actions";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { LEAVE_TYPE_LABELS } from "@/features/leave/schemas";
 import { formatDate, formatDateTime } from "@/lib/utils";
+import { formatDateWithEthiopian } from "@/lib/ethiopian-calendar";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 
@@ -75,8 +76,8 @@ export default async function LeaveDetailPage({ params }: { params: Promise<{ id
                 </div>
               </Field>
               <Field label="Leave Type">{LEAVE_TYPE_LABELS[leave.leaveType]}</Field>
-              <Field label="Start Date">{formatDate(leave.startDate)}</Field>
-              <Field label="End Date">{formatDate(leave.endDate)}</Field>
+              <Field label="Start Date">{formatDateWithEthiopian(leave.startDate)}</Field>
+              <Field label="End Date">{formatDateWithEthiopian(leave.endDate)}</Field>
               <Field label="Total Days">{leave.totalDays}</Field>
               <Field label="Applied Date">{formatDate(leave.appliedDate)}</Field>
               <Field label="Reason" full>
