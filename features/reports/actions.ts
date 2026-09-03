@@ -5,7 +5,7 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "@/lib/session";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
 import { uploadToCloudinary } from "@/lib/cloudinary";
-import { buildReportFile } from "./file-builder";
+import { buildReportFile, type ReportFilters } from "./file-builder";
 import type { ReportType, ReportFormat, Prisma } from "@prisma/client";
 
 const REPORT_TITLES: Record<ReportType, string> = {
@@ -17,12 +17,45 @@ const REPORT_TITLES: Record<ReportType, string> = {
   LEAVE_SUMMARY: "Leave Summary",
 };
 
-const VALID_TYPES = new Set(Object.keys(REPORT_TITLES));
-const VALID_FORMATS = new Set(["PDF", "CSV"]);
+const VALID_TYPES = new Set<string>(Object.keys(REPORT_TITLES));
+const VALID_FORMATS = new Set<string>(["PDF", "CSV"]);
 
-function getStringField(formData: FormData, key: string): string | undefined {
-  const value = formData.get(key);
-  return typeof value === "string" && value.length > 0 ? value : undefined;
+/** Extracts a non-empty string field from FormData, or undefined. */
+function str(formData: FormData, key: string): string | undefined {
+  const v = formData.get(key);
+  return typeof v === "string" && v.trim().length > 0 ? v.trim() : undefined;
+}
+
+/**
+ * Build the ReportFilters object from form data.
+ * Each report type reads only the fields that are relevant to it —
+ * the file-builder ignores any extras — but we extract everything
+ * here once so the action stays clean.
+ */
+function extractFilters(formData: FormData): ReportFilters {
+  return {
+    // Common across multiple types
+    departmentId: str(formData, "departmentId"),
+    employeeId: str(formData, "employeeId"),
+    year: str(formData, "year"),
+    startDate: str(formData, "startDate"),
+    endDate: str(formData, "endDate"),
+
+    // Employee Directory / Headcount
+    employmentStatus: str(formData, "employmentStatus"),
+    employmentType: str(formData, "employmentType"),
+
+    // Attendance
+    attendanceStatus: str(formData, "attendanceStatus"),
+
+    // Leave Summary
+    leaveType: str(formData, "leaveType"),
+    leaveStatus: str(formData, "leaveStatus"),
+
+    // Cooperative Listing
+    cooperativeStatus: str(formData, "cooperativeStatus"),
+    cooperativeType: str(formData, "cooperativeType"),
+  };
 }
 
 export async function generateReport(
@@ -32,32 +65,27 @@ export async function generateReport(
   const session = await getServerSession();
 
   return withPermission(session, "GENERATE_REPORTS", async () => {
-    const type = formData.get("type") as ReportType;
-    const format = (formData.get("format") as ReportFormat) || "PDF";
+    const type = str(formData, "type") as ReportType | undefined;
+    const format = (str(formData, "format") ?? "PDF") as ReportFormat;
 
     if (!type || !VALID_TYPES.has(type)) throw new Error("Report type is required.");
     if (!VALID_FORMATS.has(format)) throw new Error("Invalid report format.");
 
-    const title = REPORT_TITLES[type];
+    const filters = extractFilters(formData);
 
-    // Leave Summary supports extra filters (employee, leave type, status, date range).
-    const filters =
-      type === "LEAVE_SUMMARY"
-        ? {
-            employeeId: getStringField(formData, "leaveEmployeeId"),
-            leaveType: getStringField(formData, "leaveType"),
-            status: getStringField(formData, "leaveStatus"),
-            startDate: getStringField(formData, "leaveStartDate"),
-            endDate: getStringField(formData, "leaveEndDate"),
-          }
-        : undefined;
+    // Build the file from real database data with the selected filters applied
+    const { buffer, mimeType, fileName, parameters, docTitle } =
+      await buildReportFile(type, format, filters);
 
-    // Build the actual file (real data, rendered as PDF or CSV) and upload it
-    // so report history rows have a real, working download link.
-    const { buffer, mimeType, fileName, parameters } = await buildReportFile(type, format, filters);
-
+    // Upload to Cloudinary as an authenticated (private) asset
     const file = new File([new Uint8Array(buffer)], fileName, { type: mimeType });
-    const asset = await uploadToCloudinary(file, "siko-mendo/reports", { resourceType: "auto", access: "authenticated" });
+    const asset = await uploadToCloudinary(file, "siko-mendo/reports", {
+      resourceType: "auto",
+      access: "authenticated",
+    });
+
+    // Use the docTitle (which embeds active filter context) as the stored title
+    const title = docTitle ?? REPORT_TITLES[type];
 
     const report = await prisma.report.create({
       data: {
@@ -77,7 +105,9 @@ export async function generateReport(
   });
 }
 
-export async function deleteReport(id: string): Promise<ActionResult<{ id: string }>> {
+export async function deleteReport(
+  id: string
+): Promise<ActionResult<{ id: string }>> {
   const session = await getServerSession();
 
   return withPermission(session, "GENERATE_REPORTS", async () => {
@@ -91,7 +121,10 @@ export async function deleteReport(id: string): Promise<ActionResult<{ id: strin
         action: "DELETE",
         entity: "Report",
         entityId: id,
-        changes: { title: existing.title, type: existing.type } as Prisma.InputJsonValue,
+        changes: {
+          title: existing.title,
+          type: existing.type,
+        } as Prisma.InputJsonValue,
         userId: session!.user.id,
       },
     });

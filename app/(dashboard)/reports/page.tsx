@@ -1,10 +1,21 @@
-import { FileBarChart, FileText, Users, Building2, CalendarCheck, CalendarOff, ShieldCheck, Download, Trash2 } from "lucide-react";
+import {
+  FileBarChart,
+  FileText,
+  Users,
+  Building2,
+  CalendarCheck,
+  CalendarOff,
+  ShieldCheck,
+  Download,
+  Trash2,
+} from "lucide-react";
 import { requirePermission } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { getSignedFileUrl } from "@/lib/cloudinary";
 import { listReports } from "@/features/reports/queries";
 import { generateReport, deleteReport } from "@/features/reports/actions";
 import { listEmployeesForLeaveFilter } from "@/features/leave/queries";
+import { listActiveDepartments } from "@/features/departments/queries";
 import { parsePageParam } from "@/lib/utils";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -45,42 +56,67 @@ export default async function ReportsPage({
   const params = await searchParams;
   const page = parsePageParam(params.page);
 
-  const { items, total, totalPages } = await listReports(page);
-  const leaveFilterEmployees = canGenerate ? await listEmployeesForLeaveFilter() : [];
+  // Fetch report history and filter dropdown data in parallel
+  const [{ items, total, totalPages }, employees, departments] = await Promise.all([
+    listReports(page),
+    canGenerate ? listEmployeesForLeaveFilter() : Promise.resolve([]),
+    canGenerate ? listActiveDepartments() : Promise.resolve([]),
+  ]);
 
   return (
     <div className="space-y-6">
-      {/* Page header */}
+      {/* ── Page header ───────────────────────────────────────────────── */}
       <div>
         <h2 className="font-display text-xl font-semibold text-ink-900">Reports</h2>
         <p className="mt-1 text-sm text-ink-900/60">
-          Generate and view system reports for employees, attendance, cooperatives, and more.
+          Generate filtered reports for employees, attendance, leave, cooperatives, and more.
+          Files are stored securely and available for download in your history below.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* ── Generate report panel ─────────────────────────────────────── */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+        {/* ── Generate report panel (left, narrower) ─────────────────── */}
         {canGenerate && (
-          <div className="lg:col-span-1">
-            <Card className="p-6">
-              <div className="mb-5 flex items-center gap-2.5 border-b border-ink-900/8 pb-4">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
-                  <FileBarChart className="h-4 w-4" />
+          <div className="lg:col-span-2">
+            <Card className="overflow-hidden">
+              {/* Accent stripe */}
+              <div className="h-1 bg-brand-700" />
+              <div className="p-6">
+                <div className="mb-5 flex items-center gap-2.5 border-b border-ink-900/8 pb-4">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
+                    <FileBarChart className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-display text-base font-semibold text-ink-900">
+                      Generate Report
+                    </h3>
+                    <p className="mt-0.5 text-xs text-ink-900/50">
+                      Select a type and apply filters
+                    </p>
+                  </div>
                 </div>
-                <h3 className="font-display text-base font-semibold text-ink-900">Generate Report</h3>
+                <GenerateReportForm
+                  action={generateReport}
+                  employees={employees}
+                  departments={departments}
+                />
               </div>
-              <GenerateReportForm action={generateReport} leaveFilterEmployees={leaveFilterEmployees} />
             </Card>
           </div>
         )}
 
-        {/* ── Report history ────────────────────────────────────────────── */}
-        <div className={canGenerate ? "lg:col-span-2" : "lg:col-span-3"}>
+        {/* ── Report history (right, wider) ─────────────────────────── */}
+        <div className={canGenerate ? "lg:col-span-3" : "lg:col-span-5"}>
           <Card>
             <CardHeader
               title="Report History"
-              description={`${total} report${total === 1 ? "" : "s"} generated so far.`}
+              description={
+                total === 0
+                  ? "No reports generated yet."
+                  : `${total} report${total === 1 ? "" : "s"} generated so far.`
+              }
             />
+
             <Table>
               <THead>
                 <TH>Report</TH>
@@ -93,11 +129,21 @@ export default async function ReportsPage({
                 {items.length === 0 && (
                   <EmptyRow colSpan={5}>
                     <FileBarChart className="mx-auto mb-2 h-8 w-8 text-ink-900/20" />
-                    No reports have been generated yet.
+                    <p>No reports yet. Use the panel on the left to generate one.</p>
                   </EmptyRow>
                 )}
+
                 {items.map((report: ReportRow) => {
                   const Icon = REPORT_TYPE_ICONS[report.type] ?? FileText;
+
+                  const downloadUrl =
+                    report.fileKey
+                      ? getSignedFileUrl(
+                          report.fileKey,
+                          report.fileResourceType === "image" ? "image" : "raw",
+                        )
+                      : report.fileUrl ?? null;
+
                   return (
                     <TR key={report.id}>
                       <TD>
@@ -105,38 +151,47 @@ export default async function ReportsPage({
                           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
                             <Icon className="h-4 w-4" />
                           </div>
-                          <div>
-                            <p className="font-medium text-ink-900">{report.title}</p>
+                          <div className="min-w-0">
+                            <p className="truncate font-medium text-ink-900">
+                              {report.title}
+                            </p>
                             <p className="text-xs text-ink-900/50">
                               {REPORT_TYPE_LABELS[report.type] ?? report.type}
                             </p>
                           </div>
                         </div>
                       </TD>
+
                       <TD>
                         <Badge tone={report.format === "PDF" ? "brand" : "neutral"}>
                           {report.format}
                         </Badge>
                       </TD>
-                      <TD>{report.generatedBy.name}</TD>
-                      <TD>
-                        {new Date(report.createdAt).toLocaleDateString("en-US", {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+
+                      <TD className="text-sm text-ink-900/70">
+                        {report.generatedBy.name}
                       </TD>
+
+                      <TD className="whitespace-nowrap text-sm text-ink-900/60">
+                        {new Date(report.createdAt).toLocaleDateString("en-GB", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                        {" "}
+                        <span className="text-ink-900/40">
+                          {new Date(report.createdAt).toLocaleTimeString("en-GB", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      </TD>
+
                       <TD className="text-right">
-                        <div className="flex items-center justify-end gap-4">
-                          {report.fileUrl ? (
+                        <div className="flex items-center justify-end gap-3">
+                          {downloadUrl ? (
                             <a
-                              href={
-                                report.fileKey
-                                  ? getSignedFileUrl(report.fileKey, report.fileResourceType === "image" ? "image" : "raw")
-                                  : report.fileUrl
-                              }
+                              href={downloadUrl}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 transition hover:text-brand-800 hover:underline"
@@ -145,7 +200,7 @@ export default async function ReportsPage({
                               Download
                             </a>
                           ) : (
-                            <span className="text-xs text-ink-900/40">—</span>
+                            <span className="text-xs text-ink-900/30">—</span>
                           )}
 
                           {canGenerate && (
@@ -157,7 +212,7 @@ export default async function ReportsPage({
                             >
                               <ConfirmSubmitButton
                                 confirmTitle="Delete this report?"
-                                confirmMessage={`"${report.title}" will be permanently removed. This can't be undone.`}
+                                confirmMessage={`"${report.title}" will be permanently removed.`}
                                 confirmLabel="Delete"
                                 variant="ghost"
                                 size="sm"
