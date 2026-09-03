@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Input, Label, FieldGroup, FieldError } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { PhotoInput } from "@/features/employees/photo-input";
@@ -103,20 +104,28 @@ export function EmployeeContactForm({
   emergencyContactRelationship?: string | null;
   emergencyContactAddress?: string | null;
 }) {
+  const router = useRouter();
   const [state, formAction, isPending] = useActionState(updateOwnEmployeeInfo, null);
+  // Track the displayed image locally so it updates immediately after save
+  const [currentImage, setCurrentImage] = useState(image);
 
   const [toast, setToast] = useState<string | null>(null);
   useEffect(() => {
     if (state && (state as { success: boolean }).success) {
-      // Reacting to a useActionState result changing (an external system,
-      // per React's own framing of what effects are for) — not a derived-
-      // state anti-pattern.
+      const typedState = state as { success: true; data: { image?: string | null } | null };
+      // If a new photo was uploaded, update the local preview immediately
+      if (typedState.data?.image) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setCurrentImage(typedState.data.image);
+      }
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setToast("Contact information updated successfully.");
       const t = setTimeout(() => setToast(null), 3500);
+      // Refresh the server layout so the header avatar picks up the new image
+      router.refresh();
       return () => clearTimeout(t);
     }
-  }, [state]);
+  }, [state, router]);
 
   const error =
     state && !(state as { success: boolean }).success
@@ -136,7 +145,7 @@ export function EmployeeContactForm({
         </div>
       )}
 
-      <PhotoInput name="photo" currentName={name} currentUrl={image} />
+      <PhotoInput name="photo" currentName={name} currentUrl={currentImage} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <FieldGroup>

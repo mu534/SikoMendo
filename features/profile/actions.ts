@@ -121,7 +121,7 @@ export async function updateOwnProfile(
 export async function updateOwnEmployeeInfo(
   _prevState: unknown,
   formData: FormData
-): Promise<ActionResult<null>> {
+): Promise<ActionResult<{ image: string | null }>> {
   const session = await getServerSession();
 
   return withPermission(session, "UPDATE_OWN_INFO", async () => {
@@ -159,6 +159,15 @@ export async function updateOwnEmployeeInfo(
       },
     });
 
+    // Sync the new photo to user.image so the header avatar, account summary
+    // card, and anywhere else that reads session.user.image stays up to date.
+    if (asset) {
+      await auth.api.adminUpdateUser({
+        headers: await headers(),
+        body: { userId: session!.user.id, data: { image: asset.url } },
+      });
+    }
+
     await prisma.auditLog.create({
       data: {
         action: "UPDATE_OWN_INFO",
@@ -170,7 +179,7 @@ export async function updateOwnEmployeeInfo(
     });
 
     revalidatePath("/profile");
-    return null;
+    return { image: asset?.url ?? null };
   });
 }
 
@@ -194,6 +203,24 @@ export async function changeOwnPassword(
         currentPassword: parsed.data.currentPassword,
         newPassword: parsed.data.newPassword,
         revokeOtherSessions: false,
+      },
+    });
+
+    // Record when the password was last changed and clear any pending
+    // force-change flag (e.g. if the user got here via the profile page
+    // instead of the dedicated force-change flow).
+    await prisma.user.update({
+      where: { id: session!.user.id },
+      data: { mustChangePassword: false, passwordChangedAt: new Date() },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        action: "PASSWORD_CHANGED",
+        entity: "User",
+        entityId: session!.user.id,
+        changes: { selfService: true },
+        userId: session!.user.id,
       },
     });
 

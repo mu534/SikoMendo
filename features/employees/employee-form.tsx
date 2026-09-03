@@ -59,16 +59,7 @@ function toDateInputValue(date?: string | null) {
   return new Date(date).toISOString().slice(0, 10);
 }
 
-export function SectionHeader({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
-  return (
-    <div className="mb-5 flex items-center gap-2.5 border-b border-ink-900/8 pb-4">
-      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
-        <Icon className="h-4 w-4" />
-      </div>
-      <h3 className="font-display text-base font-semibold text-ink-900">{title}</h3>
-    </div>
-  );
-}
+export { SectionHeader } from "./section-header";
 
 function RequiredMark() {
   return <span className="ml-0.5 text-red-500" aria-hidden="true">*</span>;
