@@ -60,12 +60,42 @@ async function AllLeaveRequests({
   // manager's own Employee record so both the list and the employee filter
   // dropdown can be scoped to just their direct reports.
   let managerEmployeeId: string | undefined;
+  let managerHasNoEmployeeRecord = false;
   if (role === "MANAGER") {
     const managerEmployee = await prisma.employee.findUnique({
       where: { userId },
       select: { id: true },
     });
-    managerEmployeeId = managerEmployee?.id;
+    if (managerEmployee) {
+      managerEmployeeId = managerEmployee.id;
+    } else {
+      // No linked Employee record means no team to scope to. The correct
+      // safe behavior is "show nothing", not "show everyone" — an absent
+      // filter elsewhere would silently mean "no filter at all".
+      managerHasNoEmployeeRecord = true;
+    }
+  }
+
+  if (managerHasNoEmployeeRecord) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="font-display text-xl font-semibold text-ink-900">Leave requests</h2>
+          <p className="mt-1 text-sm text-ink-900/60">
+            Review, approve, or reject leave requests from your direct reports.
+          </p>
+        </div>
+        <Card className="p-10 text-center">
+          <Users className="mx-auto mb-3 h-8 w-8 text-ink-900/20" />
+          <p className="font-medium text-ink-900">No employee record linked to your account</p>
+          <p className="mx-auto mt-1 max-w-md text-sm text-ink-900/60">
+            Your manager account isn&apos;t linked to an employee record, so there&apos;s no team assigned
+            to you yet. Ask HR to link your account to your employee profile and assign your direct
+            reports.
+          </p>
+        </Card>
+      </div>
+    );
   }
 
   const [{ items, total, totalPages }, employees] = await Promise.all([

@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
-import { FileText, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { FileText, Trash2, User, Phone, Briefcase, GraduationCap, Calendar } from "lucide-react";
 import { requirePermission } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { getEmployeeById } from "@/features/employees/queries";
 import { updateEmployee, deleteEmployeeDocument } from "@/features/employees/actions";
-import { EmployeeForm, EmployeeFormActions } from "@/features/employees/employee-form";
+import { EmployeeForm, EmployeeFormActions, SectionHeader } from "@/features/employees/employee-form";
 import { DocumentUploadForm } from "@/features/employees/document-upload-form";
 import { listActiveDepartments } from "@/features/departments/queries";
 import { listActivePositions } from "@/features/positions/queries";
@@ -75,27 +76,7 @@ export default async function EmployeeDetailPage({
 
   return (
     <div className="space-y-6">
-      {/* Page header */}
-      <div className="flex items-center gap-4">
-        <Avatar
-          name={`${employee.firstName} ${employee.lastName}`}
-          imageUrl={employee.profileImageUrl}
-          size="lg"
-        />
-        <div>
-          <h2 className="font-display text-xl font-semibold text-ink-900">
-            {employee.firstName}
-            {employee.middleName ? ` ${employee.middleName}` : ""} {employee.lastName}
-          </h2>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            <Badge tone="brand">{employee.employeeId}</Badge>
-            <Badge tone="neutral">{employee.employmentStatus.replace("_", " ")}</Badge>
-            {employee.user?.username && (
-              <span className="text-xs text-ink-900/50">@{employee.user.username}</span>
-            )}
-          </div>
-        </div>
-      </div>
+      <ProfileHeader employee={employee} />
 
       {/* Edit form (admin / HR) or read-only view (manager) */}
       {canManage && formValues ? (
@@ -106,30 +87,54 @@ export default async function EmployeeDetailPage({
           positions={positions}
         />
       ) : (
-        <Card className="max-w-3xl p-6">
-          <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <ReadField label="Employee ID" value={employee.employeeId} />
-            <ReadField label="Gender" value={employee.gender} />
-            <ReadField label="Date of Birth" value={formatDateWithEthiopian(employee.dateOfBirth)} />
-            <ReadField label="Marital Status" value={employee.maritalStatus} />
-            <ReadField label="Phone" value={employee.phone} />
-            <ReadField label="Email" value={employee.email} />
-            <ReadField label="Address" value={employee.address} className="sm:col-span-2" />
-            <ReadField label="Emergency Contact" value={employee.emergencyContactName} />
-            <ReadField label="Relationship" value={employee.emergencyContactRelationship} />
-            <ReadField label="Emergency Phone" value={employee.emergencyContactPhone} />
-            <ReadField label="Emergency Address" value={employee.emergencyContactAddress} />
-            <ReadField label="Department" value={employee.department?.name} />
-            <ReadField label="Position" value={employee.position?.name} />
-            <ReadField label="Employment Type" value={employee.employmentType} />
-            <ReadField label="Employment Status" value={employee.employmentStatus} />
-            <ReadField label="Hire Date" value={formatDateWithEthiopian(employee.hireDate)} />
-            <ReadField label="Education Level" value={employee.educationLevel} />
-            <ReadField label="Field of Study" value={employee.fieldOfStudy} />
-            <ReadField label="Institution" value={employee.institutionName} />
-            <ReadField label="Graduation Year" value={employee.graduationYear} />
-          </dl>
-        </Card>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <Card className="p-6">
+            <SectionHeader icon={User} title="Personal Information" />
+            <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <ReadField label="Gender" value={employee.gender} />
+              <ReadField label="Date of Birth" value={formatDateWithEthiopian(employee.dateOfBirth)} />
+              <ReadField label="Marital Status" value={employee.maritalStatus} />
+              <ReadField label="Phone" value={employee.phone} />
+              <ReadField label="Email" value={employee.email} className="sm:col-span-2" />
+              <ReadField label="Address" value={employee.address} className="sm:col-span-2" />
+            </dl>
+          </Card>
+
+          <Card className="p-6">
+            <SectionHeader icon={Phone} title="Emergency Contact" />
+            <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <ReadField label="Name" value={employee.emergencyContactName} />
+              <ReadField label="Relationship" value={employee.emergencyContactRelationship} />
+              <ReadField label="Phone" value={employee.emergencyContactPhone} />
+              <ReadField label="Address" value={employee.emergencyContactAddress} />
+            </dl>
+          </Card>
+
+          <Card className="p-6">
+            <SectionHeader icon={Briefcase} title="Employment Information" />
+            <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <ReadField label="Department" value={employee.department?.name} />
+              <ReadField label="Position" value={employee.position?.name} />
+              <ReadField label="Employment Type" value={employee.employmentType} />
+              <ReadField label="Employment Status" value={employee.employmentStatus} />
+              <ReadField label="Hire Date" value={formatDateWithEthiopian(employee.hireDate)} />
+              <ReadField
+                label="Reports To"
+                value={employee.manager ? `${employee.manager.firstName} ${employee.manager.lastName}` : null}
+              />
+            </dl>
+          </Card>
+
+          <Card className="p-6">
+            <SectionHeader icon={GraduationCap} title="Education" />
+            <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <ReadField label="Education Level" value={employee.educationLevel} />
+              <ReadField label="Field of Study" value={employee.fieldOfStudy} />
+              <ReadField label="Institution" value={employee.institutionName} />
+              <ReadField label="Graduation Year" value={employee.graduationYear} />
+            </dl>
+          </Card>
+        </div>
       )}
 
       {/* Documents */}
@@ -194,6 +199,85 @@ export default async function EmployeeDetailPage({
       {/* Save / Reset / Cancel after Documents */}
       {canManage && <EmployeeFormActions isEdit />}
     </div>
+  );
+}
+
+function yearsOfService(hireDate: Date | null): string | null {
+  if (!hireDate) return null;
+  const now = new Date();
+  let years = now.getFullYear() - hireDate.getFullYear();
+  const hasHadAnniversaryThisYear =
+    now.getMonth() > hireDate.getMonth() ||
+    (now.getMonth() === hireDate.getMonth() && now.getDate() >= hireDate.getDate());
+  if (!hasHadAnniversaryThisYear) years -= 1;
+  if (years < 1) return "Less than a year";
+  return `${years} year${years === 1 ? "" : "s"}`;
+}
+
+function ProfileHeader({
+  employee,
+}: {
+  employee: NonNullable<Awaited<ReturnType<typeof getEmployeeById>>>;
+}) {
+  const fullName = `${employee.firstName}${employee.middleName ? ` ${employee.middleName}` : ""} ${employee.lastName}`;
+  const tenure = yearsOfService(employee.hireDate);
+
+  const statusTone =
+    employee.employmentStatus === "ACTIVE"
+      ? "success"
+      : employee.employmentStatus === "ON_LEAVE"
+        ? "warning"
+        : "neutral";
+
+  return (
+    <Card className="p-6">
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-5">
+          <Avatar name={fullName} imageUrl={employee.profileImageUrl} size="xl" />
+          <div>
+            <h2 className="font-display text-2xl font-semibold text-ink-900">{fullName}</h2>
+            <p className="mt-0.5 text-sm text-ink-900/60">
+              {employee.position?.name ?? "No position assigned"}
+              {employee.department?.name ? ` · ${employee.department.name}` : ""}
+            </p>
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
+              <Badge tone="brand">{employee.employeeId}</Badge>
+              <Badge tone={statusTone}>{employee.employmentStatus.replace("_", " ")}</Badge>
+              {employee.employmentType && <Badge tone="neutral">{employee.employmentType}</Badge>}
+              {employee.user?.username && (
+                <span className="text-xs text-ink-900/45">@{employee.user.username}</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Quick facts \u2014 the things a manager glances at first: how long they've
+            been here, when they joined, and who they report to. */}
+        <div className="flex gap-6 sm:border-l sm:border-ink-900/8 sm:pl-6">
+          <div>
+            <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-ink-900/40">
+              <Calendar className="h-3.5 w-3.5" /> Tenure
+            </p>
+            <p className="mt-1 text-sm font-medium text-ink-900">{tenure ?? "—"}</p>
+          </div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-ink-900/40">Hired</p>
+            <p className="mt-1 text-sm font-medium text-ink-900">{formatDate(employee.hireDate)}</p>
+          </div>
+          {employee.manager && (
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-ink-900/40">Reports to</p>
+              <Link
+                href={`/employees/${employee.manager.id}`}
+                className="mt-1 block text-sm font-medium text-brand-700 hover:underline"
+              >
+                {employee.manager.firstName} {employee.manager.lastName}
+              </Link>
+            </div>
+          )}
+        </div>
+      </div>
+    </Card>
   );
 }
 

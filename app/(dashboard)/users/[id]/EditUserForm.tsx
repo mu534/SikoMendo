@@ -5,17 +5,20 @@ import { updateUserAccount } from "@/features/users/actions";
 import { ROLES, roleLabel } from "@/lib/permissions";
 import { Input, Label, Select, FieldGroup } from "@/components/ui/field";
 import { Button, ButtonLink } from "@/components/ui/button";
+import { PhotoInput } from "@/features/employees/photo-input";
 
 export function EditUserForm({
   user,
 }: {
-  user: { id: string; name: string; username: string | null; role: string };
+  user: { id: string; name: string; username: string | null; role: string; image: string | null };
 }) {
   const action = updateUserAccount.bind(null, user.id);
   const [state, formAction, isPending] = useActionState(action, null);
 
   return (
     <form action={formAction} className="space-y-5">
+      <PhotoInput name="photo" currentName={user.name} currentUrl={user.image} />
+
       <FieldGroup>
         <Label htmlFor="name">Full name</Label>
         <Input id="name" name="name" required defaultValue={user.name} />

@@ -36,7 +36,7 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
 
       <Card className="p-6">
         <EditUserForm
-          user={{ id: user.id, name: user.name, username: user.username, role: user.role }}
+          user={{ id: user.id, name: user.name, username: user.username, role: user.role, image: user.image }}
         />
       </Card>
 

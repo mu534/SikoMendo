@@ -7,6 +7,7 @@ import { ROLES, roleLabel } from "@/lib/permissions";
 import { Input, Label, Select, FieldGroup } from "@/components/ui/field";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { PhotoInput } from "@/features/employees/photo-input";
 
 export function CreateUserForm() {
   const router = useRouter();
@@ -59,6 +60,8 @@ export function CreateUserForm() {
   return (
     <Card className="max-w-xl p-6">
       <form action={formAction} className="space-y-5">
+        <PhotoInput name="photo" currentName={name || "New user"} currentUrl={null} />
+
         <FieldGroup>
           <Label htmlFor="name">Full name</Label>
           <Input

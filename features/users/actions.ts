@@ -10,6 +10,12 @@ import { createUserSchema, updateUserSchema } from "./schemas";
 import { generateTempPassword } from "@/lib/credentials";
 import { createNotification } from "@/lib/notifications";
 import { generateUsernameFromName } from "@/lib/username-utils";
+import { uploadToCloudinary } from "@/lib/cloudinary";
+
+function getPhotoFile(formData: FormData): File | null {
+  const file = formData.get("photo");
+  return file instanceof File && file.size > 0 ? file : null;
+}
 
 async function logAudit(action: string, entityId: string, changes: unknown, userId?: string) {
   await prisma.auditLog.create({
@@ -80,6 +86,17 @@ export async function createUserAccount(
       },
     });
 
+    // Optional photo, set by the admin creating this account on the
+    // person's behalf (they may not have logged in themselves yet).
+    const photo = getPhotoFile(formData);
+    if (photo) {
+      const asset = await uploadToCloudinary(photo, "siko-mendo/profile", { resourceType: "image" });
+      await auth.api.adminUpdateUser({
+        headers: await headers(),
+        body: { userId: user.id, data: { image: asset.url } },
+      });
+    }
+
     // Set the username and role via Prisma (better-auth createUser doesn't
     // expose username or our custom role enum through its typed API).
     // mustChangePassword: true forces this brand-new temp password to be
@@ -138,9 +155,19 @@ export async function updateUserAccount(
     // Update the internal email to stay in sync with the username
     const newInternalEmail = `${parsed.data.username}@internal.sikomendo.local`;
 
+    const photo = getPhotoFile(formData);
+    const asset = photo
+      ? await uploadToCloudinary(photo, "siko-mendo/profile", { resourceType: "image" })
+      : null;
+
     await auth.api.adminUpdateUser({
       headers: await headers(),
-      body: { userId, data: { name: parsed.data.name, email: newInternalEmail } },
+      body: {
+        userId,
+        data: asset
+          ? { name: parsed.data.name, email: newInternalEmail, image: asset.url }
+          : { name: parsed.data.name, email: newInternalEmail },
+      },
     });
 
     await prisma.user.update({
@@ -152,7 +179,7 @@ export async function updateUserAccount(
       },
     });
 
-    await logAudit("UPDATE", userId, parsed.data, session?.user.id);
+    await logAudit("UPDATE", userId, { ...parsed.data, photoChanged: Boolean(asset) }, session?.user.id);
     revalidatePath("/users");
     revalidatePath(`/users/${userId}`);
     return { id: userId };

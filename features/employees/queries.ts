@@ -9,7 +9,6 @@ export type EmployeeListFilters = {
   departmentId?: string;
   employmentType?: string;
   gender?: string;
-  cooperativeId?: string;
   showArchived?: boolean;
   /** When set, restricts results to these employee IDs (used to scope Managers to their reporting hierarchy). */
   restrictToIds?: string[];
@@ -33,7 +32,6 @@ export async function listEmployees({
   departmentId,
   employmentType,
   gender,
-  cooperativeId,
   showArchived,
   restrictToIds,
   page,
@@ -68,9 +66,6 @@ export async function listEmployees({
   if (gender && GENDERS.includes(gender as Gender)) {
     andClauses.push({ gender: gender as Gender });
   }
-  if (cooperativeId) {
-    andClauses.push({ cooperativeId });
-  }
 
   const where: Prisma.EmployeeWhereInput = {
     deletedAt: showArchived ? { not: null } : null,
@@ -97,19 +92,10 @@ export async function getEmployeeById(id: string) {
     include: {
       department: { select: { id: true, name: true } },
       position: { select: { id: true, name: true, departmentId: true } },
-      cooperative: { select: { id: true, name: true } },
       user: { select: { id: true, email: true, username: true, role: true } },
       documents: { where: { deletedAt: null }, orderBy: { createdAt: "desc" } },
       manager: { select: { id: true, firstName: true, lastName: true, employeeId: true } },
     },
-  });
-}
-
-export async function listAssignableCooperatives() {
-  return prisma.cooperative.findMany({
-    where: { deletedAt: null, isActive: true },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true },
   });
 }
 

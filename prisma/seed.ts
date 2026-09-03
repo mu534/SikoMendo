@@ -163,7 +163,6 @@ async function main() {
       hireDate: new Date("2020-01-06"),
       employmentStatus: EmploymentStatus.ACTIVE,
       userId: adminUser.id,
-      cooperativeId: coop1.id,
     },
   });
 
@@ -182,7 +181,6 @@ async function main() {
       hireDate: new Date("2021-03-15"),
       employmentStatus: EmploymentStatus.ACTIVE,
       userId: hrUser.id,
-      cooperativeId: coop1.id,
     },
   });
 
@@ -201,7 +199,6 @@ async function main() {
       hireDate: new Date("2018-06-10"),
       employmentStatus: EmploymentStatus.ACTIVE,
       userId: managerUser.id,
-      cooperativeId: coop2.id,
     },
   });
 
@@ -220,7 +217,6 @@ async function main() {
       hireDate: new Date("2023-09-01"),
       employmentStatus: EmploymentStatus.ACTIVE,
       userId: employeeUser.id,
-      cooperativeId: coop2.id,
     },
   });
 
@@ -238,7 +234,6 @@ async function main() {
       positionId: cashierPos.id,
       hireDate: new Date("2024-02-15"),
       employmentStatus: EmploymentStatus.ACTIVE,
-      cooperativeId: coop2.id,
     },
   });
 
@@ -256,7 +251,6 @@ async function main() {
       positionId: accountantPos.id,
       hireDate: new Date("2022-11-01"),
       employmentStatus: EmploymentStatus.ACTIVE,
-      cooperativeId: coop1.id,
     },
   });
 

@@ -8,10 +8,15 @@ export function Avatar({
 }: {
   name: string;
   imageUrl?: string | null;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
   className?: string;
 }) {
-  const dimensions = { sm: "h-8 w-8 text-xs", md: "h-10 w-10 text-sm", lg: "h-14 w-14 text-base" }[size];
+  const dimensions = {
+    sm: "h-8 w-8 text-xs",
+    md: "h-10 w-10 text-sm",
+    lg: "h-14 w-14 text-base",
+    xl: "h-20 w-20 text-xl",
+  }[size];
 
   if (imageUrl) {
     // eslint-disable-next-line @next/next/no-img-element -- remote Cloudinary URLs, dimensions vary by usage

@@ -30,7 +30,6 @@ export async function listCooperatives({ q, status, showArchived, page }: Cooper
   const [items, total] = await Promise.all([
     prisma.cooperative.findMany({
       where,
-      include: { _count: { select: { employees: true } } },
       orderBy: { name: "asc" },
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
@@ -42,24 +41,7 @@ export async function listCooperatives({ q, status, showArchived, page }: Cooper
 }
 
 export async function getCooperativeById(id: string) {
-  return prisma.cooperative.findUnique({
-    where: { id },
-    include: {
-      employees: {
-        where: { deletedAt: null },
-        orderBy: { firstName: "asc" },
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          employeeId: true,
-          position: { select: { name: true } },
-          profileImageUrl: true,
-        },
-      },
-      _count: { select: { employees: true } },
-    },
-  });
+  return prisma.cooperative.findUnique({ where: { id } });
 }
 
 export async function generateNextCooperativeId() {

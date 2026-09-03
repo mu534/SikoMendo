@@ -59,7 +59,7 @@ function toDateInputValue(date?: string | null) {
   return new Date(date).toISOString().slice(0, 10);
 }
 
-function SectionHeader({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
+export function SectionHeader({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
   return (
     <div className="mb-5 flex items-center gap-2.5 border-b border-ink-900/8 pb-4">
       <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-700">

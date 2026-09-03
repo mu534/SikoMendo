@@ -4,8 +4,8 @@ import prisma from "@/lib/prisma";
 import { employeeSchema } from "./schemas";
 import { generateNextEmployeeId } from "./queries";
 
-/** Column headers the import template/CSV must use. cooperativeId/userId are deliberately
- *  excluded — those are relationship fields best set individually via the employee form. */
+/** Column headers the import template/CSV must use. userId is deliberately
+ *  excluded — that's a relationship field best set individually via the employee form. */
 export const IMPORT_COLUMNS = [
   "firstName",
   "middleName",
@@ -113,7 +113,6 @@ export async function importEmployeeRows(
       ...row,
       departmentId: department.id,
       positionId: position.id,
-      cooperativeId: "",
       userId: "",
     });
     if (!parsed.success) {

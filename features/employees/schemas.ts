@@ -47,7 +47,6 @@ export const employeeSchema = z.object({
   fieldOfStudy: optionalString,
   institutionName: optionalString,
   graduationYear: optionalString,
-  cooperativeId: optionalString,
   userId: optionalString,
 });
 
@@ -97,7 +96,6 @@ export function employeeFormDataToObject(formData: FormData) {
     fieldOfStudy: s("fieldOfStudy"),
     institutionName: s("institutionName"),
     graduationYear: s("graduationYear"),
-    cooperativeId: s("cooperativeId"),
     userId: s("userId"),
   };
 }

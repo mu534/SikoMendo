@@ -62,16 +62,6 @@ export async function archiveCooperative(id: string): Promise<ActionResult<{ id:
   const session = await getServerSession();
 
   return withPermission(session, "MANAGE_COOPERATIVES", async () => {
-    const activeEmployeeCount = await prisma.employee.count({
-      where: { cooperativeId: id, deletedAt: null },
-    });
-
-    if (activeEmployeeCount > 0) {
-      throw new Error(
-        `This cooperative still has ${activeEmployeeCount} employee${activeEmployeeCount === 1 ? "" : "s"} assigned. Reassign or archive them first.`
-      );
-    }
-
     await prisma.cooperative.update({ where: { id }, data: { deletedAt: new Date() } });
     await logAudit("ARCHIVE", id, {}, session?.user.id);
     revalidatePath("/cooperatives");

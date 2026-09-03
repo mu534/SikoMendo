@@ -1,25 +1,12 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
-import { Users } from "lucide-react";
 import { requirePermission } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { getCooperativeById } from "@/features/cooperatives/queries";
 import { updateCooperative } from "@/features/cooperatives/actions";
 import { CooperativeForm } from "@/features/cooperatives/cooperative-form";
-import { Card, CardHeader } from "@/components/ui/card";
-import { Avatar } from "@/components/ui/avatar";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { EmptyState } from "@/components/ui/empty-state";
 import { formatDateWithEthiopian } from "@/lib/ethiopian-calendar";
-
-type AssignedEmployee = {
-  id: string;
-  firstName: string;
-  lastName: string;
-  employeeId: string;
-  position: { name: string };
-  profileImageUrl: string | null;
-};
 
 export default async function CooperativeDetailPage({
   params,
@@ -176,44 +163,6 @@ export default async function CooperativeDetailPage({
           </dl>
         </Card>
       )}
-
-      <Card>
-        <CardHeader
-          title="Assigned employees"
-          description={`${cooperative._count.employees} employee${
-            cooperative._count.employees === 1 ? "" : "s"
-          } at this cooperative.`}
-        />
-        {cooperative.employees.length === 0 ? (
-          <EmptyState icon={<Users className="h-8 w-8" />} title="No employees assigned yet" />
-        ) : (
-          <ul className="divide-y divide-ink-900/6">
-            {cooperative.employees.map((employee: AssignedEmployee) => (
-              <li key={employee.id}>
-                <Link
-                  href={`/employees/${employee.id}`}
-                  className="flex items-center gap-3 px-6 py-3.5 hover:bg-sand-100/70"
-                >
-                  <Avatar
-                    name={`${employee.firstName} ${employee.lastName}`}
-                    imageUrl={employee.profileImageUrl}
-                    size="sm"
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-ink-900">
-                      {employee.firstName} {employee.lastName}
-                    </p>
-                    <p className="text-xs text-ink-900/50">
-                      {employee.employeeId}
-                      {` · ${employee.position.name}`}
-                    </p>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
     </div>
   );
 }

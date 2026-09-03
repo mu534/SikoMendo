@@ -29,7 +29,6 @@ async function buildEmployeeDirectoryContent(): Promise<ReportContent> {
   const employees = await prisma.employee.findMany({
     where: { deletedAt: null },
     include: {
-      cooperative: { select: { name: true } },
       department: { select: { name: true } },
       position: { select: { name: true } },
     },
@@ -38,13 +37,12 @@ async function buildEmployeeDirectoryContent(): Promise<ReportContent> {
 
   return {
     docTitle: "Employee Directory",
-    headers: ["Employee ID", "Name", "Department", "Position", "Cooperative", "Status", "Phone", "Email"],
+    headers: ["Employee ID", "Name", "Department", "Position", "Status", "Phone", "Email"],
     rows: employees.map((e) => [
       e.employeeId,
       `${e.firstName}${e.middleName ? ` ${e.middleName}` : ""} ${e.lastName}`,
       e.department.name,
       e.position.name,
-      e.cooperative?.name ?? "—",
       e.employmentStatus.replace("_", " "),
       e.phone ?? "—",
       e.email ?? "—",
@@ -78,13 +76,12 @@ async function buildAttendanceSummaryContent(): Promise<ReportContent> {
 async function buildCooperativeListingContent(): Promise<ReportContent> {
   const cooperatives = await prisma.cooperative.findMany({
     where: { deletedAt: null },
-    include: { _count: { select: { employees: true } } },
     orderBy: { name: "asc" },
   });
 
   return {
     docTitle: "Cooperative Listing",
-    headers: ["ID", "Name", "Type", "District", "Kebele", "Members", "Employees", "Status"],
+    headers: ["ID", "Name", "Type", "District", "Kebele", "Members", "Status"],
     rows: cooperatives.map((c) => [
       c.cooperativeId,
       c.name,
@@ -92,7 +89,6 @@ async function buildCooperativeListingContent(): Promise<ReportContent> {
       c.district ?? "—",
       c.kebele ?? "—",
       c.totalMembers ?? "—",
-      c._count.employees,
       c.isActive ? "Active" : "Inactive",
     ]),
     parameters: { totalCooperatives: cooperatives.length },

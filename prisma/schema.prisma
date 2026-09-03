@@ -234,8 +234,6 @@ model Employee {
   position      Position     @relation(fields: [positionId], references: [id], onDelete: Restrict)
   userId        String?      @unique
   user          User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
-  cooperativeId String?
-  cooperative   Cooperative? @relation(fields: [cooperativeId], references: [id], onDelete: SetNull)
   attendances   Attendance[]
   documents     Document[]
   leaveRequests LeaveRequest[]
@@ -253,7 +251,6 @@ model Employee {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  @@index([cooperativeId])
   @@index([employmentStatus])
   @@index([departmentId])
   @@index([positionId])
@@ -376,7 +373,9 @@ model Cooperative {
   currentAssets      Decimal?  @db.Decimal(15, 2)
 
   // Relations
-  employees Employee[]
+  // (no employee relation \u2014 Employee and Cooperative are intentionally
+  // unrelated in this system; a Union's own staff are separate from the
+  // member cooperatives it oversees)
 
   // Timestamps & soft delete
   createdAt DateTime  @default(now())

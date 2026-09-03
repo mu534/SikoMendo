@@ -16,7 +16,7 @@ import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { redirect } from "next/navigation";
 import type { Cooperative } from "@prisma/client";
 
-type CooperativeRow = Cooperative & { _count: { employees: number } };
+type CooperativeRow = Cooperative;
 
 export default async function CooperativesPage({
   searchParams,
@@ -76,13 +76,12 @@ export default async function CooperativesPage({
             <TH>Cooperative</TH>
             <TH>Location</TH>
             <TH>Contact</TH>
-            <TH>Employees</TH>
             <TH>Status</TH>
             {canManage && <TH className="text-right">Actions</TH>}
           </THead>
           <TBody>
             {items.length === 0 && (
-              <EmptyRow colSpan={canManage ? 6 : 5}>
+              <EmptyRow colSpan={canManage ? 5 : 4}>
                 <Building2 className="mx-auto mb-2 h-8 w-8 text-ink-900/20" />
                 No cooperatives match your filters.
               </EmptyRow>
@@ -100,7 +99,6 @@ export default async function CooperativesPage({
                   <p className="text-ink-900/80">{coop.contactPerson ?? "—"}</p>
                   <p className="text-xs text-ink-900/50">{coop.contactPhone ?? coop.contactEmail ?? ""}</p>
                 </TD>
-                <TD>{coop._count.employees}</TD>
                 <TD>{coop.isActive ? <Badge tone="success">Active</Badge> : <Badge tone="neutral">Inactive</Badge>}</TD>
                 {canManage && (
                   <TD className="text-right">
