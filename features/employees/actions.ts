@@ -252,10 +252,11 @@ export async function bulkImportEmployees(
     if (!(file instanceof File) || file.size === 0) throw new Error("Upload a CSV file.");
 
     const text = await file.text();
-    const rows = parseEmployeeCsv(text);
+    const { rows, parseErrors } = parseEmployeeCsv(text);
     if (rows.length === 0) throw new Error("CSV is empty or has no data rows.");
+    if (parseErrors.length > 0) throw new Error(`CSV parse errors: ${parseErrors.join("; ")}`);
 
-    const results = await importEmployeeRows(rows);
+    const results = await importEmployeeRows(rows, session!.user.id);
     const createdCount = results.filter((r) => r.status === "created").length;
     const errorCount = results.filter((r) => r.status === "error").length;
 

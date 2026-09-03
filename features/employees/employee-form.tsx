@@ -7,6 +7,9 @@ import { Input, Label, Select, Textarea, FieldGroup } from "@/components/ui/fiel
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PhotoInput } from "./photo-input";
+import { SectionHeader } from "./section-header";
+
+export { SectionHeader } from "./section-header";
 
 export const EMPLOYEE_FORM_ID = "employee-form";
 
@@ -58,8 +61,6 @@ function toDateInputValue(date?: string | null) {
   if (!date) return "";
   return new Date(date).toISOString().slice(0, 10);
 }
-
-export { SectionHeader } from "./section-header";
 
 function RequiredMark() {
   return <span className="ml-0.5 text-red-500" aria-hidden="true">*</span>;
@@ -143,6 +144,9 @@ export function EmployeeForm({
       : null;
 
   const isEdit = !!employee;
+  // Extract employmentType before JSX so TypeScript doesn't narrow employee to never
+  // inside the !isEdit branch (where employee is undefined).
+  const currentEmploymentType = employee?.employmentType ?? "";
 
   return (
     <div className="max-w-3xl space-y-5">
@@ -348,8 +352,7 @@ export function EmployeeForm({
 
                 <FieldGroup>
                   <Label htmlFor="employmentType">Employment Type</Label>
-                  <Select id="employmentType" name="employmentType" defaultValue={employee?.employmentType ?? ""}>
-                    <option value="">Not specified</option>
+                  <Select id="employmentType" name="employmentType" defaultValue={currentEmploymentType}>                    <option value="">Not specified</option>
                     <option value="PERMANENT">Permanent</option>
                     <option value="CONTRACT">Contract</option>
                     <option value="TEMPORARY">Temporary</option>

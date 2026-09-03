@@ -1,5 +1,6 @@
 import "server-only";
 import Papa from "papaparse";
+import { type EmploymentType } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { employeeSchema } from "./schemas";
 import { generateNextEmployeeId } from "./queries";
@@ -160,7 +161,7 @@ export async function importEmployeeRows(
           employeeId: created.id,
           departmentId: parsed.data.departmentId,
           positionId: parsed.data.positionId,
-          employmentType: parsed.data.employmentType,
+          employmentType: parsed.data.employmentType as EmploymentType | null | undefined,
           effectiveDate: created.hireDate ?? new Date(),
           changeReason: "Initial hire (bulk import)",
         },

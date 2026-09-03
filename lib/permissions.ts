@@ -90,6 +90,7 @@ export const PERMISSIONS: Record<Role, Action[]> = {
     "VIEW_EMPLOYEES",
     "VIEW_COOPERATIVES",
     "VIEW_ATTENDANCE",
+    "GENERATE_REPORTS",
     "VIEW_REPORTS",
     "DASHBOARD_ANALYTICS",
     "VIEW_OWN_PROFILE",
