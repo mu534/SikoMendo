@@ -60,7 +60,7 @@ export function Header({
   }
 
   return (
-    <header className="flex items-center justify-between gap-4 border-b border-ink-900/8 bg-white px-4 py-3.5 sm:px-8">
+    <header className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-ink-900/8 bg-white px-4 py-3.5 sm:px-8">
       <div className="flex items-center gap-3">
         <button
           onClick={onMenuClick}

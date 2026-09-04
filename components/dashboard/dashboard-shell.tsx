@@ -21,10 +21,11 @@ export function DashboardShell({
   const activeItem = NAV_ITEMS.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-screen overflow-hidden">
       <Sidebar role={user.role} mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      {/* lg:pl-64 offsets the fixed sidebar width on desktop */}
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden lg:pl-64">
         <Header
           pageTitle={activeItem?.label ?? "Dashboard"}
           user={user}

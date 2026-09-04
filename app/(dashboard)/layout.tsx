@@ -18,18 +18,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const notifications = await getRecentNotifications(session.user.id);
 
   return (
-    <div className="h-full">
-      <DashboardShell
-        user={{
-          name: session.user.name,
-          email: session.user.email,
-          role: session.user.role,
-          image: session.user.image,
-        }}
-        notifications={notifications}
-      >
-        {children}
-      </DashboardShell>
-    </div>
+    <DashboardShell
+      user={{
+        name: session.user.name,
+        email: session.user.email,
+        role: session.user.role,
+        image: session.user.image,
+      }}
+      notifications={notifications}
+    >
+      {children}
+    </DashboardShell>
   );
 }

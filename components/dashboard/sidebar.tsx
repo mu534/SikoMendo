@@ -31,8 +31,11 @@ export function Sidebar({
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-brand-900 transition-transform lg:static lg:translate-x-0",
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
+          // Always fixed — both mobile and desktop — so it never scrolls with
+          // the page content. On desktop it's always visible; on mobile it
+          // slides in/out via translate.
+          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-brand-900 transition-transform",
+          mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
         <div className="flex items-center justify-between gap-3 px-6 py-5">
