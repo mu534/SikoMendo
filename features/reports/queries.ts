@@ -2,16 +2,7 @@ import "server-only";
 import prisma from "@/lib/prisma";
 import { PAGE_SIZE } from "@/lib/utils";
 
-/**
- * Returns paginated report history scoped by role:
- *
- * - ADMIN / HR_OFFICER: full org-wide history.
- * - MANAGER: only the reports they personally generated.
- * - Any other role: their own reports only (safe default).
- *
- * The `userId` and `role` come from the validated server session —
- * never trust client-supplied values.
- */
+
 export async function listReports(
   page: number,
   userId: string,

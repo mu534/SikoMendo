@@ -2,9 +2,8 @@ import Link from "next/link";
 import { UserPlus, Users as UsersIcon } from "lucide-react";
 import { requirePermission } from "@/lib/session";
 import { listUsers } from "@/features/users/queries";
-import { toggleUserBan, deleteUserAccount } from "@/features/users/actions";
+import { suspendUserAccount, reactivateUserAccount } from "@/features/users/actions";
 import { roleLabel, ROLES } from "@/lib/permissions";
-import type { User } from "@prisma/client";
 import { parsePageParam, parseStringParam, formatDate } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
@@ -16,6 +15,8 @@ import { Table, THead, TH, TBody, TR, TD, EmptyRow } from "@/components/ui/table
 import { Pagination } from "@/components/ui/pagination";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 
+type UserRow = Awaited<ReturnType<typeof listUsers>>["items"][number];
+
 export default async function UsersPage({
   searchParams,
 }: {
@@ -25,16 +26,20 @@ export default async function UsersPage({
   const params = await searchParams;
   const q = parseStringParam(params.q);
   const role = parseStringParam(params.role);
+  const status = parseStringParam(params.status);
   const page = parsePageParam(params.page);
 
-  const { items, total, totalPages } = await listUsers({ q, role, page });
+  const { items, total, totalPages } = await listUsers({ q, role, status, page });
 
   return (
     <div className="space-y-6">
+      {/* ── Page header ─────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="font-display text-xl font-semibold text-ink-900">User accounts</h2>
-          <p className="mt-1 text-sm text-ink-900/60">Create accounts and assign roles for staff who need system access.</p>
+          <h2 className="font-display text-xl font-semibold text-ink-900">User Accounts</h2>
+          <p className="mt-1 text-sm text-ink-900/60">
+            Manage system accounts, roles, and access to Siko Mendo HRMIS.
+          </p>
         </div>
         <ButtonLink href="/users/new">
           <UserPlus className="h-4 w-4" />
@@ -43,7 +48,12 @@ export default async function UsersPage({
       </div>
 
       <Card>
-        <Toolbar basePath="/users" searchPlaceholder="Search by name or username" searchDefault={q}>
+        {/* ── Filters ─────────────────────────────────────────────── */}
+        <Toolbar
+          basePath="/users"
+          searchPlaceholder="Search by name, username, or employee ID"
+          searchDefault={q}
+        >
           <Select name="role" defaultValue={role} className="w-44">
             <option value="">All roles</option>
             {ROLES.map((r) => (
@@ -52,85 +62,150 @@ export default async function UsersPage({
               </option>
             ))}
           </Select>
+          <Select name="status" defaultValue={status} className="w-40">
+            <option value="">All statuses</option>
+            <option value="active">Active</option>
+            <option value="suspended">Suspended</option>
+          </Select>
         </Toolbar>
 
-        <Table>
-          <THead>
-            <TH>Name</TH>
-            <TH>Role</TH>
-            <TH>Status</TH>
-            <TH>Joined</TH>
-            <TH className="text-right">Actions</TH>
-          </THead>
-          <TBody>
-            {items.length === 0 && (
-              <EmptyRow colSpan={5}>
-                <UsersIcon className="mx-auto mb-2 h-8 w-8 text-ink-900/20" />
-                No users match your filters.
-              </EmptyRow>
-            )}
-            {items.map((user: User) => (
-              <TR key={user.id}>
-                <TD>
-                  <div className="flex items-center gap-3">
-                    <Avatar name={user.name} imageUrl={user.image} size="sm" />
-                    <div>
-                      <p className="font-medium text-ink-900">{user.name}</p>
-                      <p className="text-xs text-ink-900/50">
-                        {user.username ? `@${user.username}` : <span className="italic">no username</span>}
-                      </p>
-                    </div>
-                  </div>
-                </TD>
-                <TD>
-                  <Badge tone="brand">{roleLabel(user.role)}</Badge>
-                </TD>
-                <TD>
-                  {user.banned ? <Badge tone="danger">Banned</Badge> : <Badge tone="success">Active</Badge>}
-                </TD>
-                <TD>{formatDate(user.createdAt)}</TD>
-                <TD className="text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <Link href={`/users/${user.id}`} className="text-sm font-medium text-brand-700 hover:underline">
-                      Edit
-                    </Link>
-                    {user.id !== session.user.id && (
-                      <>
-                        <form
-                          action={async () => {
-                            "use server";
-                            await toggleUserBan(user.id, !user.banned);
-                          }}
-                        >
-                          <ConfirmSubmitButton
-                            variant="outline"
-                            confirmMessage={
-                              user.banned ? `Unban ${user.name}?` : `Ban ${user.name}? They won't be able to sign in.`
-                            }
-                          >
-                            {user.banned ? "Unban" : "Ban"}
-                          </ConfirmSubmitButton>
-                        </form>
-                        <form
-                          action={async () => {
-                            "use server";
-                            await deleteUserAccount(user.id);
-                          }}
-                        >
-                          <ConfirmSubmitButton confirmMessage={`Delete ${user.name}? This cannot be undone.`}>
-                            Delete
-                          </ConfirmSubmitButton>
-                        </form>
-                      </>
-                    )}
-                  </div>
-                </TD>
-              </TR>
-            ))}
-          </TBody>
-        </Table>
+        {/* ── Table ───────────────────────────────────────────────── */}
+        <div className="overflow-x-auto">
+          <Table>
+            <THead>
+              <TH>Account</TH>
+              <TH>Employee</TH>
+              <TH>Role</TH>
+              <TH>Status</TH>
+              <TH>Created</TH>
+              <TH className="text-right">Actions</TH>
+            </THead>
+            <TBody>
+              {items.length === 0 && (
+                <EmptyRow colSpan={6}>
+                  <UsersIcon className="mx-auto mb-2 h-8 w-8 text-ink-900/20" />
+                  No user accounts match your filters.
+                </EmptyRow>
+              )}
+              {items.map((user: UserRow) => {
+                const isSelf = user.id === session.user.id;
+                const emp = user.employee;
 
-        <Pagination basePath="/users" params={{ q, role }} page={page} totalPages={totalPages} totalItems={total} pageSize={10} />
+                return (
+                  <TR key={user.id}>
+                    {/* Account column — avatar + display name + username */}
+                    <TD>
+                      <div className="flex items-center gap-3">
+                        <Avatar name={user.name} imageUrl={user.image} size="sm" />
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-ink-900">{user.name}</p>
+                          <p className="text-xs text-ink-900/50">
+                            {user.username
+                              ? `@${user.username}`
+                              : <span className="italic">no username</span>}
+                          </p>
+                        </div>
+                      </div>
+                    </TD>
+
+                    {/* Employee column */}
+                    <TD>
+                      {emp ? (
+                        <Link
+                          href={`/employees/${emp.id}`}
+                          className="text-sm font-medium text-brand-700 hover:underline"
+                        >
+                          {emp.firstName} {emp.lastName}
+                          <span className="ml-1 font-normal text-ink-900/45">
+                            ({emp.employeeId})
+                          </span>
+                        </Link>
+                      ) : (
+                        <span className="text-sm text-ink-900/40 italic">Not linked</span>
+                      )}
+                      {emp?.deletedAt && (
+                        <span className="ml-2 text-xs text-ink-900/40">(archived)</span>
+                      )}
+                    </TD>
+
+                    {/* Role */}
+                    <TD>
+                      <Badge tone="brand">{roleLabel(user.role)}</Badge>
+                    </TD>
+
+                    {/* Status */}
+                    <TD>
+                      {user.banned
+                        ? <Badge tone="warning">Suspended</Badge>
+                        : <Badge tone="success">Active</Badge>}
+                    </TD>
+
+                    {/* Created date */}
+                    <TD className="whitespace-nowrap text-sm text-ink-900/60">
+                      {formatDate(user.createdAt)}
+                    </TD>
+
+                    {/* Actions */}
+                    <TD className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Link
+                          href={`/users/${user.id}`}
+                          className="text-sm font-medium text-brand-700 hover:underline"
+                        >
+                          Edit
+                        </Link>
+
+                        {/* No suspend/reactivate for the currently logged-in admin */}
+                        {!isSelf && (
+                          user.banned ? (
+                            <form
+                              action={async () => {
+                                "use server";
+                                await reactivateUserAccount(user.id);
+                              }}
+                            >
+                              <ConfirmSubmitButton
+                                variant="outline"
+                                size="sm"
+                                confirmMessage={`Reactivate ${user.name}'s account? They will be able to sign in again.`}
+                              >
+                                Reactivate
+                              </ConfirmSubmitButton>
+                            </form>
+                          ) : (
+                            <form
+                              action={async () => {
+                                "use server";
+                                await suspendUserAccount(user.id);
+                              }}
+                            >
+                              <ConfirmSubmitButton
+                                variant="outline"
+                                size="sm"
+                                confirmMessage={`Suspend ${user.name}'s account? They won't be able to sign in.`}
+                              >
+                                Suspend
+                              </ConfirmSubmitButton>
+                            </form>
+                          )
+                        )}
+                      </div>
+                    </TD>
+                  </TR>
+                );
+              })}
+            </TBody>
+          </Table>
+        </div>
+
+        <Pagination
+          basePath="/users"
+          params={{ q, role, status }}
+          page={page}
+          totalPages={totalPages}
+          totalItems={total}
+          pageSize={10}
+        />
       </Card>
     </div>
   );

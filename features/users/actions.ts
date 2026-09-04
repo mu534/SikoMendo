@@ -186,40 +186,45 @@ export async function updateUserAccount(
   });
 }
 
-export async function toggleUserBan(
+/**
+ * Suspends (bans) a user account, preventing them from signing in.
+ * Audit-logged as SUSPEND. Does NOT affect Employee records.
+ */
+export async function suspendUserAccount(
   userId: string,
-  nextBanned: boolean
 ): Promise<ActionResult<{ id: string }>> {
   const session = await getServerSession();
 
   return withPermission(session, "MANAGE_USERS", async () => {
     if (session?.user.id === userId) {
-      throw new Error("You can't ban your own account.");
+      throw new Error("You can't suspend your own account.");
     }
 
-    if (nextBanned) {
-      await auth.api.banUser({ headers: await headers(), body: { userId } });
-    } else {
-      await auth.api.unbanUser({ headers: await headers(), body: { userId } });
-    }
+    await auth.api.banUser({ headers: await headers(), body: { userId } });
 
-    await logAudit(nextBanned ? "BAN" : "UNBAN", userId, { banned: nextBanned }, session?.user.id);
+    await logAudit("SUSPEND", userId, { suspended: true }, session?.user.id);
     revalidatePath("/users");
     return { id: userId };
   });
 }
 
-export async function deleteUserAccount(userId: string): Promise<ActionResult<{ id: string }>> {
+/**
+ * Reactivates a previously suspended user account.
+ * Audit-logged as REACTIVATE.
+ */
+export async function reactivateUserAccount(
+  userId: string,
+): Promise<ActionResult<{ id: string }>> {
   const session = await getServerSession();
 
   return withPermission(session, "MANAGE_USERS", async () => {
     if (session?.user.id === userId) {
-      throw new Error("You can't delete your own account.");
+      throw new Error("You can't modify your own account status here.");
     }
 
-    await auth.api.removeUser({ headers: await headers(), body: { userId } });
+    await auth.api.unbanUser({ headers: await headers(), body: { userId } });
 
-    await logAudit("DELETE", userId, {}, session?.user.id);
+    await logAudit("REACTIVATE", userId, { suspended: false }, session?.user.id);
     revalidatePath("/users");
     return { id: userId };
   });
