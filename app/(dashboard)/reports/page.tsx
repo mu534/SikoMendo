@@ -14,8 +14,8 @@ import { can } from "@/lib/permissions";
 import { getSignedFileUrl } from "@/lib/cloudinary";
 import { listReports } from "@/features/reports/queries";
 import { generateReport, deleteReport } from "@/features/reports/actions";
-import { listEmployeesForLeaveFilter } from "@/features/leave/queries";
 import { listActiveDepartments } from "@/features/departments/queries";
+import { getSubordinateIds } from "@/features/employees/queries";
 import { parsePageParam } from "@/lib/utils";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,7 @@ import { Table, THead, TH, TBody, TR, TD, EmptyRow } from "@/components/ui/table
 import { Pagination } from "@/components/ui/pagination";
 import { GenerateReportForm } from "@/features/reports/generate-report-form";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
+import prisma from "@/lib/prisma";
 import type { Report } from "@prisma/client";
 
 type ReportRow = Report & { generatedBy: { name: string } };
@@ -51,15 +52,48 @@ export default async function ReportsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const session = await requirePermission("VIEW_REPORTS");
-  const canGenerate = can(session.user.role, "GENERATE_REPORTS");
+  const { role, id: userId } = session.user;
+
+  const canGenerate = can(role, "GENERATE_REPORTS");
+  // Only ADMIN has DELETE_REPORTS — no other role can delete reports.
+  const canDelete = can(role, "DELETE_REPORTS");
 
   const params = await searchParams;
   const page = parsePageParam(params.page);
 
-  // Fetch report history and filter dropdown data in parallel
-  const [{ items, total, totalPages }, employees, departments] = await Promise.all([
-    listReports(page),
-    canGenerate ? listEmployeesForLeaveFilter() : Promise.resolve([]),
+  // ── Resolve employee dropdown scope ───────────────────────────────────────
+  // For Admin/HR: full active employee list.
+  // For Manager: only their transitive subordinates (same scope the action
+  //              enforces server-side). The dropdown is a convenience; the
+  //              server will re-validate the submitted ID regardless.
+  let employees: { id: string; employeeId: string; firstName: string; lastName: string }[] = [];
+  if (canGenerate) {
+    if (role === "MANAGER") {
+      const ownEmployee = await prisma.employee.findUnique({
+        where: { userId },
+        select: { id: true },
+      });
+      if (ownEmployee) {
+        const subordinateIds = await getSubordinateIds(ownEmployee.id);
+        const allIds = [ownEmployee.id, ...subordinateIds];
+        employees = await prisma.employee.findMany({
+          where: { id: { in: allIds }, deletedAt: null },
+          select: { id: true, employeeId: true, firstName: true, lastName: true },
+          orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+        });
+      }
+    } else {
+      employees = await prisma.employee.findMany({
+        where: { deletedAt: null },
+        select: { id: true, employeeId: true, firstName: true, lastName: true },
+        orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+      });
+    }
+  }
+
+  // Fetch report history (scoped by role) and departments in parallel
+  const [{ items, total, totalPages }, departments] = await Promise.all([
+    listReports(page, userId, role),
     canGenerate ? listActiveDepartments() : Promise.resolve([]),
   ]);
 
@@ -79,7 +113,6 @@ export default async function ReportsPage({
         {canGenerate && (
           <div className="lg:col-span-2">
             <Card className="overflow-hidden">
-              {/* Accent stripe */}
               <div className="h-1 bg-brand-700" />
               <div className="p-6">
                 <div className="mb-5 flex items-center gap-2.5 border-b border-ink-900/8 pb-4">
@@ -113,7 +146,7 @@ export default async function ReportsPage({
               description={
                 total === 0
                   ? "No reports generated yet."
-                  : `${total} report${total === 1 ? "" : "s"} generated so far.`
+                  : `${total} report${total === 1 ? "" : "s"} on record.`
               }
             />
 
@@ -129,20 +162,19 @@ export default async function ReportsPage({
                 {items.length === 0 && (
                   <EmptyRow colSpan={5}>
                     <FileBarChart className="mx-auto mb-2 h-8 w-8 text-ink-900/20" />
-                    <p>No reports yet. Use the panel on the left to generate one.</p>
+                    <p>No reports yet.{canGenerate ? " Use the panel on the left to generate one." : ""}</p>
                   </EmptyRow>
                 )}
 
                 {items.map((report: ReportRow) => {
                   const Icon = REPORT_TYPE_ICONS[report.type] ?? FileText;
 
-                  const downloadUrl =
-                    report.fileKey
-                      ? getSignedFileUrl(
-                          report.fileKey,
-                          report.fileResourceType === "image" ? "image" : "raw",
-                        )
-                      : report.fileUrl ?? null;
+                  const downloadUrl = report.fileKey
+                    ? getSignedFileUrl(
+                        report.fileKey,
+                        report.fileResourceType === "image" ? "image" : "raw",
+                      )
+                    : report.fileUrl ?? null;
 
                   return (
                     <TR key={report.id}>
@@ -203,7 +235,8 @@ export default async function ReportsPage({
                             <span className="text-xs text-ink-900/30">—</span>
                           )}
 
-                          {canGenerate && (
+                          {/* Delete button only shown to roles with DELETE_REPORTS (ADMIN only) */}
+                          {canDelete && (
                             <form
                               action={async () => {
                                 "use server";

@@ -23,6 +23,17 @@ export async function upsertAttendance(_prevState: unknown, formData: FormData):
     }
 
     const { employeeId, date, status, checkIn, checkOut, notes } = parsed.data;
+
+    // Reject attendance for archived employees — server-side, not just UI.
+    const employee = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: { deletedAt: true },
+    });
+    if (!employee) throw new Error("Employee not found.");
+    if (employee.deletedAt !== null) {
+      throw new Error("Cannot record attendance for an archived employee.");
+    }
+
     const dateValue = parseDateOnly(date);
     const checkInValue = combineDateAndTime(date, checkIn);
     const checkOutValue = combineDateAndTime(date, checkOut);
@@ -60,12 +71,20 @@ export async function markUnmarkedPresent(date: string, employeeIds: string[]): 
   return withPermission(session, "MANAGE_ATTENDANCE", async () => {
     const dateValue = parseDateOnly(date);
 
+    // Drop any archived employees from the submitted list — do not trust the
+    // client to only send active IDs.
+    const activeEmployees = await prisma.employee.findMany({
+      where: { id: { in: employeeIds }, deletedAt: null },
+      select: { id: true },
+    });
+    const activeIds = activeEmployees.map((e: { id: string }) => e.id);
+
     const existing = await prisma.attendance.findMany({
-      where: { date: dateValue, employeeId: { in: employeeIds } },
+      where: { date: dateValue, employeeId: { in: activeIds } },
       select: { employeeId: true },
     });
     const alreadyMarked = new Set(existing.map((e: { employeeId: string }) => e.employeeId));
-    const toMark = employeeIds.filter((id) => !alreadyMarked.has(id));
+    const toMark = activeIds.filter((id) => !alreadyMarked.has(id));
 
     if (toMark.length > 0) {
       await prisma.attendance.createMany({

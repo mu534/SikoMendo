@@ -31,6 +31,13 @@ export type ReportFilters = {
   // Cooperative
   cooperativeStatus?: string;  // "active" | "inactive"
   cooperativeType?: string;
+  /**
+   * Server-injected by generateReport() for MANAGER role.
+   * When present, every employee-scoped query must restrict itself to this
+   * set of IDs regardless of what the client submitted as employeeId or
+   * departmentId. Null/undefined means unrestricted (Admin / HR Officer).
+   */
+  allowedEmployeeIds?: string[];
 };
 
 // ── Date helpers ─────────────────────────────────────────────────────────────
@@ -90,6 +97,11 @@ async function buildEmployeeDirectoryContent(
   filters: ReportFilters
 ): Promise<ReportContent> {
   const andClauses: Prisma.EmployeeWhereInput[] = [{ deletedAt: null }];
+
+  // Manager scope: restrict to authorised employee IDs before any other filter
+  if (filters.allowedEmployeeIds) {
+    andClauses.push({ id: { in: filters.allowedEmployeeIds } });
+  }
 
   if (filters.departmentId) andClauses.push({ departmentId: filters.departmentId });
   if (filters.employeeId) andClauses.push({ id: filters.employeeId });
@@ -156,6 +168,11 @@ async function buildAttendanceSummaryContent(
   filters: ReportFilters
 ): Promise<ReportContent> {
   const andClauses: Prisma.AttendanceWhereInput[] = [];
+
+  // Manager scope
+  if (filters.allowedEmployeeIds) {
+    andClauses.push({ employeeId: { in: filters.allowedEmployeeIds } });
+  }
 
   if (filters.employeeId) andClauses.push({ employeeId: filters.employeeId });
   if (filters.departmentId) andClauses.push({ employee: { departmentId: filters.departmentId } });
@@ -285,6 +302,11 @@ async function buildHeadcountContent(
 ): Promise<ReportContent> {
   const andClauses: Prisma.EmployeeWhereInput[] = [{ deletedAt: null }];
 
+  // Manager scope
+  if (filters.allowedEmployeeIds) {
+    andClauses.push({ id: { in: filters.allowedEmployeeIds } });
+  }
+
   if (filters.departmentId) andClauses.push({ departmentId: filters.departmentId });
   if (filters.employmentStatus) andClauses.push({ employmentStatus: filters.employmentStatus as Prisma.EnumEmploymentStatusFilter["equals"] });
   if (filters.employmentType) andClauses.push({ employmentType: filters.employmentType as Prisma.EnumEmploymentTypeNullableFilter["equals"] });
@@ -388,6 +410,11 @@ async function buildLeaveSummaryContent(
   filters: ReportFilters
 ): Promise<ReportContent> {
   const andClauses: Prisma.LeaveRequestWhereInput[] = [];
+
+  // Manager scope
+  if (filters.allowedEmployeeIds) {
+    andClauses.push({ employeeId: { in: filters.allowedEmployeeIds } });
+  }
 
   if (filters.employeeId) andClauses.push({ employeeId: filters.employeeId });
   if (filters.departmentId) andClauses.push({ employee: { departmentId: filters.departmentId } });

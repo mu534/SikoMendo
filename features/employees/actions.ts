@@ -8,7 +8,7 @@ import { uploadToCloudinary, deleteFromCloudinary } from "@/lib/cloudinary";
 import { employeeSchema, employeeFormDataToObject } from "./schemas";
 import { generateNextEmployeeId } from "./queries";
 import { parseEmployeeCsv, importEmployeeRows, type ImportRowResult } from "./bulk-import";
-import type { Gender, MaritalStatus, EmploymentType, EducationLevel } from "@prisma/client";
+import type { Gender, MaritalStatus, EmploymentType, EducationLevel, DocumentType } from "@prisma/client";
 
 async function logAudit(action: string, entityId: string, changes: unknown, userId?: string) {
   await prisma.auditLog.create({
@@ -209,17 +209,28 @@ export async function uploadEmployeeDocument(
   return withPermission(session, "MANAGE_DOCUMENTS", async () => {
     const file = formData.get("file");
     const title = String(formData.get("title") ?? "").trim();
-    const type = String(formData.get("type") ?? "OTHER");
+    const rawType = String(formData.get("type") ?? "OTHER");
 
     if (!(file instanceof File) || file.size === 0) throw new Error("Choose a file to upload.");
     if (!title) throw new Error("Give the document a title.");
+
+    const VALID_DOCUMENT_TYPES: DocumentType[] = [
+      "CONTRACT",
+      "ID_DOCUMENT",
+      "CERTIFICATE",
+      "RESUME",
+      "OTHER",
+    ];
+    const documentType: DocumentType = VALID_DOCUMENT_TYPES.includes(rawType as DocumentType)
+      ? (rawType as DocumentType)
+      : "OTHER";
 
     const asset = await uploadToCloudinary(file, "siko-mendo/documents", { resourceType: "auto", access: "authenticated" });
 
     const document = await prisma.document.create({
       data: {
         title,
-        type: type as never,
+        type: documentType,
         fileUrl: asset.url,
         fileKey: asset.publicId,
         fileResourceType: asset.resourceType,

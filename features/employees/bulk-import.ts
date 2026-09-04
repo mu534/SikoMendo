@@ -1,6 +1,6 @@
 import "server-only";
 import Papa from "papaparse";
-import { type EmploymentType } from "@prisma/client";
+import { type EmploymentType, type EducationLevel, type MaritalStatus, type Gender } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { employeeSchema } from "./schemas";
 import { generateNextEmployeeId } from "./queries";
@@ -149,10 +149,10 @@ export async function importEmployeeRows(
         data: {
           ...parsed.data,
           employeeId,
-          employmentType: parsed.data.employmentType as never ?? null,
-          educationLevel: parsed.data.educationLevel as never ?? null,
-          maritalStatus: parsed.data.maritalStatus as never ?? null,
-          gender: parsed.data.gender as never ?? null,
+          employmentType: parsed.data.employmentType as EmploymentType | null ?? null,
+          educationLevel: parsed.data.educationLevel as EducationLevel | null ?? null,
+          maritalStatus: parsed.data.maritalStatus as MaritalStatus | null ?? null,
+          gender: parsed.data.gender as Gender | null ?? null,
         },
       });
 
