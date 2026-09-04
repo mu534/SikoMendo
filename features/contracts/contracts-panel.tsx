@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Plus } from "lucide-react";
+import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Table, THead, TH, TBody, TR, TD, EmptyRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -30,12 +31,10 @@ export function ContractsPanel({
   employeeId,
   contracts,
   canManage,
-  formatDate,
 }: {
   employeeId: string;
   contracts: ContractRow[];
   canManage: boolean;
-  formatDate: (d: Date | string | null) => string;
 }) {
   const [showForm, setShowForm] = useState(false);
 

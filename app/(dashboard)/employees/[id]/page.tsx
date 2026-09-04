@@ -190,7 +190,6 @@ export default async function EmployeeDetailPage({
             positions={positions}
             currentDepartmentId={employee.departmentId}
             canManage={canManageHistory}
-            formatDate={formatDate}
           />
         </div>
       </Card>
@@ -206,7 +205,6 @@ export default async function EmployeeDetailPage({
             employeeId={employee.id}
             contracts={contractRows}
             canManage={canManageContracts}
-            formatDate={formatDate}
           />
         </div>
       </Card>

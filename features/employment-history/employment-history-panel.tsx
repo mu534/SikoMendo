@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Plus } from "lucide-react";
+import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Table, THead, TH, TBody, TR, TD, EmptyRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -28,7 +29,6 @@ export function EmploymentHistoryPanel({
   positions,
   currentDepartmentId,
   canManage,
-  formatDate,
 }: {
   employeeId: string;
   history: HistoryRow[];
@@ -36,7 +36,6 @@ export function EmploymentHistoryPanel({
   positions: PositionOption[];
   currentDepartmentId: string;
   canManage: boolean;
-  formatDate: (d: Date | string | null) => string;
 }) {
   const [showForm, setShowForm] = useState(false);
 
