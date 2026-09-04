@@ -101,15 +101,17 @@ export function EmployeeForm({
   positions = [],
   managers = [],
 }: {
-  action: (prevState: unknown, formData: FormData) => Promise<unknown>;
+  action: (
+    prevState: { success: boolean; data?: unknown; error?: { message: string } } | null,
+    formData: FormData
+  ) => Promise<{ success: boolean; data?: unknown; error?: { message: string } }>;
   employee?: EmployeeFormValues;
   departments?: DepartmentOption[];
   positions?: PositionOption[];
   managers?: ManagerOption[];
 }) {
   const router = useRouter();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [state, formAction, isPending] = useActionState(action as any, null);
+  const [state, formAction, isPending] = useActionState(action, null);
 
   // Cascading department→position filter
   const [selectedDeptId, setSelectedDeptId] = useState(employee?.departmentId ?? "");

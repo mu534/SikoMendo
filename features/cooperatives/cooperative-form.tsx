@@ -76,13 +76,15 @@ export function CooperativeForm({
   cooperative,
   cooperativeId,
 }: {
-  action: (prevState: unknown, formData: FormData) => Promise<unknown>;
+  action: (
+    prevState: { success: boolean; data?: unknown; error?: { message: string } } | null,
+    formData: FormData
+  ) => Promise<{ success: boolean; data?: unknown; error?: { message: string } }>;
   cooperative?: CooperativeFormValues;
   cooperativeId?: string;
 }) {
   const router = useRouter();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [state, formAction, isPending] = useActionState(action as any, null);
+  const [state, formAction, isPending] = useActionState(action, null);
 
   // Redirect to detail page on successful create
   useEffect(() => {
