@@ -69,6 +69,20 @@ export async function createEmployee(
         graduationYear: parsed.data.graduationYear ?? null,
         profileImageUrl: asset?.url ?? null,
         profileImageKey: asset?.publicId ?? null,
+        managerId: parsed.data.managerId ?? null,
+      },
+    });
+
+    // Create the initial EmploymentHistory row so the history timeline starts
+    // from the hire date (or today if no hire date was supplied).
+    await prisma.employmentHistory.create({
+      data: {
+        employeeId: employee.id,
+        departmentId: parsed.data.departmentId,
+        positionId: parsed.data.positionId,
+        employmentType: (parsed.data.employmentType as EmploymentType) ?? null,
+        effectiveDate: parsed.data.hireDate ?? new Date(),
+        changeReason: "Initial hire",
       },
     });
 
@@ -145,6 +159,7 @@ export async function updateEmployee(
         fieldOfStudy: parsed.data.fieldOfStudy ?? null,
         institutionName: parsed.data.institutionName ?? null,
         graduationYear: parsed.data.graduationYear ?? null,
+        managerId: parsed.data.managerId ?? null,
         ...(asset ? { profileImageUrl: asset.url, profileImageKey: asset.publicId } : {}),
       },
     });

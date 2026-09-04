@@ -48,6 +48,7 @@ export const employeeSchema = z.object({
   institutionName: optionalString,
   graduationYear: optionalString,
   userId: optionalString,
+  managerId: optionalString,
 });
 
 export type EmployeeInput = z.infer<typeof employeeSchema>;
@@ -97,5 +98,6 @@ export function employeeFormDataToObject(formData: FormData) {
     institutionName: s("institutionName"),
     graduationYear: s("graduationYear"),
     userId: s("userId"),
+    managerId: s("managerId"),
   };
 }

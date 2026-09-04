@@ -27,6 +27,7 @@ type EmploymentStatus =
 
 export type DepartmentOption = { id: string; name: string };
 export type PositionOption  = { id: string; name: string; departmentId: string };
+export type ManagerOption   = { id: string; firstName: string; lastName: string; employeeId: string };
 
 export type EmployeeFormValues = {
   id?: string;
@@ -47,6 +48,7 @@ export type EmployeeFormValues = {
   // FK-based fields
   departmentId?: string | null;
   positionId?: string | null;
+  managerId?: string | null;
   employmentType?: string | null;
   hireDate?: string | null;
   employmentStatus: EmploymentStatus;
@@ -97,11 +99,13 @@ export function EmployeeForm({
   employee,
   departments = [],
   positions = [],
+  managers = [],
 }: {
   action: (prevState: unknown, formData: FormData) => Promise<unknown>;
   employee?: EmployeeFormValues;
   departments?: DepartmentOption[];
   positions?: PositionOption[];
+  managers?: ManagerOption[];
 }) {
   const router = useRouter();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -115,6 +119,7 @@ export function EmployeeForm({
 
   // When the department changes, clear the position selection unless it belongs to the new dept
   const [selectedPosId, setSelectedPosId] = useState(employee?.positionId ?? "");
+  const [selectedManagerId, setSelectedManagerId] = useState(employee?.managerId ?? "");
   function handleDeptChange(e: React.ChangeEvent<HTMLSelectElement>) {
     setSelectedDeptId(e.target.value);
     setSelectedPosId(""); // reset position when dept changes
@@ -378,6 +383,24 @@ export function EmployeeForm({
                 <option value="SUSPENDED">Suspended</option>
                 <option value="TERMINATED">Terminated</option>
                 <option value="INACTIVE">Inactive</option>
+              </Select>
+            </FieldGroup>
+
+            {/* Manager / Reports-to selector */}
+            <FieldGroup className="sm:col-span-2">
+              <Label htmlFor="managerId">Reports To (Manager)</Label>
+              <Select
+                id="managerId"
+                name="managerId"
+                value={selectedManagerId}
+                onChange={(e) => setSelectedManagerId(e.target.value)}
+              >
+                <option value="">— None —</option>
+                {managers.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.firstName} {m.lastName} ({m.employeeId})
+                  </option>
+                ))}
               </Select>
             </FieldGroup>
           </div>

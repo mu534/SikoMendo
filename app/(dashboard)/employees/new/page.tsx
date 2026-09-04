@@ -1,17 +1,21 @@
 import { requirePermission } from "@/lib/session";
 import { createEmployee } from "@/features/employees/actions";
 import { EmployeeForm } from "@/features/employees/employee-form";
-import { generateNextEmployeeId } from "@/features/employees/queries";
+import { generateNextEmployeeId, listAssignableManagers } from "@/features/employees/queries";
 import { listActiveDepartments } from "@/features/departments/queries";
 import { listActivePositions } from "@/features/positions/queries";
 
 export default async function NewEmployeePage() {
   await requirePermission("MANAGE_EMPLOYEES");
 
-  const [nextId, departments, positions] = await Promise.all([
+  // For a new employee we allow any active non-archived employee as a potential manager.
+  // We use a placeholder "new" id so listAssignableManagers returns all active employees.
+  const [nextId, departments, positions, managers] = await Promise.all([
     generateNextEmployeeId(),
     listActiveDepartments(),
     listActivePositions(),
+    // "new" is not a real cuid so no employees are excluded — returns the full active list
+    listAssignableManagers("new"),
   ]);
 
   return (
@@ -22,7 +26,12 @@ export default async function NewEmployeePage() {
           Employee ID <span className="font-medium text-ink-900">{nextId}</span> will be assigned automatically on save.
         </p>
       </div>
-      <EmployeeForm action={createEmployee} departments={departments} positions={positions} />
+      <EmployeeForm
+        action={createEmployee}
+        departments={departments}
+        positions={positions}
+        managers={managers}
+      />
     </div>
   );
 }

@@ -41,6 +41,7 @@ export default async function EmployeesPage({
   const q = parseStringParam(params.q);
   const status = parseStringParam(params.status);
   const departmentId = parseStringParam(params.department);
+  const employmentType = parseStringParam(params.employmentType);
   const showArchived = parseStringParam(params.archived) === "1";
   const page = parsePageParam(params.page);
 
@@ -53,7 +54,7 @@ export default async function EmployeesPage({
   }
 
   const [{ items, total, totalPages }, departments] = await Promise.all([
-    listEmployees({ q, status, departmentId, showArchived, restrictToIds, page }),
+    listEmployees({ q, status, departmentId, employmentType, showArchived, restrictToIds, page }),
     listActiveDepartments(),
   ]);
 
@@ -114,6 +115,14 @@ export default async function EmployeesPage({
                 {dept.name}
               </option>
             ))}
+          </Select>
+          <Select name="employmentType" defaultValue={employmentType} className="w-44">
+            <option value="">All types</option>
+            <option value="PERMANENT">Permanent</option>
+            <option value="CONTRACT">Contract</option>
+            <option value="TEMPORARY">Temporary</option>
+            <option value="PROBATION">Probation</option>
+            <option value="INTERNSHIP">Internship</option>
           </Select>
           {showArchived && <input type="hidden" name="archived" value="1" />}
         </Toolbar>
@@ -219,7 +228,7 @@ export default async function EmployeesPage({
 
         <Pagination
           basePath="/employees"
-          params={{ q, status, department: departmentId, archived: showArchived ? "1" : undefined }}
+          params={{ q, status, department: departmentId, employmentType, archived: showArchived ? "1" : undefined }}
           page={page}
           totalPages={totalPages}
           totalItems={total}

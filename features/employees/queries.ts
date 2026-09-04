@@ -95,6 +95,16 @@ export async function getEmployeeById(id: string) {
       user: { select: { id: true, email: true, username: true, role: true } },
       documents: { where: { deletedAt: null }, orderBy: { createdAt: "desc" } },
       manager: { select: { id: true, firstName: true, lastName: true, employeeId: true } },
+      employmentHistory: {
+        include: {
+          department: { select: { name: true } },
+          position: { select: { name: true } },
+        },
+        orderBy: { effectiveDate: "desc" },
+      },
+      contracts: {
+        orderBy: { startDate: "desc" },
+      },
     },
   });
 }

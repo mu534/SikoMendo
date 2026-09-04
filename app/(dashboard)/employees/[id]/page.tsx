@@ -1,13 +1,25 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { FileText, Trash2, User, Phone, Briefcase, GraduationCap, Calendar } from "lucide-react";
+import {
+  FileText,
+  Trash2,
+  User,
+  Phone,
+  Briefcase,
+  GraduationCap,
+  Calendar,
+  History,
+  ScrollText,
+} from "lucide-react";
 import { requirePermission } from "@/lib/session";
 import { can } from "@/lib/permissions";
-import { getEmployeeById } from "@/features/employees/queries";
+import { getEmployeeById, listAssignableManagers } from "@/features/employees/queries";
 import { updateEmployee, deleteEmployeeDocument } from "@/features/employees/actions";
 import { EmployeeForm, EmployeeFormActions } from "@/features/employees/employee-form";
 import { SectionHeader } from "@/features/employees/section-header";
 import { DocumentUploadForm } from "@/features/employees/document-upload-form";
+import { EmploymentHistoryPanel } from "@/features/employment-history/employment-history-panel";
+import { ContractsPanel } from "@/features/contracts/contracts-panel";
 import { listActiveDepartments } from "@/features/departments/queries";
 import { listActivePositions } from "@/features/positions/queries";
 import { formatDate, formatBytes } from "@/lib/utils";
@@ -33,10 +45,29 @@ export default async function EmployeeDetailPage({
 
   const canManage = can(session.user.role, "MANAGE_EMPLOYEES");
   const canManageDocuments = can(session.user.role, "MANAGE_DOCUMENTS");
+  const canManageHistory = can(session.user.role, "MANAGE_EMPLOYMENT_HISTORY");
+  const canManageContracts = can(session.user.role, "MANAGE_CONTRACTS");
 
-  const [departments, positions] = canManage
-    ? await Promise.all([listActiveDepartments(), listActivePositions()])
-    : [[], []];
+  const [departments, positions, managers] = canManage
+    ? await Promise.all([
+        listActiveDepartments(),
+        listActivePositions(),
+        listAssignableManagers(employee.id),
+      ])
+    : [[], [], []];
+
+  // Shape contracts for the panel — add isExpiringSoon flag
+  const today = new Date();
+  const thirtyDaysOut = new Date(today);
+  thirtyDaysOut.setDate(today.getDate() + 30);
+  const contractRows = employee.contracts.map((c) => ({
+    ...c,
+    isExpiringSoon:
+      c.status === "ACTIVE" &&
+      c.endDate !== null &&
+      c.endDate <= thirtyDaysOut &&
+      c.endDate >= today,
+  }));
 
   const formValues = canManage
     ? {
@@ -57,6 +88,7 @@ export default async function EmployeeDetailPage({
         emergencyContactAddress: employee.emergencyContactAddress ?? null,
         departmentId: employee.departmentId ?? null,
         positionId: employee.positionId ?? null,
+        managerId: employee.manager?.id ?? null,
         employmentType: employee.employmentType ?? null,
         hireDate: employee.hireDate ? employee.hireDate.toISOString() : null,
         employmentStatus: employee.employmentStatus as
@@ -77,15 +109,17 @@ export default async function EmployeeDetailPage({
 
   return (
     <div className="space-y-6">
+      {/* ── Profile header ─────────────────────────────────────────── */}
       <ProfileHeader employee={employee} />
 
-      {/* Edit form (admin / HR) or read-only view (manager) */}
+      {/* ── Edit form (admin / HR) or read-only cards (manager) ───── */}
       {canManage && formValues ? (
         <EmployeeForm
           action={updateEmployee.bind(null, employee.id)}
           employee={formValues}
           departments={departments}
           positions={positions}
+          managers={managers}
         />
       ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -121,7 +155,11 @@ export default async function EmployeeDetailPage({
               <ReadField label="Hire Date" value={formatDateWithEthiopian(employee.hireDate)} />
               <ReadField
                 label="Reports To"
-                value={employee.manager ? `${employee.manager.firstName} ${employee.manager.lastName}` : null}
+                value={
+                  employee.manager
+                    ? `${employee.manager.firstName} ${employee.manager.lastName}`
+                    : null
+                }
               />
             </dl>
           </Card>
@@ -138,7 +176,42 @@ export default async function EmployeeDetailPage({
         </div>
       )}
 
-      {/* Documents */}
+      {/* ── Employment History ─────────────────────────────────────── */}
+      <Card>
+        <CardHeader
+          title="Employment History"
+          description="A chronological record of department, position, and employment-type changes."
+        />
+        <div className="px-6 pb-6">
+          <EmploymentHistoryPanel
+            employeeId={employee.id}
+            history={employee.employmentHistory}
+            departments={departments}
+            positions={positions}
+            currentDepartmentId={employee.departmentId}
+            canManage={canManageHistory}
+            formatDate={formatDate}
+          />
+        </div>
+      </Card>
+
+      {/* ── Contracts ──────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader
+          title="Contracts"
+          description="Employment contracts and their current status."
+        />
+        <div className="px-6 pb-6">
+          <ContractsPanel
+            employeeId={employee.id}
+            contracts={contractRows}
+            canManage={canManageContracts}
+            formatDate={formatDate}
+          />
+        </div>
+      </Card>
+
+      {/* ── Documents ──────────────────────────────────────────────── */}
       <Card>
         <CardHeader
           title="Documents"
@@ -158,7 +231,9 @@ export default async function EmployeeDetailPage({
                     doc.fileKey,
                     doc.fileResourceType === "image" || doc.fileResourceType === "raw"
                       ? doc.fileResourceType
-                      : doc.mimeType.startsWith("image/") ? "image" : "raw"
+                      : doc.mimeType.startsWith("image/")
+                        ? "image"
+                        : "raw",
                   )}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -197,11 +272,13 @@ export default async function EmployeeDetailPage({
         {canManageDocuments && <DocumentUploadForm employeeId={employee.id} />}
       </Card>
 
-      {/* Save / Reset / Cancel after Documents */}
+      {/* ── Save / Reset / Cancel (edit mode only) ────────────────── */}
       {canManage && <EmployeeFormActions isEdit />}
     </div>
   );
 }
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function yearsOfService(hireDate: Date | null): string | null {
   if (!hireDate) return null;
@@ -231,8 +308,9 @@ function ProfileHeader({
         : "neutral";
 
   return (
-    <Card className="p-6">
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+    <Card className="overflow-hidden">
+      <div className="h-1 bg-brand-700" />
+      <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-5">
           <Avatar name={fullName} imageUrl={employee.profileImageUrl} size="xl" />
           <div>
@@ -243,18 +321,22 @@ function ProfileHeader({
             </p>
             <div className="mt-2.5 flex flex-wrap items-center gap-2">
               <Badge tone="brand">{employee.employeeId}</Badge>
-              <Badge tone={statusTone}>{employee.employmentStatus.replace("_", " ")}</Badge>
-              {employee.employmentType && <Badge tone="neutral">{employee.employmentType}</Badge>}
+              <Badge tone={statusTone}>{employee.employmentStatus.replace(/_/g, " ")}</Badge>
+              {employee.employmentType && (
+                <Badge tone="neutral">{employee.employmentType.replace(/_/g, " ")}</Badge>
+              )}
               {employee.user?.username && (
                 <span className="text-xs text-ink-900/45">@{employee.user.username}</span>
+              )}
+              {employee.deletedAt && (
+                <Badge tone="danger">Archived</Badge>
               )}
             </div>
           </div>
         </div>
 
-        {/* Quick facts \u2014 the things a manager glances at first: how long they've
-            been here, when they joined, and who they report to. */}
-        <div className="flex gap-6 sm:border-l sm:border-ink-900/8 sm:pl-6">
+        {/* Quick-facts sidebar */}
+        <div className="flex flex-wrap gap-6 sm:border-l sm:border-ink-900/8 sm:pl-6">
           <div>
             <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-ink-900/40">
               <Calendar className="h-3.5 w-3.5" /> Tenure
@@ -267,7 +349,9 @@ function ProfileHeader({
           </div>
           {employee.manager && (
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-ink-900/40">Reports to</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-ink-900/40">
+                Reports to
+              </p>
               <Link
                 href={`/employees/${employee.manager.id}`}
                 className="mt-1 block text-sm font-medium text-brand-700 hover:underline"
@@ -298,3 +382,7 @@ function ReadField({
     </div>
   );
 }
+
+// Suppress unused-import warnings for icons used only in section headings
+void History;
+void ScrollText;
