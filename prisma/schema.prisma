@@ -298,7 +298,7 @@ model Position {
 model EmploymentHistory {
   id             String          @id @default(cuid())
   employeeId     String
-  employee       Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee       Employee        @relation(fields: [employeeId], references: [id], onDelete: Restrict)
   departmentId   String
   department     Department      @relation(fields: [departmentId], references: [id], onDelete: Restrict)
   positionId     String
@@ -328,7 +328,7 @@ enum ContractStatus {
 model Contract {
   id           String          @id @default(cuid())
   employeeId   String
-  employee     Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee     Employee        @relation(fields: [employeeId], references: [id], onDelete: Restrict)
   contractType EmploymentType
   startDate    DateTime        @db.Date
   endDate      DateTime?       @db.Date
@@ -397,7 +397,7 @@ model Attendance {
 
   // Relations
   employeeId   String
-  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
   recordedById String?
   recordedBy   User?    @relation("RecordedBy", fields: [recordedById], references: [id], onDelete: SetNull)
 
@@ -426,7 +426,7 @@ model Document {
 
   // Relations
   employeeId   String
-  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
   uploadedById String?
   uploadedBy   User?    @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
 
@@ -459,7 +459,7 @@ model LeaveRequest {
 
   // Relations
   employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
   approverId String?
   approver   User?    @relation("LeaveApprover", fields: [approverId], references: [id], onDelete: SetNull)
 
