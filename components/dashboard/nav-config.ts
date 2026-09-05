@@ -13,6 +13,7 @@ import {
   FileText,
   ShieldCheck,
   UserCircle,
+  UserX,
 } from "lucide-react";
 import type { Action } from "@/lib/permissions";
 
@@ -30,12 +31,7 @@ export type NavGroup = {
   kind: "group";
   label: string;
   icon: typeof LayoutDashboard;
-  /** The group is visible when the user has at least this permission. */
   requires?: Action;
-  /**
-   * Prefix used to determine whether the group should be treated as active.
-   * Any pathname starting with this prefix activates the group.
-   */
   activePrefix: string;
   children: Array<{
     href: string;
@@ -49,7 +45,19 @@ export type AnyNavItem = NavItem | NavGroup;
 
 export const NAV_ITEMS: AnyNavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/users", label: "Users", icon: UserCog, requires: "MANAGE_USERS" },
+
+  // ── Users group ──────────────────────────────────────────────────────────
+  {
+    kind: "group",
+    label: "Users",
+    icon: UserCog,
+    requires: "MANAGE_USERS",
+    activePrefix: "/users",
+    children: [
+      { href: "/users",           label: "All Accounts",       icon: Users,  requires: "MANAGE_USERS" },
+      { href: "/users/suspended", label: "Suspended Accounts", icon: UserX,  requires: "MANAGE_USERS" },
+    ],
+  },
 
   // ── Employees group ──────────────────────────────────────────────────────
   {
@@ -59,10 +67,10 @@ export const NAV_ITEMS: AnyNavItem[] = [
     requires: "VIEW_EMPLOYEES",
     activePrefix: "/employees",
     children: [
-      { href: "/employees",          label: "Employee List",   icon: Users,    requires: "VIEW_EMPLOYEES" },
-      { href: "/employees/new",      label: "New Employee",    icon: UserPlus, requires: "MANAGE_EMPLOYEES" },
-      { href: "/employees?archived=1", label: "Archived",      icon: Archive,  requires: "MANAGE_EMPLOYEES" },
-      { href: "/employees/import",   label: "Bulk Import",     icon: Upload,   requires: "MANAGE_EMPLOYEES" },
+      { href: "/employees",            label: "Employee List",   icon: Users,    requires: "VIEW_EMPLOYEES" },
+      { href: "/employees/new",        label: "New Employee",    icon: UserPlus, requires: "MANAGE_EMPLOYEES" },
+      { href: "/employees?archived=1", label: "Archived",        icon: Archive,  requires: "MANAGE_EMPLOYEES" },
+      { href: "/employees/import",     label: "Bulk Import",     icon: Upload,   requires: "MANAGE_EMPLOYEES" },
     ],
   },
 
