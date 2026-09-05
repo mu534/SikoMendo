@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { Suspense } from "react";
 import {
   FileText,
   Trash2,
@@ -8,8 +9,6 @@ import {
   Briefcase,
   GraduationCap,
   Calendar,
-  History,
-  ScrollText,
 } from "lucide-react";
 import { requirePermission } from "@/lib/session";
 import { can } from "@/lib/permissions";
@@ -18,6 +17,7 @@ import { updateEmployee, deleteEmployeeDocument } from "@/features/employees/act
 import { EmployeeForm } from "@/features/employees/employee-form";
 import { SectionHeader } from "@/features/employees/section-header";
 import { DocumentUploadForm } from "@/features/employees/document-upload-form";
+import { ProfileTabs } from "@/features/employees/profile-tabs";
 import { EmploymentHistoryPanel } from "@/features/employment-history/employment-history-panel";
 import { ContractsPanel } from "@/features/contracts/contracts-panel";
 import { listActiveDepartments } from "@/features/departments/queries";
@@ -32,31 +32,39 @@ import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import type { Document } from "@prisma/client";
 import { getSignedFileUrl } from "@/lib/cloudinary";
 
+type Tab = "overview" | "history" | "contracts" | "documents";
+
 export default async function EmployeeDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const session = await requirePermission("VIEW_EMPLOYEES");
   const { id } = await params;
+  const sp = await searchParams;
+  const tab = (typeof sp.tab === "string" ? sp.tab : "overview") as Tab;
 
   const employee = await getEmployeeById(id);
   if (!employee) notFound();
 
-  const canManage = can(session.user.role, "MANAGE_EMPLOYEES");
+  const canManage          = can(session.user.role, "MANAGE_EMPLOYEES");
   const canManageDocuments = can(session.user.role, "MANAGE_DOCUMENTS");
-  const canManageHistory = can(session.user.role, "MANAGE_EMPLOYMENT_HISTORY");
+  const canManageHistory   = can(session.user.role, "MANAGE_EMPLOYMENT_HISTORY");
   const canManageContracts = can(session.user.role, "MANAGE_CONTRACTS");
 
-  const [departments, positions, managers] = canManage
+  // Only fetch these when they're actually needed (History / Contracts tabs or edit form)
+  const needDeptPos = canManage || tab === "history" || tab === "contracts";
+  const [departments, positions, managers] = needDeptPos
     ? await Promise.all([
         listActiveDepartments(),
         listActivePositions(),
-        listAssignableManagers(employee.id),
+        canManage ? listAssignableManagers(employee.id) : Promise.resolve([]),
       ])
     : [[], [], []];
 
-  // Shape contracts for the panel — add isExpiringSoon flag
+  // Contracts: add expiring-soon flag
   const today = new Date();
   const thirtyDaysOut = new Date(today);
   thirtyDaysOut.setDate(today.getDate() + 30);
@@ -69,6 +77,7 @@ export default async function EmployeeDetailPage({
       c.endDate >= today,
   }));
 
+  // Form values for the edit form (Overview tab, admin/HR only)
   const formValues = canManage
     ? {
         id: employee.id,
@@ -92,13 +101,8 @@ export default async function EmployeeDetailPage({
         employmentType: employee.employmentType ?? null,
         hireDate: employee.hireDate ? employee.hireDate.toISOString() : null,
         employmentStatus: employee.employmentStatus as
-          | "ACTIVE"
-          | "ON_LEAVE"
-          | "RESIGNED"
-          | "RETIRED"
-          | "SUSPENDED"
-          | "TERMINATED"
-          | "INACTIVE",
+          | "ACTIVE" | "ON_LEAVE" | "RESIGNED" | "RETIRED"
+          | "SUSPENDED" | "TERMINATED" | "INACTIVE",
         educationLevel: employee.educationLevel ?? null,
         fieldOfStudy: employee.fieldOfStudy ?? null,
         institutionName: employee.institutionName ?? null,
@@ -108,169 +112,214 @@ export default async function EmployeeDetailPage({
     : null;
 
   return (
-    <div className="space-y-6">
-      {/* ── Profile header ─────────────────────────────────────────── */}
+    <div className="space-y-0">
+      {/* ── Profile header ───────────────────────────────────────────── */}
       <ProfileHeader employee={employee} />
 
-      {/* ── Edit form (admin / HR) or read-only cards (manager) ───── */}
-      {canManage && formValues ? (
-        <EmployeeForm
-          action={updateEmployee.bind(null, employee.id)}
-          employee={formValues}
-          departments={departments}
-          positions={positions}
-          managers={managers}
-        />
-      ) : (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <Card className="p-6">
-            <SectionHeader icon={User} title="Personal Information" />
-            <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <ReadField label="Gender" value={employee.gender} />
-              <ReadField label="Date of Birth" value={formatDateWithEthiopian(employee.dateOfBirth)} />
-              <ReadField label="Marital Status" value={employee.maritalStatus} />
-              <ReadField label="Phone" value={employee.phone} />
-              <ReadField label="Email" value={employee.email} className="sm:col-span-2" />
-              <ReadField label="Address" value={employee.address} className="sm:col-span-2" />
-            </dl>
-          </Card>
+      {/* ── Tab bar ─────────────────────────────────────────────────── */}
+      <Suspense fallback={null}>
+        <ProfileTabs employeeId={employee.id} />
+      </Suspense>
 
-          <Card className="p-6">
-            <SectionHeader icon={Phone} title="Emergency Contact" />
-            <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <ReadField label="Name" value={employee.emergencyContactName} />
-              <ReadField label="Relationship" value={employee.emergencyContactRelationship} />
-              <ReadField label="Phone" value={employee.emergencyContactPhone} />
-              <ReadField label="Address" value={employee.emergencyContactAddress} />
-            </dl>
-          </Card>
+      {/* ── Tab content ─────────────────────────────────────────────── */}
+      <div className="mt-6 space-y-6 px-0">
 
-          <Card className="p-6">
-            <SectionHeader icon={Briefcase} title="Employment Information" />
-            <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <ReadField label="Department" value={employee.department?.name} />
-              <ReadField label="Position" value={employee.position?.name} />
-              <ReadField label="Employment Type" value={employee.employmentType} />
-              <ReadField label="Employment Status" value={employee.employmentStatus} />
-              <ReadField label="Hire Date" value={formatDateWithEthiopian(employee.hireDate)} />
-              <ReadField
-                label="Reports To"
-                value={
-                  employee.manager
-                    ? `${employee.manager.firstName} ${employee.manager.lastName}`
-                    : null
-                }
+        {/* ══ OVERVIEW ══════════════════════════════════════════════ */}
+        {tab === "overview" && (
+          <>
+            {canManage && formValues ? (
+              /* Admin / HR: full edit form */
+              <EmployeeForm
+                action={updateEmployee.bind(null, employee.id)}
+                employee={formValues}
+                departments={departments}
+                positions={positions}
+                managers={managers}
               />
-            </dl>
-          </Card>
+            ) : (
+              /* Manager: read-only cards */
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                {/* Personal Information */}
+                <Card className="p-6">
+                  <SectionHeader icon={User} title="Personal Information" />
+                  <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                    <ReadField label="Gender" value={employee.gender} />
+                    <ReadField
+                      label="Date of Birth"
+                      value={formatDateWithEthiopian(employee.dateOfBirth)}
+                    />
+                    <ReadField label="Marital Status" value={employee.maritalStatus} />
+                    <ReadField label="Phone" value={employee.phone} />
+                    <ReadField label="Email" value={employee.email} className="sm:col-span-2" />
+                    <ReadField label="Address" value={employee.address} className="sm:col-span-2" />
+                  </dl>
+                </Card>
 
-          <Card className="p-6">
-            <SectionHeader icon={GraduationCap} title="Education" />
-            <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <ReadField label="Education Level" value={employee.educationLevel} />
-              <ReadField label="Field of Study" value={employee.fieldOfStudy} />
-              <ReadField label="Institution" value={employee.institutionName} />
-              <ReadField label="Graduation Year" value={employee.graduationYear} />
-            </dl>
-          </Card>
-        </div>
-      )}
+                {/* Emergency Contact */}
+                <Card className="p-6">
+                  <SectionHeader icon={Phone} title="Emergency Contact" />
+                  <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                    <ReadField label="Name" value={employee.emergencyContactName} />
+                    <ReadField
+                      label="Relationship"
+                      value={employee.emergencyContactRelationship}
+                    />
+                    <ReadField label="Phone" value={employee.emergencyContactPhone} />
+                    <ReadField label="Address" value={employee.emergencyContactAddress} />
+                  </dl>
+                </Card>
 
-      {/* ── Employment History ─────────────────────────────────────── */}
-      <Card>
-        <CardHeader
-          title="Employment History"
-          description="A chronological record of department, position, and employment-type changes."
-        />
-        <div className="px-6 pb-6">
-          <EmploymentHistoryPanel
-            employeeId={employee.id}
-            history={employee.employmentHistory}
-            departments={departments}
-            positions={positions}
-            currentDepartmentId={employee.departmentId}
-            canManage={canManageHistory}
-          />
-        </div>
-      </Card>
-
-      {/* ── Contracts ──────────────────────────────────────────────── */}
-      <Card>
-        <CardHeader
-          title="Contracts"
-          description="Employment contracts and their current status."
-        />
-        <div className="px-6 pb-6">
-          <ContractsPanel
-            employeeId={employee.id}
-            contracts={contractRows}
-            canManage={canManageContracts}
-          />
-        </div>
-      </Card>
-
-      {/* ── Documents ──────────────────────────────────────────────── */}
-      <Card>
-        <CardHeader
-          title="Documents"
-          description="Contracts, ID copies, certificates, and other employee files."
-        />
-        {employee.documents.length === 0 ? (
-          <EmptyState icon={<FileText className="h-8 w-8" />} title="No documents yet" />
-        ) : (
-          <ul className="divide-y divide-ink-900/6">
-            {employee.documents.map((doc: Document) => (
-              <li
-                key={doc.id}
-                className="flex items-center justify-between gap-3 px-6 py-3.5"
-              >
-                <a
-                  href={getSignedFileUrl(
-                    doc.fileKey,
-                    doc.fileResourceType === "image" || doc.fileResourceType === "raw"
-                      ? doc.fileResourceType
-                      : doc.mimeType.startsWith("image/")
-                        ? "image"
-                        : "raw",
-                  )}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-3 text-sm hover:underline"
-                >
-                  <FileText className="h-4 w-4 shrink-0 text-brand-600" />
-                  <span>
-                    <span className="font-medium text-ink-900">{doc.title}</span>
-                    <span className="ml-2 text-xs text-ink-900/45">
-                      {doc.type.replace("_", " ")} · {formatBytes(doc.fileSize)} ·{" "}
-                      {formatDate(doc.createdAt)}
-                    </span>
-                  </span>
-                </a>
-                {canManageDocuments && (
-                  <form
-                    action={async () => {
-                      "use server";
-                      await deleteEmployeeDocument(doc.id, employee.id);
-                    }}
-                  >
-                    <ConfirmSubmitButton
-                      confirmMessage={`Delete "${doc.title}"?`}
-                      size="sm"
-                      variant="ghost"
-                      className="text-red-600"
+                {/* Employment Information */}
+                <Card className="p-6">
+                  <SectionHeader icon={Briefcase} title="Employment Information" />
+                  <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                    <ReadField label="Department" value={employee.department?.name} />
+                    <ReadField label="Position" value={employee.position?.name} />
+                    <ReadField label="Employment Type" value={employee.employmentType} />
+                    <ReadField label="Employment Status" value={employee.employmentStatus} />
+                    <ReadField
+                      label="Hire Date"
+                      value={formatDateWithEthiopian(employee.hireDate)}
+                    />
+                    <ReadField
+                      label="Reports To"
+                      value={
+                        employee.manager
+                          ? `${employee.manager.firstName} ${employee.manager.lastName}`
+                          : null
+                      }
+                    />
+                  </dl>
+                  <p className="mt-4 text-xs text-ink-900/45">
+                    To change department, position, or employment type use the{" "}
+                    <Link
+                      href={`/employees/${employee.id}?tab=history`}
+                      className="font-medium text-brand-700 hover:underline"
                     >
-                      <Trash2 className="h-4 w-4" />
-                    </ConfirmSubmitButton>
-                  </form>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-        {canManageDocuments && <DocumentUploadForm employeeId={employee.id} />}
-      </Card>
+                      Employment History
+                    </Link>{" "}
+                    tab → Record Employment Change.
+                  </p>
+                </Card>
 
-      {/* ── Save / Reset / Cancel (edit mode only — rendered inside EmployeeForm) ── */}
+                {/* Education */}
+                <Card className="p-6">
+                  <SectionHeader icon={GraduationCap} title="Education" />
+                  <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                    <ReadField label="Education Level" value={employee.educationLevel} />
+                    <ReadField label="Field of Study" value={employee.fieldOfStudy} />
+                    <ReadField label="Institution" value={employee.institutionName} />
+                    <ReadField label="Graduation Year" value={employee.graduationYear} />
+                  </dl>
+                </Card>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ══ EMPLOYMENT HISTORY ════════════════════════════════════ */}
+        {tab === "history" && (
+          <Card>
+            <CardHeader
+              title="Employment History"
+              description="Append-only record of department, position, and employment-type changes. Use &ldquo;Record Employment Change&rdquo; to add a new entry — existing records are never edited."
+            />
+            <div className="px-6 pb-6">
+              <EmploymentHistoryPanel
+                employeeId={employee.id}
+                history={employee.employmentHistory}
+                departments={departments}
+                positions={positions}
+                currentDepartmentId={employee.departmentId}
+                canManage={canManageHistory}
+              />
+            </div>
+          </Card>
+        )}
+
+        {/* ══ CONTRACTS ═════════════════════════════════════════════ */}
+        {tab === "contracts" && (
+          <Card>
+            <CardHeader
+              title="Contracts"
+              description="Employment contracts. Creating a new contract automatically closes the previous active one."
+            />
+            <div className="px-6 pb-6">
+              <ContractsPanel
+                employeeId={employee.id}
+                contracts={contractRows}
+                canManage={canManageContracts}
+              />
+            </div>
+          </Card>
+        )}
+
+        {/* ══ DOCUMENTS ═════════════════════════════════════════════ */}
+        {tab === "documents" && (
+          <Card>
+            <CardHeader
+              title="Documents"
+              description="Contracts, ID copies, certificates, and other HR documents."
+            />
+            {employee.documents.length === 0 ? (
+              <EmptyState
+                icon={<FileText className="h-8 w-8" />}
+                title="No documents yet"
+              />
+            ) : (
+              <ul className="divide-y divide-ink-900/6">
+                {employee.documents.map((doc: Document) => (
+                  <li
+                    key={doc.id}
+                    className="flex items-center justify-between gap-3 px-6 py-3.5"
+                  >
+                    <a
+                      href={getSignedFileUrl(
+                        doc.fileKey,
+                        doc.fileResourceType === "image" || doc.fileResourceType === "raw"
+                          ? doc.fileResourceType
+                          : doc.mimeType.startsWith("image/")
+                            ? "image"
+                            : "raw",
+                      )}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 text-sm hover:underline"
+                    >
+                      <FileText className="h-4 w-4 shrink-0 text-brand-600" />
+                      <span>
+                        <span className="font-medium text-ink-900">{doc.title}</span>
+                        <span className="ml-2 text-xs text-ink-900/45">
+                          {doc.type.replace("_", " ")} · {formatBytes(doc.fileSize)} ·{" "}
+                          {formatDate(doc.createdAt)}
+                        </span>
+                      </span>
+                    </a>
+                    {canManageDocuments && (
+                      <form
+                        action={async () => {
+                          "use server";
+                          await deleteEmployeeDocument(doc.id, employee.id);
+                        }}
+                      >
+                        <ConfirmSubmitButton
+                          confirmMessage={`Delete "${doc.title}"? This cannot be undone.`}
+                          size="sm"
+                          variant="ghost"
+                          className="text-red-600"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </ConfirmSubmitButton>
+                      </form>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {canManageDocuments && <DocumentUploadForm employeeId={employee.id} />}
+          </Card>
+        )}
+      </div>
     </div>
   );
 }
@@ -305,7 +354,7 @@ function ProfileHeader({
         : "neutral";
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden rounded-b-none">
       <div className="h-1 bg-brand-700" />
       <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-5">
@@ -325,14 +374,11 @@ function ProfileHeader({
               {employee.user?.username && (
                 <span className="text-xs text-ink-900/45">@{employee.user.username}</span>
               )}
-              {employee.deletedAt && (
-                <Badge tone="danger">Archived</Badge>
-              )}
+              {employee.deletedAt && <Badge tone="danger">Archived</Badge>}
             </div>
           </div>
         </div>
 
-        {/* Quick-facts sidebar */}
         <div className="flex flex-wrap gap-6 sm:border-l sm:border-ink-900/8 sm:pl-6">
           <div>
             <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-ink-900/40">
@@ -342,7 +388,9 @@ function ProfileHeader({
           </div>
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-ink-900/40">Hired</p>
-            <p className="mt-1 text-sm font-medium text-ink-900">{formatDate(employee.hireDate)}</p>
+            <p className="mt-1 text-sm font-medium text-ink-900">
+              {formatDate(employee.hireDate)}
+            </p>
           </div>
           {employee.manager && (
             <div>
@@ -379,7 +427,3 @@ function ReadField({
     </div>
   );
 }
-
-// Suppress unused-import warnings for icons used only in section headings
-void History;
-void ScrollText;

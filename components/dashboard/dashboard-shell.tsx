@@ -18,7 +18,12 @@ export function DashboardShell({
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
 
-  const activeItem = NAV_ITEMS.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
+  const activeItem = NAV_ITEMS.find((item) => {
+    if (item.kind === "group") {
+      return pathname.startsWith(item.activePrefix);
+    }
+    return pathname === item.href || pathname.startsWith(`${item.href}/`);
+  });
 
   return (
     <div className="flex h-screen overflow-hidden">
