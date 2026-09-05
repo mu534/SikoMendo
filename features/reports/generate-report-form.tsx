@@ -14,6 +14,14 @@ import type { ActionResult } from "@/lib/action-utils";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
+type ReportActionResult = ActionResult<{ id: string; title: string }>;
+type ReportAction = (
+  prevState: ReportActionResult | null,
+  formData: FormData
+) => Promise<ReportActionResult>;
+
+// ── Constants ────────────────────────────────────────────────────────────────
+
 export const REPORT_TYPES = [
   { value: "EMPLOYEE_DIRECTORY", label: "Employee Directory" },
   { value: "ATTENDANCE_SUMMARY", label: "Attendance Summary" },
@@ -344,15 +352,15 @@ export function GenerateReportForm({
   employees = [],
   departments = [],
 }: {
-  action: (prevState: unknown, formData: FormData) => Promise<unknown>;
+  action: ReportAction;
   employees?: FilterEmployee[];
   departments?: FilterDepartment[];
 }) {
   const formRef = useRef<HTMLFormElement>(null);
-  const [state, formAction, isPending] = useActionState<
-    ActionResult<{ id: string; title: string }> | null,
-    FormData
-  >(action as (prev: ActionResult<{ id: string; title: string }> | null, data: FormData) => Promise<ActionResult<{ id: string; title: string }>>, null);
+  const [state, formAction, isPending] = useActionState<ReportActionResult | null, FormData>(
+    action,
+    null
+  );
 
   const [selectedType, setSelectedType] = useState("");
   const [toast, setToast] = useState<string | null>(null);

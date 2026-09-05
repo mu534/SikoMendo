@@ -1,281 +1,113 @@
-import {
-  FileBarChart,
-  FileText,
-  Users,
-  Building2,
-  CalendarCheck,
-  CalendarOff,
-  ShieldCheck,
-  Download,
-  Trash2,
-} from "lucide-react";
+import { FileBarChart } from "lucide-react";
 import { requirePermission } from "@/lib/session";
 import { can } from "@/lib/permissions";
-import { getSignedFileUrl } from "@/lib/cloudinary";
-import { listReports } from "@/features/reports/queries";
-import { generateReport, deleteReport } from "@/features/reports/actions";
+import { generateReport } from "@/features/reports/actions";
 import { listActiveDepartments } from "@/features/departments/queries";
 import { getSubordinateIds } from "@/features/employees/queries";
-import { parsePageParam } from "@/lib/utils";
-import { Card, CardHeader } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Table, THead, TH, TBody, TR, TD, EmptyRow } from "@/components/ui/table";
-import { Pagination } from "@/components/ui/pagination";
+import { Card } from "@/components/ui/card";
 import { GenerateReportForm } from "@/features/reports/generate-report-form";
-import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import prisma from "@/lib/prisma";
-import type { Report } from "@prisma/client";
 
-type ReportRow = Report & { generatedBy: { name: string } };
-
-const REPORT_TYPE_LABELS: Record<string, string> = {
-  EMPLOYEE_DIRECTORY: "Employee Directory",
-  ATTENDANCE_SUMMARY: "Attendance Summary",
-  COOPERATIVE_LISTING: "Cooperative Listing",
-  HEADCOUNT: "Headcount",
-  AUDIT_LOG: "Audit Log",
-  LEAVE_SUMMARY: "Leave Summary",
-};
-
-const REPORT_TYPE_ICONS: Record<string, typeof FileText> = {
-  EMPLOYEE_DIRECTORY: Users,
-  ATTENDANCE_SUMMARY: CalendarCheck,
-  COOPERATIVE_LISTING: Building2,
-  HEADCOUNT: Users,
-  AUDIT_LOG: ShieldCheck,
-  LEAVE_SUMMARY: CalendarOff,
-};
-
-export default async function ReportsPage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  const session = await requirePermission("VIEW_REPORTS");
+export default async function GenerateReportPage() {
+  const session = await requirePermission("GENERATE_REPORTS");
   const { role, id: userId } = session.user;
 
-  const canGenerate = can(role, "GENERATE_REPORTS");
-  // Only ADMIN has DELETE_REPORTS — no other role can delete reports.
-  const canDelete = can(role, "DELETE_REPORTS");
-
-  const params = await searchParams;
-  const page = parsePageParam(params.page);
-
-  // ── Resolve employee dropdown scope ───────────────────────────────────────
-  // For Admin/HR: full active employee list.
-  // For Manager: only their transitive subordinates (same scope the action
-  //              enforces server-side). The dropdown is a convenience; the
-  //              server will re-validate the submitted ID regardless.
+  // ── Resolve employee dropdown scope ────────────────────────────────────
+  // Manager → only their transitive subordinates.
+  // Admin / HR → all active employees.
+  // The server action re-validates scope regardless of what the client sends.
   let employees: { id: string; employeeId: string; firstName: string; lastName: string }[] = [];
-  if (canGenerate) {
-    if (role === "MANAGER") {
-      const ownEmployee = await prisma.employee.findUnique({
-        where: { userId },
-        select: { id: true },
-      });
-      if (ownEmployee) {
-        const subordinateIds = await getSubordinateIds(ownEmployee.id);
-        const allIds = [ownEmployee.id, ...subordinateIds];
-        employees = await prisma.employee.findMany({
-          where: { id: { in: allIds }, deletedAt: null },
-          select: { id: true, employeeId: true, firstName: true, lastName: true },
-          orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-        });
-      }
-    } else {
+
+  if (role === "MANAGER") {
+    const ownEmployee = await prisma.employee.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+    if (ownEmployee) {
+      const subordinateIds = await getSubordinateIds(ownEmployee.id);
+      const allIds = [ownEmployee.id, ...subordinateIds];
       employees = await prisma.employee.findMany({
-        where: { deletedAt: null },
+        where: { id: { in: allIds }, deletedAt: null },
         select: { id: true, employeeId: true, firstName: true, lastName: true },
         orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
       });
     }
+    // If no linked employee, employees stays [] — the dropdown shows nothing,
+    // and the server will return an empty result for employee-scoped reports.
+  } else {
+    employees = await prisma.employee.findMany({
+      where: { deletedAt: null },
+      select: { id: true, employeeId: true, firstName: true, lastName: true },
+      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+    });
   }
 
-  // Fetch report history (scoped by role) and departments in parallel
-  const [{ items, total, totalPages }, departments] = await Promise.all([
-    listReports(page, userId, role),
-    canGenerate ? listActiveDepartments() : Promise.resolve([]),
-  ]);
+  const departments = await listActiveDepartments();
 
   return (
     <div className="space-y-6">
-      {/* ── Page header ───────────────────────────────────────────────── */}
       <div>
-        <h2 className="font-display text-xl font-semibold text-ink-900">Reports</h2>
+        <h2 className="font-display text-xl font-semibold text-ink-900">Generate Report</h2>
         <p className="mt-1 text-sm text-ink-900/60">
-          Generate filtered reports for employees, attendance, leave, cooperatives, and more.
-          Files are stored securely and available for download in your history below.
+          Select a report type, apply filters, and export to PDF or CSV.
+          Generated reports are saved to{" "}
+          <a href="/reports/history" className="font-medium text-brand-700 hover:underline">
+            Report History
+          </a>
+          .
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-        {/* ── Generate report panel (left, narrower) ─────────────────── */}
-        {canGenerate && (
-          <div className="lg:col-span-2">
-            <Card className="overflow-hidden">
-              <div className="h-1 bg-brand-700" />
-              <div className="p-6">
-                <div className="mb-5 flex items-center gap-2.5 border-b border-ink-900/8 pb-4">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
-                    <FileBarChart className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <h3 className="font-display text-base font-semibold text-ink-900">
-                      Generate Report
-                    </h3>
-                    <p className="mt-0.5 text-xs text-ink-900/50">
-                      Select a type and apply filters
-                    </p>
-                  </div>
-                </div>
-                <GenerateReportForm
-                  action={generateReport}
-                  employees={employees}
-                  departments={departments}
-                />
+      <div className="max-w-2xl">
+        <Card className="overflow-hidden">
+          <div className="h-1 bg-brand-700" />
+          <div className="p-6">
+            <div className="mb-5 flex items-center gap-2.5 border-b border-ink-900/8 pb-4">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
+                <FileBarChart className="h-4 w-4" />
               </div>
-            </Card>
+              <div>
+                <h3 className="font-display text-base font-semibold text-ink-900">
+                  Report Settings
+                </h3>
+                <p className="mt-0.5 text-xs text-ink-900/50">
+                  Choose a type and apply optional filters
+                </p>
+              </div>
+            </div>
+            <GenerateReportForm
+              action={generateReport}
+              employees={employees}
+              departments={departments}
+            />
           </div>
-        )}
-
-        {/* ── Report history (right, wider) ─────────────────────────── */}
-        <div className={canGenerate ? "lg:col-span-3" : "lg:col-span-5"}>
-          <Card>
-            <CardHeader
-              title="Report History"
-              description={
-                total === 0
-                  ? "No reports generated yet."
-                  : `${total} report${total === 1 ? "" : "s"} on record.`
-              }
-            />
-
-            <Table>
-              <THead>
-                <TH>Report</TH>
-                <TH>Format</TH>
-                <TH>Generated by</TH>
-                <TH>Date</TH>
-                <TH className="text-right">Actions</TH>
-              </THead>
-              <TBody>
-                {items.length === 0 && (
-                  <EmptyRow colSpan={5}>
-                    <FileBarChart className="mx-auto mb-2 h-8 w-8 text-ink-900/20" />
-                    <p>No reports yet.{canGenerate ? " Use the panel on the left to generate one." : ""}</p>
-                  </EmptyRow>
-                )}
-
-                {items.map((report: ReportRow) => {
-                  const Icon = REPORT_TYPE_ICONS[report.type] ?? FileText;
-
-                  const downloadUrl = report.fileKey
-                    ? getSignedFileUrl(
-                        report.fileKey,
-                        report.fileResourceType === "image" ? "image" : "raw",
-                      )
-                    : report.fileUrl ?? null;
-
-                  return (
-                    <TR key={report.id}>
-                      <TD>
-                        <div className="flex items-center gap-2.5">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
-                            <Icon className="h-4 w-4" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="truncate font-medium text-ink-900">
-                              {report.title}
-                            </p>
-                            <p className="text-xs text-ink-900/50">
-                              {REPORT_TYPE_LABELS[report.type] ?? report.type}
-                            </p>
-                          </div>
-                        </div>
-                      </TD>
-
-                      <TD>
-                        <Badge tone={report.format === "PDF" ? "brand" : "neutral"}>
-                          {report.format}
-                        </Badge>
-                      </TD>
-
-                      <TD className="text-sm text-ink-900/70">
-                        {report.generatedBy.name}
-                      </TD>
-
-                      <TD className="whitespace-nowrap text-sm text-ink-900/60">
-                        {new Date(report.createdAt).toLocaleDateString("en-GB", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                        {" "}
-                        <span className="text-ink-900/40">
-                          {new Date(report.createdAt).toLocaleTimeString("en-GB", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
-                      </TD>
-
-                      <TD className="text-right">
-                        <div className="flex items-center justify-end gap-3">
-                          {downloadUrl ? (
-                            <a
-                              href={downloadUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 transition hover:text-brand-800 hover:underline"
-                            >
-                              <Download className="h-3.5 w-3.5" />
-                              Download
-                            </a>
-                          ) : (
-                            <span className="text-xs text-ink-900/30">—</span>
-                          )}
-
-                          {/* Delete button only shown to roles with DELETE_REPORTS (ADMIN only) */}
-                          {canDelete && (
-                            <form
-                              action={async () => {
-                                "use server";
-                                await deleteReport(report.id);
-                              }}
-                            >
-                              <ConfirmSubmitButton
-                                confirmTitle="Delete this report?"
-                                confirmMessage={`"${report.title}" will be permanently removed.`}
-                                confirmLabel="Delete"
-                                variant="ghost"
-                                size="sm"
-                                pendingLabel="Deleting…"
-                                className="text-ink-900/40 hover:text-red-600"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                                <span className="sr-only">Delete report</span>
-                              </ConfirmSubmitButton>
-                            </form>
-                          )}
-                        </div>
-                      </TD>
-                    </TR>
-                  );
-                })}
-              </TBody>
-            </Table>
-
-            <Pagination
-              basePath="/reports"
-              params={{}}
-              page={page}
-              totalPages={totalPages}
-              totalItems={total}
-              pageSize={10}
-            />
-          </Card>
-        </div>
+        </Card>
       </div>
+
+      {/* Scope note for Managers */}
+      {role === "MANAGER" && employees.length === 0 && (
+        <p className="max-w-2xl rounded-xl border border-gold-400/30 bg-gold-400/10 px-4 py-3 text-sm text-ink-900/70">
+          Your account is not linked to an employee record, so employee-scoped reports will return
+          no data. Ask HR to link your account to your employee profile.
+        </p>
+      )}
+      {role === "MANAGER" && employees.length > 0 && (
+        <p className="max-w-2xl text-xs text-ink-900/45">
+          Manager scope: reports will include only employees within your reporting hierarchy
+          ({employees.length} employee{employees.length === 1 ? "" : "s"}).
+        </p>
+      )}
+
+      {/* Non-generate roles see a redirect notice */}
+      {!can(role, "GENERATE_REPORTS") && (
+        <p className="text-sm text-ink-900/60">
+          You don&apos;t have permission to generate reports. Visit{" "}
+          <a href="/reports/history" className="font-medium text-brand-700 hover:underline">
+            Report History
+          </a>{" "}
+          to view previously generated reports.
+        </p>
+      )}
     </div>
   );
 }

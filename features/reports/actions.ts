@@ -95,7 +95,7 @@ function assertEmployeeInScope(employeeId: string, scope: string[] | null): void
 }
 
 export async function generateReport(
-  _prevState: unknown,
+  _prevState: ActionResult<{ id: string; title: string }> | null,
   formData: FormData
 ): Promise<ActionResult<{ id: string; title: string }>> {
   const session = await getServerSession();

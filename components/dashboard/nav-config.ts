@@ -103,7 +103,20 @@ export const NAV_ITEMS: AnyNavItem[] = [
     ],
   },
   { href: "/my-documents", label: "My Documents", icon: FileText },
-  { href: "/reports",      label: "Reports",      icon: FileBarChart,  requires: "VIEW_REPORTS" },
+
+  // ── Reports group ─────────────────────────────────────────────────────────
+  {
+    kind: "group",
+    label: "Reports",
+    icon: FileBarChart,
+    requires: "VIEW_REPORTS",
+    activePrefix: "/reports",
+    children: [
+      { href: "/reports",         label: "Generate Report", icon: FileBarChart, requires: "GENERATE_REPORTS" },
+      { href: "/reports/history", label: "Report History",  icon: FileText,     requires: "VIEW_REPORTS" },
+    ],
+  },
+
   { href: "/audit-log",    label: "Audit Log",    icon: ShieldCheck,   requires: "VIEW_AUDIT_LOG" },
   { href: "/profile",      label: "My Profile",   icon: UserCircle },
 ];
