@@ -158,6 +158,16 @@ export async function generateReport(
       },
     });
 
+    await prisma.auditLog.create({
+      data: {
+        action: "CREATE",
+        entity: "Report",
+        entityId: report.id,
+        changes: { title, type, format } as Prisma.InputJsonValue,
+        userId: session!.user.id,
+      },
+    });
+
     revalidatePath("/reports");
     return { id: report.id, title: report.title };
   });
