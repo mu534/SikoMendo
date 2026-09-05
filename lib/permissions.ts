@@ -100,6 +100,7 @@ export const PERMISSIONS: Record<Role, Action[]> = {
     "VIEW_ALL_LEAVE",
     "MANAGE_LEAVE",
     "MANAGE_OWN_LEAVE",
+    "MANAGE_LEAVE_POLICY",
   ],
   EMPLOYEE: ["VIEW_OWN_PROFILE", "UPDATE_OWN_INFO", "MANAGE_OWN_LEAVE"],
 };

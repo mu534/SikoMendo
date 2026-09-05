@@ -29,10 +29,11 @@ describe("leave approval permissions", () => {
     expect(can("EMPLOYEE", "MANAGE_OWN_LEAVE")).toBe(true);
   });
 
-  it("only HR_OFFICER configures leave policy (entitlement days) \u2014 Admin configures the system, not labor policy; Manager applies policy day-to-day, doesn't set it", () => {
+  it("MANAGER and HR_OFFICER can both configure leave policy — HR_OFFICER for system-wide oversight, MANAGER as the responsible operational role", () => {
     expect(can("HR_OFFICER", "MANAGE_LEAVE_POLICY")).toBe(true);
+    expect(can("MANAGER", "MANAGE_LEAVE_POLICY")).toBe(true);
     expect(can("ADMIN", "MANAGE_LEAVE_POLICY")).toBe(false);
-    expect(can("MANAGER", "MANAGE_LEAVE_POLICY")).toBe(false);
+    expect(can("EMPLOYEE", "MANAGE_LEAVE_POLICY")).toBe(false);
   });
 });
 

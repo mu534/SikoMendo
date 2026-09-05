@@ -90,7 +90,18 @@ export const NAV_ITEMS: AnyNavItem[] = [
 
   { href: "/departments",  label: "Departments",  icon: Layers,        requires: "VIEW_DEPARTMENTS" },
   { href: "/attendance",   label: "Attendance",   icon: CalendarCheck },
-  { href: "/leave",        label: "Leave",        icon: CalendarOff },
+
+  // ── Leave group ──────────────────────────────────────────────────────────
+  {
+    kind: "group",
+    label: "Leave",
+    icon: CalendarOff,
+    activePrefix: "/leave",
+    children: [
+      { href: "/leave",        label: "Leave Requests", icon: CalendarOff },
+      { href: "/leave/policy", label: "Leave Policy",   icon: ShieldCheck, requires: "MANAGE_LEAVE_POLICY" },
+    ],
+  },
   { href: "/my-documents", label: "My Documents", icon: FileText },
   { href: "/reports",      label: "Reports",      icon: FileBarChart,  requires: "VIEW_REPORTS" },
   { href: "/audit-log",    label: "Audit Log",    icon: ShieldCheck,   requires: "VIEW_AUDIT_LOG" },
