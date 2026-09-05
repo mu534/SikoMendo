@@ -74,8 +74,21 @@ export const NAV_ITEMS: AnyNavItem[] = [
     ],
   },
 
+  // ── Cooperatives group ──────────────────────────────────────────────────
+  {
+    kind: "group",
+    label: "Cooperatives",
+    icon: Building2,
+    requires: "VIEW_COOPERATIVES",
+    activePrefix: "/cooperatives",
+    children: [
+      { href: "/cooperatives",            label: "Cooperative List",   icon: Building2, requires: "VIEW_COOPERATIVES" },
+      { href: "/cooperatives/new",        label: "New Cooperative",    icon: UserPlus,  requires: "MANAGE_COOPERATIVES" },
+      { href: "/cooperatives?archived=1", label: "Archived",           icon: Archive,   requires: "MANAGE_COOPERATIVES" },
+    ],
+  },
+
   { href: "/departments",  label: "Departments",  icon: Layers,        requires: "VIEW_DEPARTMENTS" },
-  { href: "/cooperatives", label: "Cooperatives", icon: Building2,     requires: "VIEW_COOPERATIVES" },
   { href: "/attendance",   label: "Attendance",   icon: CalendarCheck },
   { href: "/leave",        label: "Leave",        icon: CalendarOff },
   { href: "/my-documents", label: "My Documents", icon: FileText },
