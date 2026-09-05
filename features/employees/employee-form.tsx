@@ -195,15 +195,15 @@ export function EmployeeForm({
 
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <FieldGroup>
-                <Label htmlFor="firstName">First Name<RequiredMark /></Label>
+                <Label htmlFor="firstName">First Name (Given Name)<RequiredMark /></Label>
                 <Input id="firstName" name="firstName" required defaultValue={employee?.firstName ?? ""} />
               </FieldGroup>
               <FieldGroup>
-                <Label htmlFor="middleName">Middle Name</Label>
-                <Input id="middleName" name="middleName" defaultValue={employee?.middleName ?? ""} />
+                <Label htmlFor="middleName">Father's Name<RequiredMark /></Label>
+                <Input id="middleName" name="middleName" required defaultValue={employee?.middleName ?? ""} />
               </FieldGroup>
               <FieldGroup>
-                <Label htmlFor="lastName">Last Name<RequiredMark /></Label>
+                <Label htmlFor="lastName">Grandfather's Name<RequiredMark /></Label>
                 <Input id="lastName" name="lastName" required defaultValue={employee?.lastName ?? ""} />
               </FieldGroup>
               <FieldGroup>
@@ -441,7 +441,10 @@ export function EmployeeForm({
         </Card>
 
       </form>
-      {!isEdit && <EmployeeFormActions isEdit={false} isPending={isPending} />}
+      {/* Actions bar — rendered inside the form wrapper so it's always
+          co-located with the form it submits, regardless of what other
+          panels (Employment History, Contracts, Documents) appear below. */}
+      <EmployeeFormActions isEdit={isEdit} isPending={isPending} />
     </div>
   );
 }

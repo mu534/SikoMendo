@@ -82,7 +82,7 @@ export function UpdateProfileForm({
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <FieldGroup>
-          <Label htmlFor="firstName">First name <span className="text-red-500">*</span></Label>
+          <Label htmlFor="firstName">First name (given) <span className="text-red-500">*</span></Label>
           <Input
             id="firstName"
             name="firstName"
@@ -92,17 +92,17 @@ export function UpdateProfileForm({
           />
         </FieldGroup>
         <FieldGroup>
-          <Label htmlFor="middleName">Middle name</Label>
+          <Label htmlFor="middleName">Father's name <span className="text-red-500">*</span></Label>
           <Input
             id="middleName"
             name="middleName"
+            required
             autoComplete="additional-name"
             defaultValue={middleName ?? fallbackMiddle}
-            placeholder="Optional"
           />
         </FieldGroup>
         <FieldGroup>
-          <Label htmlFor="lastName">Last name <span className="text-red-500">*</span></Label>
+          <Label htmlFor="lastName">Grandfather's name <span className="text-red-500">*</span></Label>
           <Input
             id="lastName"
             name="lastName"

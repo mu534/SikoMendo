@@ -15,7 +15,7 @@ import { requirePermission } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { getEmployeeById, listAssignableManagers } from "@/features/employees/queries";
 import { updateEmployee, deleteEmployeeDocument } from "@/features/employees/actions";
-import { EmployeeForm, EmployeeFormActions } from "@/features/employees/employee-form";
+import { EmployeeForm } from "@/features/employees/employee-form";
 import { SectionHeader } from "@/features/employees/section-header";
 import { DocumentUploadForm } from "@/features/employees/document-upload-form";
 import { EmploymentHistoryPanel } from "@/features/employment-history/employment-history-panel";
@@ -270,8 +270,7 @@ export default async function EmployeeDetailPage({
         {canManageDocuments && <DocumentUploadForm employeeId={employee.id} />}
       </Card>
 
-      {/* ── Save / Reset / Cancel (edit mode only) ────────────────── */}
-      {canManage && <EmployeeFormActions isEdit />}
+      {/* ── Save / Reset / Cancel (edit mode only — rendered inside EmployeeForm) ── */}
     </div>
   );
 }

@@ -13,8 +13,8 @@ import { uploadToCloudinary } from "@/lib/cloudinary";
 
 const updateProfileSchema = z.object({
   firstName: z.string().trim().min(1, "First name is required"),
-  middleName: z.string().trim().optional(),
-  lastName: z.string().trim().min(1, "Last name is required"),
+  middleName: z.string().trim().min(1, "Father's name is required"),
+  lastName: z.string().trim().min(1, "Grandfather's name is required"),
 });
 
 const changePasswordSchema = z

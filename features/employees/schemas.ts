@@ -19,8 +19,10 @@ function optionalEnum<T extends [string, ...string[]]>(values: T) {
 
 export const employeeSchema = z.object({
   firstName: z.preprocess((v) => (v ? String(v).trim() : ""), z.string().min(1, "First name is required")),
-  middleName: optionalString,
-  lastName: z.preprocess((v) => (v ? String(v).trim() : ""), z.string().min(1, "Last name is required")),
+  // In Ethiopia, the naming convention is given name + father's name + grandfather's name.
+  // All three parts are required on official documents.
+  middleName: z.preprocess((v) => (v ? String(v).trim() : ""), z.string().min(1, "Father's name is required")),
+  lastName: z.preprocess((v) => (v ? String(v).trim() : ""), z.string().min(1, "Grandfather's name is required")),
   email: z
     .string()
     .optional()
