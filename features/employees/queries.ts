@@ -92,7 +92,7 @@ export async function getEmployeeById(id: string) {
     include: {
       department: { select: { id: true, name: true } },
       position: { select: { id: true, name: true, departmentId: true } },
-      user: { select: { id: true, email: true, username: true, role: true } },
+      user: { select: { id: true, email: true, username: true, role: true, banned: true, mustChangePassword: true } },
       documents: { where: { deletedAt: null }, orderBy: { createdAt: "desc" } },
       manager: { select: { id: true, firstName: true, lastName: true, employeeId: true } },
       employmentHistory: {

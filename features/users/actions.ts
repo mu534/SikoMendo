@@ -28,6 +28,92 @@ async function logAudit(action: string, entityId: string, changes: unknown, user
  * Called client-side via useTransition so the admin sees the credentials
  * before submitting the create-user form.
  */
+/**
+ * Creates a login account for an existing Employee, using their Employee ID
+ * as the username (e.g. EMP-0001). The username is derived server-side from
+ * the employee record — the client only submits the employee internal ID and
+ * the desired role. This prevents username spoofing via the form payload.
+ */
+export async function createEmployeeLoginAccount(
+  _prevState: unknown,
+  formData: FormData
+): Promise<ActionResult<{ userId: string; username: string; password: string }>> {
+  const session = await getServerSession();
+
+  return withPermission(session, "MANAGE_USERS", async () => {
+    const employeeId = String(formData.get("employeeId") ?? "").trim();
+    const role = String(formData.get("role") ?? "").trim();
+
+    if (!employeeId) throw new Error("Employee ID is required.");
+    if (!role) throw new Error("Role is required.");
+
+    // Load the employee to get their Employee ID (e.g. EMP-0001) and full name
+    const employee = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: { id: true, employeeId: true, firstName: true, middleName: true, lastName: true, userId: true },
+    });
+    if (!employee) throw new Error("Employee not found.");
+    if (employee.userId) throw new Error("This employee already has a login account.");
+
+    // Username = Employee ID exactly (e.g. EMP-0001)
+    const username = employee.employeeId;
+
+    // Check the username isn't already taken (shouldn't be, but guard it)
+    const existingByUsername = await prisma.user.findUnique({ where: { username } });
+    if (existingByUsername) {
+      throw new Error(`Username ${username} is already in use.`);
+    }
+
+    // Deterministic internal email — never shown in UI, never used for login
+    const internalEmail = `${username.toLowerCase()}@internal.sikomendo.local`;
+    const existingByEmail = await prisma.user.findUnique({ where: { email: internalEmail } });
+    if (existingByEmail) {
+      throw new Error("An account with this Employee ID already exists.");
+    }
+
+    const fullName = [employee.firstName, employee.middleName, employee.lastName]
+      .filter(Boolean)
+      .join(" ");
+
+    const tempPassword = generateTempPassword();
+
+    const { user } = await auth.api.createUser({
+      headers: await headers(),
+      body: { name: fullName, email: internalEmail, password: tempPassword },
+    });
+
+    // Set username, role, and force-change on first sign-in
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        username,
+        displayUsername: username,
+        role: role as import("@prisma/client").Role,
+        mustChangePassword: true,
+      },
+    });
+
+    // Link the new user to the employee record
+    await prisma.employee.update({
+      where: { id: employee.id },
+      data: { userId: user.id },
+    });
+
+    await logAudit(
+      "CREATE",
+      user.id,
+      { username, role, linkedEmployeeId: employee.employeeId },
+      session?.user.id
+    );
+
+    revalidatePath(`/employees/${employee.id}`);
+    revalidatePath("/users");
+
+    // Return the temporary password ONCE — it is never stored in plaintext
+    return { userId: user.id, username, password: tempPassword };
+  });
+}
+
 export async function generateUserCredentials(
   fullName: string
 ): Promise<ActionResult<{ username: string; password: string }>> {

@@ -18,6 +18,7 @@ import { EmployeeForm } from "@/features/employees/employee-form";
 import { SectionHeader } from "@/features/employees/section-header";
 import { DocumentUploadForm } from "@/features/employees/document-upload-form";
 import { ProfileTabs } from "@/features/employees/profile-tabs";
+import { SystemAccountPanel } from "@/features/employees/system-account-panel";
 import { EmploymentHistoryPanel } from "@/features/employment-history/employment-history-panel";
 import { ContractsPanel } from "@/features/contracts/contracts-panel";
 import { listActiveDepartments } from "@/features/departments/queries";
@@ -53,6 +54,7 @@ export default async function EmployeeDetailPage({
   const canManageDocuments = can(session.user.role, "MANAGE_DOCUMENTS");
   const canManageHistory   = can(session.user.role, "MANAGE_EMPLOYMENT_HISTORY");
   const canManageContracts = can(session.user.role, "MANAGE_CONTRACTS");
+  const canManageUsers     = can(session.user.role, "MANAGE_USERS");
 
   // Only fetch these when they're actually needed (History / Contracts tabs or edit form)
   const needDeptPos = canManage || tab === "history" || tab === "contracts";
@@ -213,6 +215,16 @@ export default async function EmployeeDetailPage({
                   </dl>
                 </Card>
               </div>
+            )}
+
+            {/* System Account — visible to MANAGE_USERS roles (Admin) */}
+            {canManageUsers && (
+              <SystemAccountPanel
+                employeeId={employee.id}
+                employeeCode={employee.employeeId}
+                linkedUser={employee.user ?? null}
+                canManage={canManageUsers}
+              />
             )}
           </>
         )}
