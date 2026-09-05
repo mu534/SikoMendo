@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { UserPlus, Users as UsersIcon, ArchiveRestore, Upload } from "lucide-react";
+import { Users as UsersIcon } from "lucide-react";
 import { requirePermission } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { listEmployees, getSubordinateIds } from "@/features/employees/queries";
@@ -8,7 +8,6 @@ import { archiveEmployee, restoreEmployee } from "@/features/employees/actions";
 import prisma from "@/lib/prisma";
 import { parsePageParam, parseStringParam, formatDate } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
-import { ButtonLink } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Select } from "@/components/ui/field";
@@ -60,36 +59,13 @@ export default async function EmployeesPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="font-display text-xl font-semibold text-ink-900">Employee records</h2>
-          <p className="mt-1 text-sm text-ink-900/60">
-            {showArchived
-              ? "Archived employee records."
-              : "All active employee records across Siko Mendo Union."}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <ButtonLink
-            href={showArchived ? "/employees" : "/employees?archived=1"}
-            variant="outline"
-          >
-            <ArchiveRestore className="h-4 w-4" />
-            {showArchived ? "Back to active" : "View archived"}
-          </ButtonLink>
-          {canManage && !showArchived && (
-            <ButtonLink href="/employees/import" variant="outline">
-              <Upload className="h-4 w-4" />
-              Import
-            </ButtonLink>
-          )}
-          {canManage && !showArchived && (
-            <ButtonLink href="/employees/new">
-              <UserPlus className="h-4 w-4" />
-              New employee
-            </ButtonLink>
-          )}
-        </div>
+      <div>
+        <h2 className="font-display text-xl font-semibold text-ink-900">Employee records</h2>
+        <p className="mt-1 text-sm text-ink-900/60">
+          {showArchived
+            ? "Archived employee records."
+            : "All active employee records across Siko Mendo Union."}
+        </p>
       </div>
 
       <Card>
