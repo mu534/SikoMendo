@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Users as UsersIcon } from "lucide-react";
+import { Users as UsersIcon, Search } from "lucide-react";
 import { requirePermission } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { listEmployees, getSubordinateIds } from "@/features/employees/queries";
@@ -10,8 +10,8 @@ import { parsePageParam, parseStringParam, formatDate } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
-import { Select } from "@/components/ui/field";
-import { Toolbar } from "@/components/ui/toolbar";
+import { Select, Input } from "@/components/ui/field";
+import { Button } from "@/components/ui/button";
 import { Table, THead, TH, TBody, TR, TD, EmptyRow } from "@/components/ui/table";
 import { Pagination } from "@/components/ui/pagination";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
@@ -68,40 +68,72 @@ export default async function EmployeesPage({
         </p>
       </div>
 
+      {/* ── Filter bar ──────────────────────────────────────────────────
+           Desktop: single compact horizontal row.
+           Tablet/mobile: wraps naturally into a tighter grid.
+           All filter names match the existing query params exactly.       */}
       <Card>
-        <Toolbar
-          basePath="/employees"
-          searchPlaceholder="Search by name, ID, department, or position"
-          searchDefault={q}
+        <form
+          action="/employees"
+          method="get"
+          className="flex flex-wrap items-center gap-2 border-b border-ink-900/8 px-4 py-3"
         >
-          <Select name="status" defaultValue={status} className="w-44">
-            <option value="">All statuses</option>
-            <option value="ACTIVE">Active</option>
-            <option value="ON_LEAVE">On Leave</option>
-            <option value="RESIGNED">Resigned</option>
-            <option value="RETIRED">Retired</option>
-            <option value="SUSPENDED">Suspended</option>
-            <option value="TERMINATED">Terminated</option>
-            <option value="INACTIVE">Inactive</option>
-          </Select>
-          <Select name="department" defaultValue={departmentId} className="w-48">
-            <option value="">All departments</option>
-            {departments.map((dept) => (
-              <option key={dept.id} value={dept.id}>
-                {dept.name}
-              </option>
-            ))}
-          </Select>
-          <Select name="employmentType" defaultValue={employmentType} className="w-44">
-            <option value="">All types</option>
-            <option value="PERMANENT">Permanent</option>
-            <option value="CONTRACT">Contract</option>
-            <option value="TEMPORARY">Temporary</option>
-            <option value="PROBATION">Probation</option>
-            <option value="INTERNSHIP">Internship</option>
-          </Select>
+          {/* Search — takes all remaining horizontal space */}
+          <div className="relative min-w-[200px] flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-900/35" />
+            <Input
+              name="q"
+              placeholder="Search employee…"
+              defaultValue={q}
+              className="pl-9"
+            />
+          </div>
+
+          {/* Status — fixed width wrapper prevents w-full from expanding */}
+          <div className="w-36 shrink-0">
+            <Select name="status" defaultValue={status}>
+              <option value="">All statuses</option>
+              <option value="ACTIVE">Active</option>
+              <option value="ON_LEAVE">On Leave</option>
+              <option value="RESIGNED">Resigned</option>
+              <option value="RETIRED">Retired</option>
+              <option value="SUSPENDED">Suspended</option>
+              <option value="TERMINATED">Terminated</option>
+              <option value="INACTIVE">Inactive</option>
+            </Select>
+          </div>
+
+          {/* Department */}
+          <div className="w-44 shrink-0">
+            <Select name="department" defaultValue={departmentId}>
+              <option value="">All departments</option>
+              {departments.map((dept) => (
+                <option key={dept.id} value={dept.id}>
+                  {dept.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          {/* Employment type */}
+          <div className="w-36 shrink-0">
+            <Select name="employmentType" defaultValue={employmentType}>
+              <option value="">All types</option>
+              <option value="PERMANENT">Permanent</option>
+              <option value="CONTRACT">Contract</option>
+              <option value="TEMPORARY">Temporary</option>
+              <option value="PROBATION">Probation</option>
+              <option value="INTERNSHIP">Internship</option>
+            </Select>
+          </div>
+
+          {/* Preserve archived param when active */}
           {showArchived && <input type="hidden" name="archived" value="1" />}
-        </Toolbar>
+
+          <Button type="submit" variant="secondary" size="sm" className="shrink-0">
+            Apply
+          </Button>
+        </form>
 
         <Table>
           <THead>

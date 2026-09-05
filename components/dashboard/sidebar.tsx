@@ -21,19 +21,13 @@ function CollapsibleGroup({
   pathname: string;
   onLinkClick: () => void;
 }) {
-  // The group is "active" when the current path starts with the group's prefix
   const groupActive = pathname.startsWith(group.activePrefix);
-
-  // Start open when navigating directly to a child route; otherwise closed.
   const [open, setOpen] = useState(groupActive);
 
-  // If the user navigates externally (e.g. back button) into a child route,
-  // make sure the group opens.
   useEffect(() => {
     if (groupActive) setOpen(true);
   }, [groupActive]);
 
-  // Filter children to only those the current role can access
   const visibleChildren = group.children.filter(
     (child) => !child.requires || can(role, child.requires)
   );
@@ -42,12 +36,12 @@ function CollapsibleGroup({
 
   return (
     <div>
-      {/* Parent toggle button */}
+      {/* ── Parent toggle — same weight as top-level items ── */}
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition",
+          "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition",
           groupActive
             ? "bg-brand-800 text-white"
             : "text-brand-100/80 hover:bg-brand-800 hover:text-white"
@@ -58,23 +52,19 @@ function CollapsibleGroup({
         <span className="flex-1 text-left">{group.label}</span>
         <ChevronDown
           className={cn(
-            "h-4 w-4 shrink-0 text-brand-200/60 transition-transform duration-200",
+            "h-3.5 w-3.5 shrink-0 text-brand-200/50 transition-transform duration-200",
             open && "rotate-180"
           )}
         />
       </button>
 
-      {/* Children — visible when open */}
+      {/* ── Children — visually subordinate ── */}
       {open && (
-        <div className="mt-0.5 space-y-0.5 pl-4">
+        <div className="ml-3 mt-0.5 border-l border-brand-700/50 pl-3 space-y-0.5">
           {visibleChildren.map((child) => {
-            // Active: exact match for the base path, or the full href with query
             const active =
               pathname === child.href.split("?")[0] &&
-              // For the archived link (?archived=1) don't highlight when not archived
-              (child.href.includes("?")
-                ? false // query-param links are never "active" by pathname alone
-                : true);
+              !child.href.includes("?");
 
             return (
               <Link
@@ -82,13 +72,13 @@ function CollapsibleGroup({
                 href={child.href}
                 onClick={onLinkClick}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition",
+                  "flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
                   active
                     ? "bg-brand-700 text-white"
-                    : "text-brand-100/70 hover:bg-brand-800 hover:text-white"
+                    : "text-brand-200/70 hover:bg-brand-800/60 hover:text-white"
                 )}
               >
-                <child.icon className="h-[16px] w-[16px] shrink-0" />
+                <child.icon className="h-3.5 w-3.5 shrink-0 opacity-70" />
                 {child.label}
               </Link>
             );
