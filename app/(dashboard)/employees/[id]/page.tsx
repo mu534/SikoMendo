@@ -273,59 +273,109 @@ export default async function EmployeeDetailPage({
               title="Documents"
               description="Contracts, ID copies, certificates, and other HR documents."
             />
-            {employee.documents.length === 0 ? (
+            {employee.documents.length === 0 && !canManageDocuments ? (
               <EmptyState
                 icon={<FileText className="h-8 w-8" />}
                 title="No documents yet"
               />
+            ) : employee.documents.length === 0 ? (
+              /* Empty but admin/HR can upload — keep it compact */
+              <div className="px-6 py-4 text-sm text-ink-900/50">
+                No documents have been added yet.
+              </div>
             ) : (
               <ul className="divide-y divide-ink-900/6">
-                {employee.documents.map((doc: Document) => (
-                  <li
-                    key={doc.id}
-                    className="flex items-center justify-between gap-3 px-6 py-3.5"
-                  >
-                    <a
-                      href={getSignedFileUrl(
-                        doc.fileKey,
-                        doc.fileResourceType === "image" || doc.fileResourceType === "raw"
-                          ? doc.fileResourceType
-                          : doc.mimeType.startsWith("image/")
-                            ? "image"
-                            : "raw",
-                      )}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 text-sm hover:underline"
+                {employee.documents.map((doc: Document) => {
+                  const isImage = doc.mimeType.startsWith("image/");
+                  const isPdf   = doc.mimeType === "application/pdf";
+                  const cloudinaryResourceType =
+                    doc.fileResourceType === "image" || doc.fileResourceType === "raw"
+                      ? doc.fileResourceType
+                      : isImage ? "image" : "raw";
+                  const signedUrl = getSignedFileUrl(doc.fileKey, cloudinaryResourceType);
+
+                  return (
+                    <li
+                      key={doc.id}
+                      className="flex items-center justify-between gap-3 px-6 py-3"
                     >
-                      <FileText className="h-4 w-4 shrink-0 text-brand-600" />
-                      <span>
-                        <span className="font-medium text-ink-900">{doc.title}</span>
-                        <span className="ml-2 text-xs text-ink-900/45">
-                          {doc.type.replace("_", " ")} · {formatBytes(doc.fileSize)} ·{" "}
-                          {formatDate(doc.createdAt)}
-                        </span>
-                      </span>
-                    </a>
-                    {canManageDocuments && (
-                      <form
-                        action={async () => {
-                          "use server";
-                          await deleteEmployeeDocument(doc.id, employee.id);
-                        }}
-                      >
-                        <ConfirmSubmitButton
-                          confirmMessage={`Delete "${doc.title}"? This cannot be undone.`}
-                          size="sm"
-                          variant="ghost"
-                          className="text-red-600"
+                      {/* Icon / thumbnail */}
+                      <div className="flex min-w-0 items-center gap-3">
+                        {isImage ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={signedUrl}
+                            alt=""
+                            className="h-9 w-9 shrink-0 rounded-lg object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
+                            <FileText className="h-4 w-4" />
+                          </div>
+                        )}
+
+                        {/* Title + metadata */}
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-ink-900">
+                            {doc.title}
+                          </p>
+                          <p className="text-xs text-ink-900/45">
+                            <Badge tone="neutral" className="mr-1.5 py-0 text-[10px]">
+                              {doc.type.replace(/_/g, " ")}
+                            </Badge>
+                            {formatBytes(doc.fileSize)} · {formatDate(doc.createdAt)}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex shrink-0 items-center gap-3">
+                        {/* Preview — images and PDFs */}
+                        {(isImage || isPdf) && (
+                          <a
+                            href={signedUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-medium text-brand-700 hover:underline"
+                          >
+                            Preview
+                          </a>
+                        )}
+
+                        {/* Download */}
+                        <a
+                          href={signedUrl}
+                          download={doc.fileName}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm font-medium text-ink-900/55 hover:text-ink-900"
                         >
-                          <Trash2 className="h-4 w-4" />
-                        </ConfirmSubmitButton>
-                      </form>
-                    )}
-                  </li>
-                ))}
+                          Download
+                        </a>
+
+                        {/* Soft-delete — MANAGE_DOCUMENTS only */}
+                        {canManageDocuments && (
+                          <form
+                            action={async () => {
+                              "use server";
+                              await deleteEmployeeDocument(doc.id, employee.id);
+                            }}
+                          >
+                            <ConfirmSubmitButton
+                              confirmMessage={`Remove "${doc.title}" from this employee's record?`}
+                              size="sm"
+                              variant="ghost"
+                              className="text-ink-900/35 hover:text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              <span className="sr-only">Remove</span>
+                            </ConfirmSubmitButton>
+                          </form>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             )}
             {canManageDocuments && <DocumentUploadForm employeeId={employee.id} />}
