@@ -1,5 +1,4 @@
 import { requirePermission } from "@/lib/session";
-import { getSignedFileUrl } from "@/lib/cloudinary";
 import prisma from "@/lib/prisma";
 import { formatBytes, formatDateTime } from "@/lib/utils";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -68,15 +67,17 @@ export default async function BackupRestorePage() {
           <div className="space-y-1 text-sm text-ink-900/70">
             <p className="font-medium text-ink-900">About restoring backups</p>
             <p>
-              Backups are full JSON snapshots of every database table. To restore from a backup:
+              Backups are plain JSON files containing a full snapshot of every database table.
+              You can open them in any text editor to inspect the data.
             </p>
+            <p className="text-xs">To restore a backup:</p>
             <ol className="ml-4 list-decimal space-y-0.5 text-xs">
               <li>Download the desired backup file below.</li>
               <li>Stop the application server to prevent writes during restore.</li>
               <li>
                 Use the companion restore script:{" "}
                 <code className="rounded bg-sand-100 px-1 py-0.5 font-mono text-[11px]">
-                  npx tsx scripts/restore-backup.ts &lt;backup-file&gt;
+                  npx tsx scripts/restore-backup.ts &lt;backup.json&gt;
                 </code>
               </li>
               <li>Verify data integrity, then restart the application.</li>
@@ -115,9 +116,10 @@ export default async function BackupRestorePage() {
               )}
 
               {rows.map((row) => {
+                // Use our proxy route — forces correct Content-Type + filename
                 const downloadUrl =
                   row.status === "COMPLETE" && row.fileKey
-                    ? getSignedFileUrl(row.fileKey, "raw")
+                    ? `/api/settings/backup/${row.id}`
                     : null;
 
                 return (
@@ -151,8 +153,7 @@ export default async function BackupRestorePage() {
                         {downloadUrl && (
                           <a
                             href={downloadUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                            download
                             className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:underline"
                           >
                             <Download className="h-3.5 w-3.5" />
