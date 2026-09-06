@@ -15,6 +15,7 @@ import {
   UserCircle,
   UserX,
   SlidersHorizontal,
+  DatabaseBackup,
 } from "lucide-react";
 import type { Action } from "@/lib/permissions";
 
@@ -128,9 +129,9 @@ export const NAV_ITEMS: AnyNavItem[] = [
     requires: "MANAGE_SETTINGS",
     activePrefix: "/settings",
     children: [
-      { href: "/settings/organization", label: "Organisation",       icon: Building2,          requires: "MANAGE_SETTINGS" },
-      { href: "/settings/preferences",  label: "System Preferences", icon: SlidersHorizontal,  requires: "MANAGE_SETTINGS" },
-      { href: "/settings/security",     label: "Security",           icon: ShieldCheck,        requires: "MANAGE_SETTINGS" },
+      { href: "/settings/organization", label: "Organisation",    icon: Building2,     requires: "MANAGE_SETTINGS" },
+      { href: "/settings/backup",       label: "Backup & Restore", icon: DatabaseBackup, requires: "MANAGE_SETTINGS" },
+      { href: "/settings/security",     label: "Security",         icon: ShieldCheck,   requires: "MANAGE_SETTINGS" },
     ],
   },
 
