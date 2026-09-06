@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/session";
 import prisma from "@/lib/prisma";
 import { getRecentNotifications } from "@/features/notifications/queries";
+import { getOrgSettings } from "@/features/settings/queries";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -15,7 +16,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
     redirect("/force-password-change");
   }
 
-  const notifications = await getRecentNotifications(session.user.id);
+  const [notifications, orgSettings] = await Promise.all([
+    getRecentNotifications(session.user.id),
+    getOrgSettings(),
+  ]);
 
   return (
     <DashboardShell
@@ -26,6 +30,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
         image: session.user.image,
       }}
       notifications={notifications}
+      org={{
+        orgName:  orgSettings.orgName,
+        tagline:  orgSettings.tagline,
+        location: orgSettings.location,
+        logoUrl:  orgSettings.logoUrl,
+      }}
     >
       {children}
     </DashboardShell>

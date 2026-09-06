@@ -6,13 +6,22 @@ import { Sidebar } from "@/components/dashboard/sidebar";
 import { Header } from "@/components/dashboard/header";
 import { NAV_ITEMS } from "@/components/dashboard/nav-config";
 
+export type OrgBranding = {
+  orgName: string;
+  tagline: string;
+  location: string;
+  logoUrl: string | null;
+};
+
 export function DashboardShell({
   user,
   notifications,
+  org,
   children,
 }: {
   user: { name: string; email: string; role: string; image?: string | null };
   notifications: { items: { id: string; type: string; title: string; message: string; isRead: boolean; createdAt: Date }[]; unreadCount: number };
+  org: OrgBranding;
   children: React.ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -27,7 +36,7 @@ export function DashboardShell({
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar role={user.role} mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
+      <Sidebar role={user.role} mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} org={org} />
 
       {/* lg:pl-64 offsets the fixed sidebar width on desktop */}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden lg:pl-64">

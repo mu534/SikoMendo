@@ -7,6 +7,7 @@ import { Sprout, X, ChevronDown } from "lucide-react";
 import { NAV_ITEMS, type NavGroup, type AnyNavItem } from "@/components/dashboard/nav-config";
 import { can } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
+import type { OrgBranding } from "@/components/dashboard/dashboard-shell";
 
 // ── CollapsibleGroup ─────────────────────────────────────────────────────────
 
@@ -95,10 +96,12 @@ export function Sidebar({
   role,
   mobileOpen,
   onClose,
+  org,
 }: {
   role: string;
   mobileOpen: boolean;
   onClose: () => void;
+  org: OrgBranding;
 }) {
   const pathname = usePathname();
 
@@ -118,16 +121,25 @@ export function Sidebar({
           mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
-        {/* Logo */}
+        {/* Logo / org name */}
         <div className="flex items-center justify-between gap-3 px-6 py-5">
           <Link href="/dashboard" className="flex items-center gap-2.5" onClick={onClose}>
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-700/60 text-brand-100">
-              <Sprout className="h-5 w-5" />
-            </span>
+            {org.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={org.logoUrl}
+                alt={org.orgName}
+                className="h-9 w-9 rounded-xl object-contain bg-brand-700/60"
+              />
+            ) : (
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-700/60 text-brand-100">
+                <Sprout className="h-5 w-5" />
+              </span>
+            )}
             <span className="font-display leading-tight text-white">
-              <span className="block text-sm font-semibold">Siko Mendo</span>
+              <span className="block text-sm font-semibold">{org.orgName}</span>
               <span className="block text-[11px] uppercase tracking-wider text-brand-200/70">
-                Union HRMIS
+                {org.tagline}
               </span>
             </span>
           </Link>
@@ -183,9 +195,9 @@ export function Sidebar({
 
         {/* Footer */}
         <div className="px-6 py-5 text-xs text-brand-200/60">
-          © {new Date().getFullYear()} Siko Mendo Union
+          © {new Date().getFullYear()} {org.orgName}
           <br />
-          Bale Robe, Ethiopia
+          {org.location}
         </div>
       </aside>
     </>

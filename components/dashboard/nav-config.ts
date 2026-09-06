@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   UserCircle,
   UserX,
+  SlidersHorizontal,
 } from "lucide-react";
 import type { Action } from "@/lib/permissions";
 
@@ -118,5 +119,20 @@ export const NAV_ITEMS: AnyNavItem[] = [
   },
 
   { href: "/audit-log",    label: "Audit Log",    icon: ShieldCheck,   requires: "VIEW_AUDIT_LOG" },
+
+  // ── Settings group ────────────────────────────────────────────────────────
+  {
+    kind: "group",
+    label: "Settings",
+    icon: SlidersHorizontal,
+    requires: "MANAGE_SETTINGS",
+    activePrefix: "/settings",
+    children: [
+      { href: "/settings/organization", label: "Organisation",       icon: Building2,          requires: "MANAGE_SETTINGS" },
+      { href: "/settings/preferences",  label: "System Preferences", icon: SlidersHorizontal,  requires: "MANAGE_SETTINGS" },
+      { href: "/settings/security",     label: "Security",           icon: ShieldCheck,        requires: "MANAGE_SETTINGS" },
+    ],
+  },
+
   { href: "/profile",      label: "My Profile",   icon: UserCircle },
 ];

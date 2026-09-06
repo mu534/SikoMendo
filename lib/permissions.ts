@@ -39,7 +39,8 @@ export type Action =
   | "MANAGE_DEPARTMENTS"
   | "MANAGE_POSITIONS"
   | "MANAGE_EMPLOYMENT_HISTORY"
-  | "MANAGE_CONTRACTS";
+  | "MANAGE_CONTRACTS"
+  | "MANAGE_SETTINGS";
 
 // Define which actions each role can perform (hierarchical)
 export const PERMISSIONS: Record<Role, Action[]> = {
@@ -66,6 +67,7 @@ export const PERMISSIONS: Record<Role, Action[]> = {
     "MANAGE_POSITIONS",
     "MANAGE_EMPLOYMENT_HISTORY",
     "MANAGE_CONTRACTS",
+    "MANAGE_SETTINGS",
   ],
   HR_OFFICER: [
     "MANAGE_EMPLOYEES",

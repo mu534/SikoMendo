@@ -508,6 +508,22 @@ model Report {
   @@map("report")
 }
 
+/// Single-row organisation settings table.
+/// Use getOrgSettings() / upsertOrgSettings() — never access this directly
+/// from the client. The row is created on first write; reads before any write
+/// return sensible defaults from getOrgSettings().
+model OrgSettings {
+  id        String   @id @default("singleton")
+  orgName   String   @default("Siko Mendo Union")
+  tagline   String   @default("Union HRMIS")
+  location  String   @default("Bale Robe, Ethiopia")
+  logoUrl   String?  // Cloudinary public URL
+  logoKey   String?  // Cloudinary public ID (for deletion/replacement)
+  updatedAt DateTime @updatedAt
+
+  @@map("org_settings")
+}
+
 model AuditLog {
   id        String  @id @default(cuid())
   action    String // e.g., "CREATE", "UPDATE", "DELETE", "LOGIN"
