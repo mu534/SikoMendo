@@ -40,7 +40,7 @@ export function EditUserForm({
       </FieldGroup>
 
       <FieldGroup>
-        <Label htmlFor="role">Role</Label>
+        <Label htmlFor="role">System Role</Label>
         <Select id="role" name="role" required defaultValue={user.role}>
           {ROLES.map((role) => (
             <option key={role} value={role}>
@@ -48,6 +48,11 @@ export function EditUserForm({
             </option>
           ))}
         </Select>
+        <p className="text-xs text-ink-900/50">
+          Controls HRMIS access. Independent of job title — assign{" "}
+          <span className="font-medium">General Manager</span> only to the
+          organisation&apos;s central manager, not to department-level managers.
+        </p>
       </FieldGroup>
 
       {state && !state.success && (

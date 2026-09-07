@@ -48,7 +48,7 @@ export default async function SecuritySettingsPage() {
             <SecurityRow label="Role-based access control" value="4 roles: Admin, HR Officer, Manager, Employee" />
             <SecurityRow label="Server-side authorization" value="All mutations verified server-side" />
             <SecurityRow label="Audit logging" value="All significant actions recorded with actor + timestamp" />
-            <SecurityRow label="Manager data scope" value="Managers see only their reporting hierarchy" />
+            <SecurityRow label="Manager data scope" value="General Manager role sees only their reporting hierarchy" />
           </dl>
 
           <div className="mt-4 flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2.5">

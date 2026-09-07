@@ -55,6 +55,8 @@ export default async function EmployeeDetailPage({
   const canManageHistory   = can(session.user.role, "MANAGE_EMPLOYMENT_HISTORY");
   const canManageContracts = can(session.user.role, "MANAGE_CONTRACTS");
   const canManageUsers     = can(session.user.role, "MANAGE_USERS");
+  // MANAGE_ROLES is ADMIN-only; controls whether the role selector appears in the form
+  const canChangeRole      = can(session.user.role, "MANAGE_ROLES");
 
   // Only fetch these when they're actually needed (History / Contracts tabs or edit form)
   const needDeptPos = canManage || tab === "history" || tab === "contracts";
@@ -244,6 +246,8 @@ export default async function EmployeeDetailPage({
                 positions={positions}
                 currentDepartmentId={employee.departmentId}
                 canManage={canManageHistory}
+                linkedUser={employee.user ? { id: employee.user.id, role: employee.user.role } : null}
+                canChangeRole={canChangeRole}
               />
             </div>
           </Card>

@@ -20,7 +20,8 @@ type HistoryRow = {
 };
 
 type DepartmentOption = { id: string; name: string };
-type PositionOption = { id: string; name: string; departmentId: string };
+type PositionOption   = { id: string; name: string; departmentId: string };
+type LinkedUser       = { id: string; role: string } | null;
 
 export function EmploymentHistoryPanel({
   employeeId,
@@ -29,6 +30,8 @@ export function EmploymentHistoryPanel({
   positions,
   currentDepartmentId,
   canManage,
+  linkedUser,
+  canChangeRole,
 }: {
   employeeId: string;
   history: HistoryRow[];
@@ -36,6 +39,14 @@ export function EmploymentHistoryPanel({
   positions: PositionOption[];
   currentDepartmentId: string;
   canManage: boolean;
+  /** The employee's linked User account, passed down from the server. */
+  linkedUser?: LinkedUser;
+  /**
+   * Whether the current viewer has MANAGE_ROLES (ADMIN only).
+   * Controls whether the role-change selector is shown in the form.
+   * The server re-validates this regardless.
+   */
+  canChangeRole?: boolean;
 }) {
   const [showForm, setShowForm] = useState(false);
 
@@ -59,6 +70,8 @@ export function EmploymentHistoryPanel({
           departments={departments}
           positions={positions}
           currentDepartmentId={currentDepartmentId}
+          linkedUser={linkedUser ?? null}
+          canChangeRole={canChangeRole}
           onDone={() => setShowForm(false)}
         />
       )}
@@ -73,7 +86,9 @@ export function EmploymentHistoryPanel({
           <TH>Reason</TH>
         </THead>
         <TBody>
-          {history.length === 0 && <EmptyRow colSpan={6}>No employment history yet.</EmptyRow>}
+          {history.length === 0 && (
+            <EmptyRow colSpan={6}>No employment history yet.</EmptyRow>
+          )}
           {history.map((h) => (
             <TR key={h.id}>
               <TD>{h.department.name}</TD>
@@ -81,15 +96,13 @@ export function EmploymentHistoryPanel({
               <TD>{h.employmentType ?? "—"}</TD>
               <TD>{formatDate(h.effectiveDate)}</TD>
               <TD>
-                {h.endDate ? (
-                  formatDate(h.endDate)
-                ) : (
-                  <Badge tone="success">Current</Badge>
-                )}
+                {h.endDate ? formatDate(h.endDate) : <Badge tone="success">Current</Badge>}
               </TD>
               <TD>
                 <p>{h.changeReason}</p>
-                {h.remarks && <p className="text-xs text-ink-900/45">{h.remarks}</p>}
+                {h.remarks && (
+                  <p className="text-xs text-ink-900/45">{h.remarks}</p>
+                )}
               </TD>
             </TR>
           ))}

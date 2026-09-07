@@ -144,7 +144,7 @@ function CreateAccountForm({
       )}
 
       <FieldGroup>
-        <Label htmlFor="emp-role">Role</Label>
+        <Label htmlFor="emp-role">System Role</Label>
         <Select id="emp-role" name="role" defaultValue="EMPLOYEE">
           {ROLES.map((r) => (
             <option key={r} value={r}>
@@ -152,6 +152,13 @@ function CreateAccountForm({
             </option>
           ))}
         </Select>
+        <p className="text-xs text-ink-900/45">
+          System role controls access to HRMIS features — it is independent of the
+          employee&apos;s job position or title. Most employees use the{" "}
+          <span className="font-medium text-ink-900">Employee</span> role. Assign{" "}
+          <span className="font-medium text-ink-900">General Manager</span> only to the
+          organisation&apos;s central manager who needs org-wide HRMIS access.
+        </p>
       </FieldGroup>
 
       <Button type="submit" disabled={isPending} size="sm">

@@ -3,10 +3,10 @@ export const ROLES = ["ADMIN", "HR_OFFICER", "MANAGER", "EMPLOYEE"] as const;
 export type Role = (typeof ROLES)[number];
 
 export const ROLE_LABELS: Record<Role, string> = {
-  ADMIN: "Administrator",
+  ADMIN:      "Administrator",
   HR_OFFICER: "HR Officer",
-  MANAGER: "Manager",
-  EMPLOYEE: "Employee",
+  MANAGER:    "General Manager",
+  EMPLOYEE:   "Employee",
 };
 
 export function roleLabel(role: string | undefined | null): string {

@@ -155,7 +155,7 @@ export function CreateUserForm() {
         </FieldGroup>
 
         <FieldGroup>
-          <Label htmlFor="role">Role</Label>
+          <Label htmlFor="role">System Role</Label>
           <Select id="role" name="role" required defaultValue="EMPLOYEE">
             {ROLES.map((role) => (
               <option key={role} value={role}>
@@ -163,6 +163,11 @@ export function CreateUserForm() {
               </option>
             ))}
           </Select>
+          <p className="text-xs text-ink-900/50">
+            System role controls HRMIS access — it is separate from the employee&apos;s
+            job position. Assign <span className="font-medium">General Manager</span> only
+            to the organisation&apos;s central manager, not to department-level managers.
+          </p>
         </FieldGroup>
 
         {state && !state.success && (
