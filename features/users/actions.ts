@@ -216,10 +216,11 @@ export async function updateUserAccount(
   const session = await getServerSession();
 
   return withPermission(session, "MANAGE_USERS", async () => {
+    // Only name and role are editable — username is permanent.
     const parsed = updateUserSchema.safeParse({
-      name: formData.get("name"),
-      username: formData.get("username"),
-      role: formData.get("role"),
+      name:     formData.get("name"),
+      username: formData.get("username"), // read but value will be ignored below
+      role:     formData.get("role"),
     });
     if (!parsed.success) {
       throw new Error(parsed.error.issues[0]?.message ?? "Invalid input.");
@@ -228,19 +229,8 @@ export async function updateUserAccount(
     const target = await prisma.user.findUnique({ where: { id: userId } });
     if (!target) throw new Error("User not found.");
 
-    // If username changed, check it's not already taken by another user
-    if (parsed.data.username !== target.username) {
-      const taken = await prisma.user.findUnique({
-        where: { username: parsed.data.username },
-      });
-      if (taken && taken.id !== userId) {
-        throw new Error("That username is already taken.");
-      }
-    }
-
-    // Update the internal email to stay in sync with the username
-    const newInternalEmail = `${parsed.data.username}@internal.sikomendo.local`;
-
+    // Username is immutable — always use the stored value regardless of
+    // what was submitted. The internal email is also kept as-is.
     const photo = getPhotoFile(formData);
     const asset = photo
       ? await uploadToCloudinary(photo, "siko-mendo/profile", { resourceType: "image" })
@@ -251,21 +241,22 @@ export async function updateUserAccount(
       body: {
         userId,
         data: asset
-          ? { name: parsed.data.name, email: newInternalEmail, image: asset.url }
-          : { name: parsed.data.name, email: newInternalEmail },
+          ? { name: parsed.data.name, image: asset.url }
+          : { name: parsed.data.name },
       },
     });
 
     await prisma.user.update({
       where: { id: userId },
-      data: {
-        username: parsed.data.username,
-        displayUsername: parsed.data.username,
-        role: parsed.data.role,
-      },
+      data: { role: parsed.data.role },
     });
 
-    await logAudit("UPDATE", userId, { ...parsed.data, photoChanged: Boolean(asset) }, session?.user.id);
+    await logAudit(
+      "UPDATE",
+      userId,
+      { name: parsed.data.name, role: parsed.data.role, photoChanged: Boolean(asset) },
+      session?.user.id
+    );
     revalidatePath("/users");
     revalidatePath(`/users/${userId}`);
     return { id: userId };

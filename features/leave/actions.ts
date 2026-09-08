@@ -80,6 +80,27 @@ async function markAttendanceForApprovedLeave(
   });
 }
 
+/**
+ * Removes ON_LEAVE attendance records that were created when a leave was
+ * approved — called when a leave is cancelled after approval so those
+ * dates return to normal attendance processing.
+ * Only removes records with status ON_LEAVE; never touches real attendance.
+ */
+async function removeLeaveAttendanceRecords(
+  employeeId: string,
+  startDate: Date,
+  endDate: Date
+) {
+  const dates = eachDateInRange(startDate, endDate);
+  await prisma.attendance.deleteMany({
+    where: {
+      employeeId,
+      status: "ON_LEAVE",
+      date: { in: dates },
+    },
+  });
+}
+
 // ── Employee: submit a new leave request ────────────────────────────────────
 
 export async function submitLeaveRequest(
@@ -164,7 +185,7 @@ export async function submitLeaveRequest(
   });
 }
 
-// ── Employee: cancel a pending request ──────────────────────────────────────
+// ── Employee: cancel a pending OR approved request ─────────────────────────
 
 export async function cancelLeaveRequest(id: string): Promise<ActionResult<{ id: string }>> {
   const session = await getServerSession();
@@ -177,8 +198,8 @@ export async function cancelLeaveRequest(id: string): Promise<ActionResult<{ id:
     if (existing.employeeId !== employee.id) {
       throw new Error("You can only cancel your own leave requests.");
     }
-    if (existing.status !== "PENDING") {
-      throw new Error("Only pending leave requests can be cancelled.");
+    if (existing.status !== "PENDING" && existing.status !== "APPROVED") {
+      throw new Error("Only pending or approved leave requests can be cancelled.");
     }
 
     await prisma.leaveRequest.update({
@@ -186,10 +207,23 @@ export async function cancelLeaveRequest(id: string): Promise<ActionResult<{ id:
       data: { status: "CANCELLED" },
     });
 
+    // If the leave was already approved, remove the ON_LEAVE attendance records
+    // that were created at approval time so those dates return to normal processing.
+    if (existing.status === "APPROVED") {
+      await removeLeaveAttendanceRecords(
+        existing.employeeId,
+        existing.startDate,
+        existing.endDate
+      );
+    }
+
     await logAudit("CANCEL", "LeaveRequest", id, { from: existing.status, to: "CANCELLED" }, session!.user.id);
 
     revalidatePath("/leave");
     revalidatePath(`/leave/${id}`);
+    if (existing.status === "APPROVED") {
+      revalidatePath("/attendance");
+    }
     return { id };
   });
 }

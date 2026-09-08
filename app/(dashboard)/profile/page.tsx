@@ -162,7 +162,7 @@ export default async function ProfilePage() {
                   Position
                 </p>
                 <p className="mt-0.5 text-sm font-medium text-ink-900">
-                  {employee.position.name}
+                  {employee.position?.name ?? '—'}
                 </p>
               </div>
               <div className="sm:text-right">
@@ -170,7 +170,7 @@ export default async function ProfilePage() {
                   Department
                 </p>
                 <p className="mt-0.5 text-sm font-medium text-ink-900">
-                  {employee.department.name}
+                  {employee.department?.name ?? '—'}
                 </p>
               </div>
               {tenure && (
@@ -237,8 +237,8 @@ export default async function ProfilePage() {
             <Card className="p-6">
               <SectionTitle>Employment</SectionTitle>
               <dl className="space-y-4">
-                <InfoRow icon={Building2} label="Department" value={employee.department.name} />
-                <InfoRow icon={User} label="Position" value={employee.position.name} />
+                <InfoRow icon={Building2} label="Department" value={employee.department?.name ?? '—'} />
+                <InfoRow icon={User} label="Position" value={employee.position?.name ?? '—'} />
                 <InfoRow
                   icon={Calendar}
                   label="Date hired"
@@ -323,8 +323,8 @@ export default async function ProfilePage() {
               </div>
               <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
                 <ReadField label="Employee ID" value={employee.employeeId} />
-                <ReadField label="Department" value={employee.department.name} />
-                <ReadField label="Position" value={employee.position.name} />
+                <ReadField label="Department" value={employee.department?.name ?? '—'} />
+                <ReadField label="Position" value={employee.position?.name ?? '—'} />
                 <ReadField label="Employment Type" value={employee.employmentType?.replace(/_/g, " ")} />
                 <ReadField
                   label="Employment Status"

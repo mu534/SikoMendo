@@ -228,10 +228,10 @@ model Employee {
   graduationYear               String?
 
   // Relations
-  departmentId  String
-  department    Department   @relation(fields: [departmentId], references: [id], onDelete: Restrict)
-  positionId    String
-  position      Position     @relation(fields: [positionId], references: [id], onDelete: Restrict)
+  departmentId  String?
+  department    Department?  @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  positionId    String?
+  position      Position?    @relation(fields: [positionId], references: [id], onDelete: Restrict)
   userId        String?      @unique
   user          User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
   attendances   Attendance[]

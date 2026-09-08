@@ -141,8 +141,8 @@ async function buildEmployeeDirectoryContent(
     rows: employees.map((e) => [
       e.employeeId,
       `${e.firstName}${e.middleName ? ` ${e.middleName}` : ""} ${e.lastName}`,
-      e.department.name,
-      e.position.name,
+      e.department?.name ?? "—",
+      e.position?.name ?? "—",
       e.employmentStatus.replace(/_/g, " "),
       e.employmentType?.replace(/_/g, " ") ?? "—",
       e.hireDate ? e.hireDate.toISOString().slice(0, 10) : "—",
@@ -221,7 +221,7 @@ async function buildAttendanceSummaryContent(
       a.date.toISOString().slice(0, 10),
       a.employee.employeeId,
       `${a.employee.firstName} ${a.employee.lastName}`,
-      a.employee.department.name,
+      a.employee.department?.name ?? "—",
       a.status.replace(/_/g, " "),
       a.checkIn ? a.checkIn.toISOString().slice(11, 16) : "—",
       a.checkOut ? a.checkOut.toISOString().slice(11, 16) : "—",
@@ -467,7 +467,7 @@ async function buildLeaveSummaryContent(
     rows: leaves.map((l) => [
       l.leaveId,
       `${l.employee.firstName} ${l.employee.lastName} (${l.employee.employeeId})`,
-      l.employee.department.name,
+      l.employee.department?.name ?? "—",
       LEAVE_TYPE_LABELS[l.leaveType as LeaveTypeValue] ?? l.leaveType,
       l.startDate.toISOString().slice(0, 10),
       l.endDate.toISOString().slice(0, 10),

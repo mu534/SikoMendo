@@ -86,6 +86,7 @@ export const PERMISSIONS: Record<Role, Action[]> = {
     "MANAGE_OWN_LEAVE",
     "MANAGE_LEAVE_POLICY",
     "VIEW_DEPARTMENTS",
+    "MANAGE_DEPARTMENTS",  // HR Officers can create, edit, activate/deactivate departments
     "MANAGE_POSITIONS",
     "MANAGE_EMPLOYMENT_HISTORY",
     "MANAGE_CONTRACTS",
@@ -103,6 +104,7 @@ export const PERMISSIONS: Record<Role, Action[]> = {
     "MANAGE_LEAVE",
     "MANAGE_OWN_LEAVE",
     "MANAGE_LEAVE_POLICY",
+    "VIEW_DEPARTMENTS",    // General Manager gets read-only view of departments and positions
   ],
   EMPLOYEE: ["VIEW_OWN_PROFILE", "UPDATE_OWN_INFO", "MANAGE_OWN_LEAVE"],
 };

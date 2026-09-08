@@ -64,7 +64,7 @@ export default async function DepartmentDetailPage({ params }: { params: Promise
                 <div className="space-y-3 text-sm">
                   <p className="text-ink-900/70">{department.description || "No description."}</p>
                   <p className="text-xs text-ink-900/45">
-                    Department details can only be edited by an Administrator.
+                    Department details can only be edited by Administrators and HR Officers.
                   </p>
                 </div>
               )}

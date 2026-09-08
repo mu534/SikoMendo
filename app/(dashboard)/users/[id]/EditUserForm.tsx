@@ -31,11 +31,12 @@ export function EditUserForm({
           name="username"
           required
           defaultValue={user.username ?? ""}
-          pattern="[a-z0-9._\-]+"
-          title="Lowercase letters, numbers, dots, hyphens, and underscores only"
+          readOnly
+          className="cursor-default bg-sand-100 text-ink-900/60"
+          tabIndex={-1}
         />
         <p className="text-xs text-ink-900/50">
-          This is the credential the user signs in with.
+          Username is permanent and cannot be changed — it matches the employee&apos;s ID.
         </p>
       </FieldGroup>
 
