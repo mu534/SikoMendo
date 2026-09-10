@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { requirePermission } from "@/lib/session";
 import { can } from "@/lib/permissions";
-import { getSignedFileUrl } from "@/lib/cloudinary";
 import { listReports } from "@/features/reports/queries";
 import { deleteReport } from "@/features/reports/actions";
 import { parsePageParam } from "@/lib/utils";
@@ -98,11 +97,8 @@ export default async function ReportHistoryPage({
                 const Icon = REPORT_TYPE_ICONS[report.type] ?? FileText;
 
                 const downloadUrl = report.fileKey
-                  ? getSignedFileUrl(
-                      report.fileKey,
-                      report.fileResourceType === "image" ? "image" : "raw",
-                    )
-                  : report.fileUrl ?? null;
+                  ? `/api/reports/${report.id}`
+                  : null;
 
                 return (
                   <TR key={report.id}>
@@ -147,8 +143,7 @@ export default async function ReportHistoryPage({
                         {downloadUrl ? (
                           <a
                             href={downloadUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                            download
                             className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 transition hover:text-brand-800 hover:underline"
                           >
                             <Download className="h-3.5 w-3.5" />

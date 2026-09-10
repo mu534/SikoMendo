@@ -1,7 +1,6 @@
 import "server-only";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import ExcelJS from "exceljs";
 import prisma from "@/lib/prisma";
 import {
   LEAVE_TYPE_LABELS,
@@ -535,13 +534,26 @@ function buildPdfBuffer(content: ReportContent): Buffer {
   return Buffer.from(doc.output("arraybuffer"));
 }
 
-async function buildCsvBuffer(content: ReportContent): Promise<Buffer> {
-  const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet("Report");
-  sheet.addRow(content.headers);
-  content.rows.forEach((row) => sheet.addRow(row));
-  const buffer = await workbook.csv.writeBuffer();
-  return Buffer.from(buffer as ArrayBuffer);
+function buildCsvBuffer(content: ReportContent): Buffer {
+  /**
+   * Build a plain RFC 4180 CSV — no ExcelJS, no BOM, no intermediate
+   * ArrayBuffer casts. Every cell is quoted and any embedded double-quotes
+   * are escaped by doubling them, which is what Excel / LibreOffice expect.
+   */
+  function escapeCell(value: string | number): string {
+    const s = String(value);
+    // Wrap in quotes; escape any existing quote chars by doubling them
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+
+  const lines: string[] = [];
+  lines.push(content.headers.map(escapeCell).join(","));
+  for (const row of content.rows) {
+    lines.push(row.map(escapeCell).join(","));
+  }
+
+  // CRLF line endings per RFC 4180; UTF-8 without BOM for widest compatibility
+  return Buffer.from(lines.join("\r\n"), "utf-8");
 }
 
 // ── Public entry point ────────────────────────────────────────────────────────
@@ -565,7 +577,7 @@ export async function buildReportFile(
     .replace(/(^-|-$)/g, "");
 
   if (format === "CSV") {
-    const buffer = await buildCsvBuffer(content);
+    const buffer = buildCsvBuffer(content);
     return {
       buffer,
       mimeType: "text/csv",
