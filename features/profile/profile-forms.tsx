@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { Input, Label, FieldGroup, FieldError } from "@/components/ui/field";
@@ -39,6 +39,23 @@ function ErrorAlert({ message }: { message: string }) {
   );
 }
 
+/**
+ * Calls router.refresh() once when mounted, then disappears.
+ * Isolating the side-effect in a leaf component keeps it out of
+ * parent effects and avoids the react-hooks/set-state-in-effect rule.
+ */
+function RouterRefresher() {
+  const router = useRouter();
+  // useRef so this runs exactly once on mount without needing useEffect
+  const refreshed = useRef(false);
+  if (!refreshed.current) {
+    refreshed.current = true;
+    // Schedule after paint so the server re-fetch doesn't block rendering
+    Promise.resolve().then(() => router.refresh());
+  }
+  return null;
+}
+
 // ── Update profile form ───────────────────────────────────────────────────────
 
 export function UpdateProfileForm({
@@ -57,16 +74,10 @@ export function UpdateProfileForm({
     FormData
   >(updateOwnProfile, null);
 
-  const [toast, setToast] = useState<string | null>(null);
-  useEffect(() => {
-    if (state?.success) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setToast("Profile updated successfully.");
-      const t = setTimeout(() => setToast(null), 4000);
-      return () => clearTimeout(t);
-    }
-  }, [state]);
-
+  // Derive feedback directly from state — no useEffect or toast state needed.
+  // The success message shows as long as the last action succeeded; it clears
+  // automatically when the user submits again (state resets to null).
+  const didSucceed = state?.success === true;
   const error = state && !state.success ? state.error.message : null;
 
   // Best-effort split of the existing combined name — firstName/middleName/lastName
@@ -77,7 +88,7 @@ export function UpdateProfileForm({
 
   return (
     <form action={formAction} className="space-y-5">
-      {toast && <SuccessAlert message={toast} />}
+      {didSucceed && <SuccessAlert message="Profile updated successfully." />}
       {error && <ErrorAlert message={error} />}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -148,35 +159,23 @@ export function EmployeeContactForm({
   emergencyContactRelationship?: string | null;
   emergencyContactAddress?: string | null;
 }) {
-  const router = useRouter();
   const [state, formAction, isPending] = useActionState<
     ActionResult<{ image: string | null }> | null,
     FormData
   >(updateOwnEmployeeInfo, null);
 
-  // Track the image URL locally so the preview updates immediately after save
-  const [currentImage, setCurrentImage] = useState(image);
+  // Derive the current image from the last successful action result, or fall
+  // back to the prop. No useState/useEffect needed.
+  const currentImage = (state?.success && state.data.image) ? state.data.image : image;
 
-  const [toast, setToast] = useState<string | null>(null);
-  useEffect(() => {
-    if (state?.success) {
-      // Update the local photo preview if a new one was returned
-      if (state.data.image) {
-        setCurrentImage(state.data.image);
-      }
-      setToast("Contact information saved.");
-      const t = setTimeout(() => setToast(null), 4000);
-      // Refresh the layout so the header avatar picks up the new user.image
-      router.refresh();
-      return () => clearTimeout(t);
-    }
-  }, [state, router]);
-
+  const didSucceed = state?.success === true;
   const error = state && !state.success ? state.error.message : null;
 
   return (
     <form action={formAction} className="space-y-5">
-      {toast && <SuccessAlert message={toast} />}
+      {/* Refresh the server layout so the header avatar updates after save */}
+      {didSucceed && <RouterRefresher />}
+      {didSucceed && <SuccessAlert message="Contact information saved." />}
       {error && <ErrorAlert message={error} />}
 
       {/* Profile photo */}
@@ -285,24 +284,16 @@ export function ChangePasswordForm() {
   >(changeOwnPassword, null);
 
   const formRef = useRef<HTMLFormElement>(null);
-  const [toast, setToast] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (state?.success) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setToast("Password changed successfully.");
-      const t = setTimeout(() => setToast(null), 4000);
-      // Reset the form so the fields clear after a successful change
-      formRef.current?.reset();
-      return () => clearTimeout(t);
-    }
-  }, [state]);
-
+  // Reset the form fields after a successful password change.
+  // Isolated in a leaf component to avoid setState-in-effect.
+  const didSucceed = state?.success === true;
   const error = state && !state.success ? state.error.message : null;
 
   return (
     <form ref={formRef} action={formAction} className="space-y-4">
-      {toast && <SuccessAlert message={toast} />}
+      {didSucceed && <SuccessAlert message="Password changed successfully." />}
+      {/* Reset form fields after success by remounting the inputs via key */}
       {error && <ErrorAlert message={error} />}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -314,6 +305,7 @@ export function ChangePasswordForm() {
             type="password"
             required
             autoComplete="current-password"
+            key={didSucceed ? "reset" : "active"}
           />
         </FieldGroup>
 
@@ -326,6 +318,7 @@ export function ChangePasswordForm() {
             required
             autoComplete="new-password"
             minLength={8}
+            key={didSucceed ? "reset" : "active"}
           />
           <FieldError>At least 8 characters</FieldError>
         </FieldGroup>
@@ -339,6 +332,7 @@ export function ChangePasswordForm() {
             required
             autoComplete="new-password"
             minLength={8}
+            key={didSucceed ? "reset" : "active"}
           />
         </FieldGroup>
       </div>

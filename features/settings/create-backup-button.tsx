@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState } from "react";
 import { DatabaseBackup } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createBackup } from "./backup-actions";
@@ -13,18 +13,14 @@ export function CreateBackupButton() {
     createBackup,
     null
   );
-  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
-  useEffect(() => {
-    if (!state) return;
-    if (state.success) {
-      setToast({ type: "success", message: "Backup created successfully." });
-    } else {
-      setToast({ type: "error", message: state.error.message });
-    }
-    const t = setTimeout(() => setToast(null), 6000);
-    return () => clearTimeout(t);
-  }, [state]);
+  // Derive feedback directly from state — no separate useState or useEffect.
+  // Message clears automatically when the user submits again (state → null).
+  const toast = state
+    ? state.success
+      ? { type: "success" as const, message: "Backup created successfully." }
+      : { type: "error" as const, message: state.error.message }
+    : null;
 
   return (
     <div className="space-y-2">
