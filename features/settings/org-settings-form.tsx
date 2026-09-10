@@ -122,7 +122,7 @@ export function OrgSettingsForm({ settings }: { settings: OrgSettings }) {
         <Label htmlFor="tagline">Tagline / System name <span className="text-red-500">*</span></Label>
         <Input id="tagline" name="tagline" required defaultValue={settings.tagline} />
         <p className="text-xs text-ink-900/45">
-          Shown below the organisation name in the sidebar (e.g. "Union HRMIS").
+          Shown below the organisation name in the sidebar (e.g. &ldquo;Union HRMIS&rdquo;).
         </p>
       </FieldGroup>
 

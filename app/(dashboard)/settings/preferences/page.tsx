@@ -46,7 +46,7 @@ export default async function SystemPreferencesPage() {
             <div>
               <p className="font-medium text-ink-900">Departments & Positions</p>
               <p className="mt-0.5 text-xs text-ink-900/55">
-                Manage the organisation's department and position structure.
+                Manage the organisation&apos;s department and position structure.
               </p>
               <Link
                 href="/departments"

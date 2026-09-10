@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Sprout, X, ChevronDown } from "lucide-react";
 import { NAV_ITEMS, type NavGroup, type AnyNavItem } from "@/components/dashboard/nav-config";
 import { can } from "@/lib/permissions";
@@ -23,11 +23,10 @@ function CollapsibleGroup({
   onLinkClick: () => void;
 }) {
   const groupActive = pathname.startsWith(group.activePrefix);
-  const [open, setOpen] = useState(groupActive);
-
-  useEffect(() => {
-    if (groupActive) setOpen(true);
-  }, [groupActive]);
+  const [open, setOpen] = useState(false);
+  // Always show the group expanded when the user is inside it; otherwise
+  // respect the manually toggled state. Derived here (no effect needed).
+  const isOpen = groupActive || open;
 
   const visibleChildren = group.children.filter(
     (child) => !child.requires || can(role, child.requires)
@@ -47,20 +46,20 @@ function CollapsibleGroup({
             ? "bg-brand-800 text-white"
             : "text-brand-100/80 hover:bg-brand-800 hover:text-white"
         )}
-        aria-expanded={open}
+        aria-expanded={isOpen}
       >
         <group.icon className="h-[18px] w-[18px] shrink-0" />
         <span className="flex-1 text-left">{group.label}</span>
         <ChevronDown
           className={cn(
             "h-3.5 w-3.5 shrink-0 text-brand-200/50 transition-transform duration-200",
-            open && "rotate-180"
+            isOpen && "rotate-180"
           )}
         />
       </button>
 
       {/* ── Children — visually subordinate ── */}
-      {open && (
+      {isOpen && (
         <div className="ml-3 mt-0.5 border-l border-brand-700/50 pl-3 space-y-0.5">
           {visibleChildren.map((child) => {
             const active =

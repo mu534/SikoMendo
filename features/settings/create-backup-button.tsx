@@ -18,10 +18,8 @@ export function CreateBackupButton() {
   useEffect(() => {
     if (!state) return;
     if (state.success) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setToast({ type: "success", message: "Backup created successfully." });
     } else {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setToast({ type: "error", message: state.error.message });
     }
     const t = setTimeout(() => setToast(null), 6000);

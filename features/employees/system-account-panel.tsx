@@ -58,6 +58,7 @@ function CreateAccountForm({
 
   useEffect(() => {
     if (state?.success) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCredentials({ username: state.data.username, password: state.data.password });
       router.refresh();
     }

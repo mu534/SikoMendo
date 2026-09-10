@@ -116,4 +116,5 @@ export function can(role: string | undefined, action: Action) {
   return perms.includes(action);
 }
 
-export default { ROLES, PERMISSIONS, can };
+const permissions = { ROLES, PERMISSIONS, can };
+export default permissions;

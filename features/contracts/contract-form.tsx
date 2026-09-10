@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect } from "react";
 import { Input, Label, Select, Textarea, FieldGroup } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { createContract } from "./actions";

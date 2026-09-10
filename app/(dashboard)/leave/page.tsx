@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarOff, Plus, Search, Users, X } from "lucide-react";
+import { Plus, Search, Users, X } from "lucide-react";
 import { requireSession } from "@/lib/session";
 import { can, type Role } from "@/lib/permissions";
 import prisma from "@/lib/prisma";

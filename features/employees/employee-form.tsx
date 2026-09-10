@@ -199,11 +199,11 @@ export function EmployeeForm({
                 <Input id="firstName" name="firstName" required defaultValue={employee?.firstName ?? ""} />
               </FieldGroup>
               <FieldGroup>
-                <Label htmlFor="middleName">Father's Name<RequiredMark /></Label>
+                <Label htmlFor="middleName">Father&apos;s Name<RequiredMark /></Label>
                 <Input id="middleName" name="middleName" required defaultValue={employee?.middleName ?? ""} />
               </FieldGroup>
               <FieldGroup>
-                <Label htmlFor="lastName">Grandfather's Name<RequiredMark /></Label>
+                <Label htmlFor="lastName">Grandfather&apos;s Name<RequiredMark /></Label>
                 <Input id="lastName" name="lastName" required defaultValue={employee?.lastName ?? ""} />
               </FieldGroup>
               <FieldGroup>

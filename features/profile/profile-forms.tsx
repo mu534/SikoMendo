@@ -92,7 +92,7 @@ export function UpdateProfileForm({
           />
         </FieldGroup>
         <FieldGroup>
-          <Label htmlFor="middleName">Father's name <span className="text-red-500">*</span></Label>
+          <Label htmlFor="middleName">Father&apos;s name <span className="text-red-500">*</span></Label>
           <Input
             id="middleName"
             name="middleName"
@@ -102,7 +102,7 @@ export function UpdateProfileForm({
           />
         </FieldGroup>
         <FieldGroup>
-          <Label htmlFor="lastName">Grandfather's name <span className="text-red-500">*</span></Label>
+          <Label htmlFor="lastName">Grandfather&apos;s name <span className="text-red-500">*</span></Label>
           <Input
             id="lastName"
             name="lastName"
@@ -162,10 +162,8 @@ export function EmployeeContactForm({
     if (state?.success) {
       // Update the local photo preview if a new one was returned
       if (state.data.image) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setCurrentImage(state.data.image);
       }
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setToast("Contact information saved.");
       const t = setTimeout(() => setToast(null), 4000);
       // Refresh the layout so the header avatar picks up the new user.image
