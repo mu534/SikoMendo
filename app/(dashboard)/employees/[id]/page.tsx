@@ -21,6 +21,13 @@ import { ProfileTabs } from "@/features/employees/profile-tabs";
 import { SystemAccountPanel } from "@/features/employees/system-account-panel";
 import { EmploymentHistoryPanel } from "@/features/employment-history/employment-history-panel";
 import { ContractsPanel } from "@/features/contracts/contracts-panel";
+import { OnboardingPanel } from "@/features/lifecycle/onboarding-panel";
+import { OffboardingPanel } from "@/features/lifecycle/offboarding-panel";
+import {
+  getEmployeeLifecycleRecord,
+  getOnboardingChecklist,
+  getOffboardingChecklist,
+} from "@/features/lifecycle/queries";
 import { listActiveDepartments } from "@/features/departments/queries";
 import { listActivePositions } from "@/features/positions/queries";
 import { formatDate, formatBytes } from "@/lib/utils";
@@ -33,7 +40,7 @@ import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import type { Document } from "@prisma/client";
 import { getSignedFileUrl } from "@/lib/cloudinary";
 
-type Tab = "overview" | "history" | "contracts" | "documents";
+type Tab = "overview" | "history" | "contracts" | "documents" | "lifecycle";
 
 export default async function EmployeeDetailPage({
   params,
@@ -57,6 +64,9 @@ export default async function EmployeeDetailPage({
   const canManageUsers     = can(session.user.role, "MANAGE_USERS");
   // MANAGE_ROLES is ADMIN-only; controls whether the role selector appears in the form
   const canChangeRole      = can(session.user.role, "MANAGE_ROLES");
+  const canViewLifecycle   = can(session.user.role, "VIEW_LIFECYCLE");
+  const canManageOnboarding  = can(session.user.role, "MANAGE_ONBOARDING");
+  const canManageOffboarding = can(session.user.role, "MANAGE_OFFBOARDING");
 
   // Only fetch these when they're actually needed (History / Contracts tabs or edit form)
   const needDeptPos = canManage || tab === "history" || tab === "contracts";
@@ -80,6 +90,16 @@ export default async function EmployeeDetailPage({
       c.endDate <= thirtyDaysOut &&
       c.endDate >= today,
   }));
+
+  // Lifecycle data — only fetched when the lifecycle tab is active or the user can view it
+  const [lifecycleRecord, onboardingChecklist, offboardingChecklist] =
+    (canViewLifecycle && tab === "lifecycle")
+      ? await Promise.all([
+          getEmployeeLifecycleRecord(employee.id),
+          getOnboardingChecklist(employee.id),
+          getOffboardingChecklist(employee.id),
+        ])
+      : [null, null, null];
 
   // Form values for the edit form (Overview tab, admin/HR only)
   const formValues = canManage
@@ -105,7 +125,7 @@ export default async function EmployeeDetailPage({
         employmentType: employee.employmentType ?? null,
         hireDate: employee.hireDate ? employee.hireDate.toISOString() : null,
         employmentStatus: employee.employmentStatus as
-          | "ACTIVE" | "ON_LEAVE" | "RESIGNED" | "RETIRED"
+          | "ONBOARDING" | "ACTIVE" | "ON_LEAVE" | "RESIGNED" | "RETIRED"
           | "SUSPENDED" | "TERMINATED" | "INACTIVE",
         educationLevel: employee.educationLevel ?? null,
         fieldOfStudy: employee.fieldOfStudy ?? null,
@@ -385,6 +405,46 @@ export default async function EmployeeDetailPage({
             {canManageDocuments && <DocumentUploadForm employeeId={employee.id} />}
           </Card>
         )}
+
+        {/* ══ LIFECYCLE ═════════════════════════════════════════════ */}
+        {tab === "lifecycle" && canViewLifecycle && lifecycleRecord && onboardingChecklist && offboardingChecklist && (
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            {/* Onboarding column */}
+            <Card>
+              <CardHeader title="Onboarding" description="Pre-boarding checklist and activation status." />
+              <div className="p-6">
+                <OnboardingPanel
+                  employeeId={employee.id}
+                  employmentStatus={lifecycleRecord.employmentStatus}
+                  checklist={onboardingChecklist}
+                  record={lifecycleRecord.onboardingRecord}
+                  canManage={canManageOnboarding}
+                />
+              </div>
+            </Card>
+
+            {/* Offboarding column */}
+            <Card>
+              <CardHeader title="Offboarding" description="Departure workflow and archiving." />
+              <div className="p-6">
+                <OffboardingPanel
+                  employeeId={employee.id}
+                  employmentStatus={lifecycleRecord.employmentStatus}
+                  checklist={offboardingChecklist}
+                  record={lifecycleRecord.offboardingRecord}
+                  canManage={canManageOffboarding}
+                />
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {tab === "lifecycle" && !canViewLifecycle && (
+          <EmptyState
+            title="Access restricted"
+            description="You do not have permission to view lifecycle information."
+          />
+        )}
       </div>
     </div>
   );
@@ -415,9 +475,13 @@ function ProfileHeader({
   const statusTone =
     employee.employmentStatus === "ACTIVE"
       ? "success"
-      : employee.employmentStatus === "ON_LEAVE"
-        ? "warning"
-        : "neutral";
+      : employee.employmentStatus === "ONBOARDING"
+        ? "brand"
+        : employee.employmentStatus === "ON_LEAVE"
+          ? "warning"
+          : employee.employmentStatus === "SUSPENDED" || employee.employmentStatus === "TERMINATED"
+            ? "danger"
+            : "neutral";
 
   return (
     <Card className="overflow-hidden rounded-b-none">

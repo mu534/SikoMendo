@@ -41,8 +41,8 @@ export const employeeSchema = z.object({
   positionId: z.preprocess((v) => (v ? String(v).trim() : ""), z.string().min(1, "Position is required")),
   hireDate: optionalDate,
   employmentStatus: z.preprocess(
-    (v) => (v && String(v).trim() !== "" ? String(v).trim() : "ACTIVE"),
-    z.enum(["ACTIVE", "ON_LEAVE", "RESIGNED", "RETIRED", "SUSPENDED", "TERMINATED", "INACTIVE"])
+    (v) => (v && String(v).trim() !== "" ? String(v).trim() : "ONBOARDING"),
+    z.enum(["ONBOARDING", "ACTIVE", "ON_LEAVE", "RESIGNED", "RETIRED", "SUSPENDED", "TERMINATED", "INACTIVE"])
   ),
   employmentType: optionalEnum(["PERMANENT", "CONTRACT", "TEMPORARY", "PROBATION", "INTERNSHIP"]),
   educationLevel: optionalEnum(["PRIMARY", "SECONDARY", "CERTIFICATE", "DIPLOMA", "BACHELOR", "MASTER", "PHD"]),

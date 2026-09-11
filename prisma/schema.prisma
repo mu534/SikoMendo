@@ -18,6 +18,7 @@ enum Role {
 }
 
 enum EmploymentStatus {
+  ONBOARDING // Newly created — completing pre-boarding checklist before becoming ACTIVE
   ACTIVE
   ON_LEAVE
   RESIGNED
@@ -133,15 +134,20 @@ model User {
   passwordChangedAt  DateTime?
 
   // Relations
-  sessions            Session[]
-  accounts            Account[]
-  employee            Employee?
-  reports             Report[]     @relation("GeneratedBy")
-  auditLogs           AuditLog[]
-  recordedAttendances Attendance[] @relation("RecordedBy")
-  uploadedDocuments   Document[]
-  approvedLeaves      LeaveRequest[] @relation("LeaveApprover")
-  notifications       Notification[]
+  sessions               Session[]
+  accounts               Account[]
+  employee               Employee?
+  reports                Report[]            @relation("GeneratedBy")
+  auditLogs              AuditLog[]
+  recordedAttendances    Attendance[]        @relation("RecordedBy")
+  uploadedDocuments      Document[]
+  approvedLeaves         LeaveRequest[]      @relation("LeaveApprover")
+  notifications          Notification[]
+  // Lifecycle back-relations
+  onboardingsCompleted   OnboardingRecord[]  @relation("OnboardingCompletedBy")
+  onboardingsResponsible OnboardingRecord[]  @relation("OnboardingResponsibleHr")
+  offboardingsStarted    OffboardingRecord[] @relation("OffboardingStartedBy")
+  offboardingsCompleted  OffboardingRecord[] @relation("OffboardingCompletedBy")
 
   @@map("user")
 }
@@ -193,8 +199,8 @@ model Verification {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  @@map("verification")
   @@index([identifier])
+  @@map("verification")
 }
 
 // ─── Domain Models ────────────────────────────────────
@@ -217,7 +223,7 @@ model Employee {
 
   // Extended fields
   maritalStatus                MaritalStatus?
-  employmentType                EmploymentType?
+  employmentType               EmploymentType?
   emergencyContactName         String?
   emergencyContactPhone        String?
   emergencyContactRelationship String?
@@ -229,11 +235,11 @@ model Employee {
 
   // Relations
   departmentId  String?
-  department    Department?  @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  department    Department?    @relation(fields: [departmentId], references: [id], onDelete: Restrict)
   positionId    String?
-  position      Position?    @relation(fields: [positionId], references: [id], onDelete: Restrict)
-  userId        String?      @unique
-  user          User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  position      Position?      @relation(fields: [positionId], references: [id], onDelete: Restrict)
+  userId        String?        @unique
+  user          User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
   attendances   Attendance[]
   documents     Document[]
   leaveRequests LeaveRequest[]
@@ -245,6 +251,10 @@ model Employee {
 
   employmentHistory EmploymentHistory[]
   contracts         Contract[]
+
+  // Lifecycle
+  onboardingRecord  OnboardingRecord?
+  offboardingRecord OffboardingRecord?
 
   // Timestamps & soft delete
   createdAt DateTime  @default(now())
@@ -267,24 +277,24 @@ model Department {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  positions Position[]
-  employees Employee[]
+  positions         Position[]
+  employees         Employee[]
   employmentHistory EmploymentHistory[]
 
   @@map("department")
 }
 
 model Position {
-  id           String   @id @default(cuid())
-  name         String
-  description  String?
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  departmentId String
-  department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
-  employees    Employee[]
+  departmentId      String
+  department        Department          @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  employees         Employee[]
   employmentHistory EmploymentHistory[]
 
   @@unique([departmentId, name])
@@ -326,13 +336,13 @@ enum ContractStatus {
 /// Append-only contract records — a new contract for the same employee closes
 /// out the previous one (marks it RENEWED) rather than editing it in place.
 model Contract {
-  id           String          @id @default(cuid())
+  id           String         @id @default(cuid())
   employeeId   String
-  employee     Employee        @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  employee     Employee       @relation(fields: [employeeId], references: [id], onDelete: Restrict)
   contractType EmploymentType
-  startDate    DateTime        @db.Date
-  endDate      DateTime?       @db.Date
-  status       ContractStatus  @default(ACTIVE)
+  startDate    DateTime       @db.Date
+  endDate      DateTime?      @db.Date
+  status       ContractStatus @default(ACTIVE)
   remarks      String?
 
   createdAt DateTime @default(now())
@@ -414,14 +424,14 @@ model Attendance {
 }
 
 model Document {
-  id       String       @id @default(cuid())
-  title    String
-  type     DocumentType @default(OTHER)
-  fileUrl  String // Cloudflare R2 URL or key
-  fileKey  String // R2 object key for deletion
-  fileName String
-  fileSize Int // Bytes
-  mimeType String
+  id               String       @id @default(cuid())
+  title            String
+  type             DocumentType @default(OTHER)
+  fileUrl          String // Cloudflare R2 URL or key
+  fileKey          String // R2 object key for deletion
+  fileName         String
+  fileSize         Int // Bytes
+  mimeType         String
   fileResourceType String? // "image" or "raw" \u2014 Cloudinary stores PDFs as "image" (not "raw") when uploaded with resource_type "auto"; mimeType alone isn't a reliable guide for signing an authenticated URL
 
   // Relations
@@ -442,20 +452,20 @@ model Document {
 }
 
 model LeaveRequest {
-  id              String      @id @default(cuid())
-  leaveId         String      @unique // Business-facing ID (e.g., "LR-0001")
-  leaveType       LeaveType
-  startDate       DateTime    @db.Date
-  endDate         DateTime    @db.Date
-  totalDays       Int
-  reason          String
-  documentUrl     String? // Optional supporting document (Cloudinary URL)
-  documentKey     String?
+  id                   String      @id @default(cuid())
+  leaveId              String      @unique // Business-facing ID (e.g., "LR-0001")
+  leaveType            LeaveType
+  startDate            DateTime    @db.Date
+  endDate              DateTime    @db.Date
+  totalDays            Int
+  reason               String
+  documentUrl          String? // Optional supporting document (Cloudinary URL)
+  documentKey          String?
   documentResourceType String? // "image" or "raw" — needed to re-sign the URL for authenticated (private) delivery
-  status          LeaveStatus @default(PENDING)
-  appliedDate     DateTime    @default(now())
-  decisionDate    DateTime?
-  rejectionReason String?
+  status               LeaveStatus @default(PENDING)
+  appliedDate          DateTime    @default(now())
+  decisionDate         DateTime?
+  rejectionReason      String?
 
   // Relations
   employeeId String
@@ -487,13 +497,13 @@ model LeaveEntitlement {
 }
 
 model Report {
-  id         String       @id @default(cuid())
-  title      String
-  type       ReportType
-  format     ReportFormat
-  parameters Json? // Filter criteria used to generate
-  fileUrl    String? // URL if report was saved (legacy public uploads; new reports use fileKey)
-  fileKey    String? // Cloudinary public ID, used to generate a signed URL for authenticated delivery
+  id               String       @id @default(cuid())
+  title            String
+  type             ReportType
+  format           ReportFormat
+  parameters       Json? // Filter criteria used to generate
+  fileUrl          String? // URL if report was saved (legacy public uploads; new reports use fileKey)
+  fileKey          String? // Cloudinary public ID, used to generate a signed URL for authenticated delivery
   fileResourceType String? // "image" or "raw" \u2014 Cloudinary stores PDFs as "image" (not "raw") when uploaded with resource_type "auto", so this can't be assumed and must be recorded
 
   // Relations
@@ -517,8 +527,8 @@ model OrgSettings {
   orgName   String   @default("Siko Mendo Union")
   tagline   String   @default("Union HRMIS")
   location  String   @default("Bale Robe, Ethiopia")
-  logoUrl   String?  // Cloudinary public URL
-  logoKey   String?  // Cloudinary public ID (for deletion/replacement)
+  logoUrl   String? // Cloudinary public URL
+  logoKey   String? // Cloudinary public ID (for deletion/replacement)
   updatedAt DateTime @updatedAt
 
   @@map("org_settings")
@@ -552,6 +562,13 @@ enum NotificationType {
   LEAVE_APPROVED
   LEAVE_REJECTED
   PROFILE_UPDATED
+  // Lifecycle notifications
+  ONBOARDING_STARTED
+  ONBOARDING_COMPLETED
+  OFFBOARDING_STARTED
+  OFFBOARDING_COMPLETED
+  CONTRACT_EXPIRING
+  DOCUMENT_MISSING
 }
 
 model Notification {
@@ -569,4 +586,72 @@ model Notification {
   @@index([userId])
   @@index([userId, isRead])
   @@map("notification")
+}
+
+// ─── Lifecycle Models ─────────────────────────────────
+
+enum OffboardingReason {
+  RESIGNATION
+  RETIREMENT
+  CONTRACT_END
+  TERMINATION
+  OTHER
+}
+
+/// One record per employee while they are going through the onboarding process.
+/// Checklist completion is computed dynamically from real data (contracts,
+/// documents, user account, dept/position) — not stored as stale booleans.
+/// Deleted once onboarding is completed (completedAt is set), or can be
+/// kept for historical audit reference (completedAt non-null = done).
+model OnboardingRecord {
+  id         String   @id @default(cuid())
+  employeeId String   @unique
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  /// HR officer who completed / signed off on onboarding
+  completedById String?
+  completedBy   User?   @relation("OnboardingCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+
+  /// HR officer assigned as responsible for this onboarding
+  responsibleHrId String?
+  responsibleHr   User?   @relation("OnboardingResponsibleHr", fields: [responsibleHrId], references: [id], onDelete: SetNull)
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([completedAt])
+  @@map("onboarding_record")
+}
+
+/// One record per employee offboarding event. An employee who is rehired
+/// after resignation would get a new OffboardingRecord on their next
+/// departure. completedAt null = offboarding in progress.
+model OffboardingRecord {
+  id         String   @id @default(cuid())
+  employeeId String   @unique
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  reason          OffboardingReason
+  lastWorkingDate DateTime?         @db.Date
+  notes           String?
+
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  startedById String?
+  startedBy   User?   @relation("OffboardingStartedBy", fields: [startedById], references: [id], onDelete: SetNull)
+
+  completedById String?
+  completedBy   User?   @relation("OffboardingCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([completedAt])
+  @@map("offboarding_record")
 }

@@ -22,7 +22,7 @@ const EMPLOYMENT_TYPE_LABELS: Record<string, string> = {
 };
 
 type EmploymentStatus =
-  | "ACTIVE" | "ON_LEAVE" | "RESIGNED" | "RETIRED"
+  | "ONBOARDING" | "ACTIVE" | "ON_LEAVE" | "RESIGNED" | "RETIRED"
   | "SUSPENDED" | "TERMINATED" | "INACTIVE";
 
 export type DepartmentOption = { id: string; name: string };
@@ -377,7 +377,8 @@ export function EmployeeForm({
 
             <FieldGroup>
               <Label htmlFor="employmentStatus">Employment Status<RequiredMark /></Label>
-              <Select id="employmentStatus" name="employmentStatus" required defaultValue={employee?.employmentStatus ?? "ACTIVE"}>
+              <Select id="employmentStatus" name="employmentStatus" required defaultValue={employee?.employmentStatus ?? "ONBOARDING"}>
+                <option value="ONBOARDING">Onboarding</option>
                 <option value="ACTIVE">Active</option>
                 <option value="ON_LEAVE">On Leave</option>
                 <option value="RESIGNED">Resigned</option>

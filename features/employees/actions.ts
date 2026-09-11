@@ -61,7 +61,7 @@ export async function createEmployee(
         departmentId: parsed.data.departmentId,
         positionId: parsed.data.positionId,
         hireDate: parsed.data.hireDate ?? null,
-        employmentStatus: parsed.data.employmentStatus,
+        employmentStatus: "ONBOARDING",  // All new employees start in ONBOARDING state
         employmentType: (parsed.data.employmentType as EmploymentType) ?? null,
         educationLevel: (parsed.data.educationLevel as EducationLevel) ?? null,
         fieldOfStudy: parsed.data.fieldOfStudy ?? null,
@@ -83,6 +83,14 @@ export async function createEmployee(
         employmentType: (parsed.data.employmentType as EmploymentType) ?? null,
         effectiveDate: parsed.data.hireDate ?? new Date(),
         changeReason: "Initial hire",
+      },
+    });
+
+    // Automatically create an OnboardingRecord — every new employee begins in onboarding
+    await prisma.onboardingRecord.create({
+      data: {
+        employeeId: employee.id,
+        responsibleHrId: session?.user.id,
       },
     });
 

@@ -40,7 +40,14 @@ export type Action =
   | "MANAGE_POSITIONS"
   | "MANAGE_EMPLOYMENT_HISTORY"
   | "MANAGE_CONTRACTS"
-  | "MANAGE_SETTINGS";
+  | "MANAGE_SETTINGS"
+  // ── Lifecycle ──────────────────────────────────────────────────────────────
+  // MANAGE_ONBOARDING: start/complete onboarding workflows
+  | "MANAGE_ONBOARDING"
+  // MANAGE_OFFBOARDING: initiate/complete offboarding, archive employees
+  | "MANAGE_OFFBOARDING"
+  // VIEW_LIFECYCLE: access the lifecycle dashboard and the lifecycle tab on profiles
+  | "VIEW_LIFECYCLE";
 
 // Define which actions each role can perform (hierarchical)
 export const PERMISSIONS: Record<Role, Action[]> = {
@@ -68,6 +75,9 @@ export const PERMISSIONS: Record<Role, Action[]> = {
     "MANAGE_EMPLOYMENT_HISTORY",
     "MANAGE_CONTRACTS",
     "MANAGE_SETTINGS",
+    "MANAGE_ONBOARDING",
+    "MANAGE_OFFBOARDING",
+    "VIEW_LIFECYCLE",
   ],
   HR_OFFICER: [
     "MANAGE_EMPLOYEES",
@@ -90,6 +100,9 @@ export const PERMISSIONS: Record<Role, Action[]> = {
     "MANAGE_POSITIONS",
     "MANAGE_EMPLOYMENT_HISTORY",
     "MANAGE_CONTRACTS",
+    "MANAGE_ONBOARDING",
+    "MANAGE_OFFBOARDING",
+    "VIEW_LIFECYCLE",
   ],
   MANAGER: [
     "VIEW_EMPLOYEES",

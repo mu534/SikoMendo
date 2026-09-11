@@ -16,6 +16,7 @@ import {
   UserX,
   SlidersHorizontal,
   DatabaseBackup,
+  Activity,
 } from "lucide-react";
 import type { Action } from "@/lib/permissions";
 
@@ -70,6 +71,7 @@ export const NAV_ITEMS: AnyNavItem[] = [
     activePrefix: "/employees",
     children: [
       { href: "/employees",            label: "Employee List",   icon: Users,    requires: "VIEW_EMPLOYEES" },
+      { href: "/employees/lifecycle",  label: "Lifecycle",       icon: Activity, requires: "VIEW_LIFECYCLE" },
       { href: "/employees/new",        label: "New Employee",    icon: UserPlus, requires: "MANAGE_EMPLOYEES" },
       { href: "/employees?archived=1", label: "Archived",        icon: Archive,  requires: "MANAGE_EMPLOYEES" },
       { href: "/employees/import",     label: "Bulk Import",     icon: Upload,   requires: "MANAGE_EMPLOYEES" },

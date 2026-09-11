@@ -4,13 +4,14 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-export type ProfileTab = "overview" | "history" | "contracts" | "documents";
+export type ProfileTab = "overview" | "history" | "contracts" | "documents" | "lifecycle";
 
 const TABS: { id: ProfileTab; label: string }[] = [
   { id: "overview",   label: "Overview" },
   { id: "history",    label: "Employment History" },
   { id: "contracts",  label: "Contracts" },
   { id: "documents",  label: "Documents" },
+  { id: "lifecycle",  label: "Lifecycle" },
 ];
 
 export function ProfileTabs({ employeeId }: { employeeId: string }) {
