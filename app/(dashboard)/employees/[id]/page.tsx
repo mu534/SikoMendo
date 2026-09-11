@@ -28,6 +28,7 @@ import {
   getOnboardingChecklist,
   getOffboardingChecklist,
 } from "@/features/lifecycle/queries";
+import { cancelOffboarding } from "@/features/lifecycle/actions";
 import { listActiveDepartments } from "@/features/departments/queries";
 import { listActivePositions } from "@/features/positions/queries";
 import { formatDate, formatBytes } from "@/lib/utils";
@@ -433,6 +434,7 @@ export default async function EmployeeDetailPage({
                   checklist={offboardingChecklist}
                   record={lifecycleRecord.offboardingRecord}
                   canManage={canManageOffboarding}
+                  cancelAction={cancelOffboarding.bind(null, employee.id)}
                 />
               </div>
             </Card>
