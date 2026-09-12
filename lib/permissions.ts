@@ -23,6 +23,11 @@ export type Action =
   | "VIEW_COOPERATIVES"
   | "MANAGE_ATTENDANCE"
   | "VIEW_ATTENDANCE"
+  // Self attendance: all roles with an employee record can check in/out their own attendance.
+  // Server actions derive the employee from the session — employeeId is never trusted from the client.
+  | "SELF_ATTENDANCE"
+  // Admin-only: configure the organisation attendance policy (work start time, grace period, etc.)
+  | "MANAGE_ATTENDANCE_POLICY"
   | "MANAGE_DOCUMENTS"
   | "GENERATE_REPORTS"
   | "VIEW_REPORTS"
@@ -58,8 +63,12 @@ export const PERMISSIONS: Record<Role, Action[]> = {
     "VIEW_EMPLOYEES",
     "MANAGE_COOPERATIVES",
     "VIEW_COOPERATIVES",
+    // ADMIN is the only role that can edit another employee's attendance record.
+    // All other roles use self-attendance (SELF_ATTENDANCE) only.
     "MANAGE_ATTENDANCE",
     "VIEW_ATTENDANCE",
+    "SELF_ATTENDANCE",
+    "MANAGE_ATTENDANCE_POLICY",
     "MANAGE_DOCUMENTS",
     "GENERATE_REPORTS",
     "VIEW_REPORTS",
@@ -84,8 +93,10 @@ export const PERMISSIONS: Record<Role, Action[]> = {
     "VIEW_EMPLOYEES",
     "MANAGE_COOPERATIVES",
     "VIEW_COOPERATIVES",
-    "MANAGE_ATTENDANCE",
+    // HR Officers can VIEW attendance org-wide (read-only register).
+    // They can no longer MANAGE (edit) other employees' attendance — use SELF_ATTENDANCE for own.
     "VIEW_ATTENDANCE",
+    "SELF_ATTENDANCE",
     "MANAGE_DOCUMENTS",
     "GENERATE_REPORTS",
     "VIEW_REPORTS",
@@ -96,7 +107,7 @@ export const PERMISSIONS: Record<Role, Action[]> = {
     "MANAGE_OWN_LEAVE",
     "MANAGE_LEAVE_POLICY",
     "VIEW_DEPARTMENTS",
-    "MANAGE_DEPARTMENTS",  // HR Officers can create, edit, activate/deactivate departments
+    "MANAGE_DEPARTMENTS",
     "MANAGE_POSITIONS",
     "MANAGE_EMPLOYMENT_HISTORY",
     "MANAGE_CONTRACTS",
@@ -107,7 +118,10 @@ export const PERMISSIONS: Record<Role, Action[]> = {
   MANAGER: [
     "VIEW_EMPLOYEES",
     "VIEW_COOPERATIVES",
+    // MANAGER can VIEW attendance (scoped to their reporting hierarchy in queries).
+    // They can no longer mark/edit any employee's attendance — use SELF_ATTENDANCE for own.
     "VIEW_ATTENDANCE",
+    "SELF_ATTENDANCE",
     "GENERATE_REPORTS",
     "VIEW_REPORTS",
     "DASHBOARD_ANALYTICS",
@@ -117,9 +131,15 @@ export const PERMISSIONS: Record<Role, Action[]> = {
     "MANAGE_LEAVE",
     "MANAGE_OWN_LEAVE",
     "MANAGE_LEAVE_POLICY",
-    "VIEW_DEPARTMENTS",    // General Manager gets read-only view of departments and positions
+    "VIEW_DEPARTMENTS",
   ],
-  EMPLOYEE: ["VIEW_OWN_PROFILE", "UPDATE_OWN_INFO", "MANAGE_OWN_LEAVE"],
+  EMPLOYEE: [
+    "VIEW_OWN_PROFILE",
+    "UPDATE_OWN_INFO",
+    "MANAGE_OWN_LEAVE",
+    // Employees can check in/out their own attendance only.
+    "SELF_ATTENDANCE",
+  ],
 };
 
 export function can(role: string | undefined, action: Action) {

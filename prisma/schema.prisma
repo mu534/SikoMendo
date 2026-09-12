@@ -134,20 +134,21 @@ model User {
   passwordChangedAt  DateTime?
 
   // Relations
-  sessions               Session[]
-  accounts               Account[]
-  employee               Employee?
-  reports                Report[]            @relation("GeneratedBy")
-  auditLogs              AuditLog[]
-  recordedAttendances    Attendance[]        @relation("RecordedBy")
-  uploadedDocuments      Document[]
-  approvedLeaves         LeaveRequest[]      @relation("LeaveApprover")
-  notifications          Notification[]
+  sessions                Session[]
+  accounts                Account[]
+  employee                Employee?
+  reports                 Report[]            @relation("GeneratedBy")
+  auditLogs               AuditLog[]
+  recordedAttendances     Attendance[]        @relation("RecordedBy")
+  uploadedDocuments       Document[]
+  approvedLeaves          LeaveRequest[]      @relation("LeaveApprover")
+  notifications           Notification[]
   // Lifecycle back-relations
-  onboardingsCompleted   OnboardingRecord[]  @relation("OnboardingCompletedBy")
-  onboardingsResponsible OnboardingRecord[]  @relation("OnboardingResponsibleHr")
-  offboardingsStarted    OffboardingRecord[] @relation("OffboardingStartedBy")
-  offboardingsCompleted  OffboardingRecord[] @relation("OffboardingCompletedBy")
+  onboardingsCompleted    OnboardingRecord[]  @relation("OnboardingCompletedBy")
+  onboardingsResponsible  OnboardingRecord[]  @relation("OnboardingResponsibleHr")
+  offboardingsStarted     OffboardingRecord[] @relation("OffboardingStartedBy")
+  offboardingsCompleted   OffboardingRecord[] @relation("OffboardingCompletedBy")
+  attendancePolicyUpdates AttendancePolicy[]  @relation("PolicyUpdatedBy")
 
   @@map("user")
 }
@@ -586,6 +587,41 @@ model Notification {
   @@index([userId])
   @@index([userId, isRead])
   @@map("notification")
+}
+
+// ─── Attendance Policy ────────────────────────────────────────────────────
+
+/// Singleton attendance policy record (id = "singleton").
+/// Use getAttendancePolicy() — never read directly from the client.
+/// When no row exists, code falls back to sensible defaults.
+model AttendancePolicy {
+  id String @id @default("singleton")
+
+  /// Official work start time in "HH:MM" 24-hour format (org-local, EAT).
+  workStartTime String @default("08:00")
+
+  /// Official work end time in "HH:MM" 24-hour format (org-local, EAT).
+  workEndTime String @default("17:00")
+
+  /// Minutes after workStartTime during which check-in is still PRESENT.
+  /// e.g. 15 → 08:00–08:15 = PRESENT, 08:16+ = LATE
+  gracePeriodMinutes Int @default(15)
+
+  /// Minutes after (workStartTime + gracePeriod) at which status becomes
+  /// HALF_DAY instead of LATE. Null = no half-day threshold; only PRESENT/LATE.
+  halfDayThresholdMinutes Int?
+
+  /// Working days as a JSON array of ISO weekday numbers 1=Mon…7=Sun.
+  /// Stored as a plain string to avoid a Json column. Default: Mon–Fri.
+  workingDays String @default("[1,2,3,4,5]")
+
+  isActive Boolean @default(true)
+
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+  updatedBy   User?    @relation("PolicyUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@map("attendance_policy")
 }
 
 // ─── Lifecycle Models ─────────────────────────────────

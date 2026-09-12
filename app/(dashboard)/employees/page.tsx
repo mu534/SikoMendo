@@ -174,8 +174,8 @@ export default async function EmployeesPage({
                   </Link>
                 </TD>
                 <TD>
-                  <p className="text-ink-900/80">{employee.position.name}</p>
-                  <p className="text-xs text-ink-900/50">{employee.department.name}</p>
+                  <p className="text-ink-900/80">{employee.position?.name ?? "—"}</p>
+                  <p className="text-xs text-ink-900/50">{employee.department?.name ?? "—"}</p>
                 </TD>
                 <TD>{employee.employmentType ?? "—"}</TD>
                 <TD>

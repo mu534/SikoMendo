@@ -36,7 +36,7 @@ export const OFFBOARDING_REASON_LABELS: Record<OffboardingReasonValue, string> =
 };
 
 export const startOffboardingSchema = z.object({
-  reason: z.enum(OFFBOARDING_REASONS, { required_error: "Select a reason." }),
+  reason: z.enum(OFFBOARDING_REASONS, { error: "Select a reason." }),
   lastWorkingDate: z
     .string()
     .optional()

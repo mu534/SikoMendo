@@ -5,7 +5,9 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "@/lib/session";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
 import { attendanceEntrySchema, attendanceFormDataToObject, combineDateAndTime } from "./schemas";
-import { parseDateOnly } from "./queries";
+import { parseDateOnly } from "@/lib/attendance-date";
+
+// ── Audit helper ───────────────────────────────────────────────────────────
 
 async function logAudit(action: string, entityId: string, changes: unknown, userId?: string) {
   await prisma.auditLog.create({
@@ -13,9 +15,11 @@ async function logAudit(action: string, entityId: string, changes: unknown, user
   });
 }
 
+// ── Shared: approved-leave check ──────────────────────────────────────────
+
 /**
- * Returns true when the employee has an approved leave request that covers
- * the given date. Used to block manual attendance entry on leave days.
+ * Returns true when the employee has an approved leave request covering `date`.
+ * Used to block administrative attendance entry on approved leave days.
  */
 async function isOnApprovedLeave(employeeId: string, date: Date): Promise<boolean> {
   const leave = await prisma.leaveRequest.findFirst({
@@ -23,7 +27,7 @@ async function isOnApprovedLeave(employeeId: string, date: Date): Promise<boolea
       employeeId,
       status: "APPROVED",
       startDate: { lte: date },
-      endDate:   { gte: date },
+      endDate: { gte: date },
     },
     select: { id: true },
   });
@@ -31,7 +35,7 @@ async function isOnApprovedLeave(employeeId: string, date: Date): Promise<boolea
 }
 
 /**
- * The statuses a user is allowed to manually record.
+ * The statuses an Admin can manually record for another employee.
  * ON_LEAVE is only set automatically when leave is approved — never manually.
  */
 const MANUAL_RECORDABLE_STATUSES = new Set([
@@ -42,6 +46,19 @@ const MANUAL_RECORDABLE_STATUSES = new Set([
   "EXCUSED",
 ]);
 
+// ── Administrative attendance upsert (ADMIN ONLY) ─────────────────────────
+
+/**
+ * Admin-only: create or update any employee's attendance record for any date.
+ *
+ * Authorization: requires MANAGE_ATTENDANCE, which is granted ONLY to ADMIN.
+ *   - HR Officers and Managers use selfCheckIn/selfCheckOut in self-actions.ts.
+ *   - Employees use selfCheckIn/selfCheckOut in self-actions.ts.
+ *
+ * The employeeId and date here ARE accepted from the form because this is an
+ * administrative action performed by an Admin on behalf of any employee.
+ * Self-attendance actions (self-actions.ts) NEVER accept these from the client.
+ */
 export async function upsertAttendance(
   _prevState: unknown,
   formData: FormData
@@ -68,9 +85,8 @@ export async function upsertAttendance(
 
     const dateValue = parseDateOnly(date);
 
-    // Prevent recording Present/Absent/Late/etc. for an employee on approved leave.
-    // If you need to override leave (e.g. employee came back early), cancel the
-    // leave request first, which removes the ON_LEAVE attendance record.
+    // Prevent recording non-ON_LEAVE status for an employee on approved leave.
+    // Cancel the leave request first if you need to override it.
     if (MANUAL_RECORDABLE_STATUSES.has(status)) {
       const onLeave = await isOnApprovedLeave(employeeId, dateValue);
       if (onLeave) {
@@ -89,15 +105,15 @@ export async function upsertAttendance(
         employeeId,
         date: dateValue,
         status,
-        checkIn:    checkInValue,
-        checkOut:   checkOutValue,
+        checkIn: checkInValue,
+        checkOut: checkOutValue,
         notes,
         recordedById: session?.user.id,
       },
       update: {
         status,
-        checkIn:    checkInValue,
-        checkOut:   checkOutValue,
+        checkIn: checkInValue,
+        checkOut: checkOutValue,
         notes,
         recordedById: session?.user.id,
       },
@@ -109,8 +125,14 @@ export async function upsertAttendance(
   });
 }
 
-/** Marks every employee with no record yet for the given date as PRESENT.
- *  Skips archived employees and employees on approved leave. */
+// ── Bulk mark present (ADMIN ONLY) ────────────────────────────────────────
+
+/**
+ * Admin-only: marks every unmarked employee for the given date as PRESENT.
+ * Skips archived employees and employees on approved leave.
+ *
+ * Authorization: requires MANAGE_ATTENDANCE (ADMIN only).
+ */
 export async function markUnmarkedPresent(
   date: string,
   employeeIds: string[]
@@ -127,24 +149,20 @@ export async function markUnmarkedPresent(
     });
     const activeIds = activeEmployees.map((e: { id: string }) => e.id);
 
-    // Drop employees who are on approved leave on this date — their
-    // ON_LEAVE record was already created when the leave was approved.
+    // Drop employees on approved leave — their ON_LEAVE record was created at approval time
     const onLeaveEmployees = await prisma.leaveRequest.findMany({
       where: {
         employeeId: { in: activeIds },
-        status:    "APPROVED",
+        status: "APPROVED",
         startDate: { lte: dateValue },
-        endDate:   { gte: dateValue },
+        endDate: { gte: dateValue },
       },
       select: { employeeId: true },
     });
     const onLeaveIds = new Set(onLeaveEmployees.map((l: { employeeId: string }) => l.employeeId));
-
     const eligibleIds = activeIds.filter((id) => !onLeaveIds.has(id));
 
-    if (eligibleIds.length === 0) {
-      return { count: 0 };
-    }
+    if (eligibleIds.length === 0) return { count: 0 };
 
     const existing = await prisma.attendance.findMany({
       where: { date: dateValue, employeeId: { in: eligibleIds } },

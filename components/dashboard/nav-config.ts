@@ -93,7 +93,26 @@ export const NAV_ITEMS: AnyNavItem[] = [
   },
 
   { href: "/departments",  label: "Departments",  icon: Layers,        requires: "VIEW_DEPARTMENTS" },
-  { href: "/attendance",   label: "Attendance",   icon: CalendarCheck },
+
+  // ── Attendance group ──────────────────────────────────────────────────────
+  {
+    kind: "group",
+    label: "Attendance",
+    icon: CalendarCheck,
+    activePrefix: "/attendance",
+    children: [
+      // My Attendance — all roles with SELF_ATTENDANCE (everyone)
+      { href: "/attendance/mine",       label: "My Attendance",        icon: CalendarCheck                                  },
+      // Admin-only management (check in/out employees, bulk marking)
+      { href: "/attendance/management", label: "Attendance Management", icon: CalendarCheck, requires: "MANAGE_ATTENDANCE"        },
+      // HR Officer — org-wide read-only monitoring
+      { href: "/attendance/monitoring", label: "Attendance Monitoring", icon: CalendarCheck, requires: "VIEW_ATTENDANCE"           },
+      // Manager — team-scoped read-only
+      { href: "/attendance/team",       label: "Team Attendance",       icon: CalendarCheck, requires: "VIEW_ATTENDANCE"           },
+      // Admin-only policy configuration
+      { href: "/attendance/policy",     label: "Attendance Policy",     icon: ShieldCheck,   requires: "MANAGE_ATTENDANCE_POLICY"  },
+    ],
+  },
 
   // ── Leave group ──────────────────────────────────────────────────────────
   {

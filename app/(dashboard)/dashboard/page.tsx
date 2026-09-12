@@ -281,7 +281,7 @@ async function EmployeeDashboard({
                   {userName}
                 </p>
                 <p className="text-sm text-ink-900/60">
-                  {employee.position.name} · {employee.department.name}
+                  {employee.position?.name ?? "No position"} · {employee.department?.name ?? "No department"}
                 </p>
               </div>
               <Badge

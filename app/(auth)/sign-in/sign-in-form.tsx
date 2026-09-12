@@ -2,49 +2,68 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { LogIn, Eye, EyeOff } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Input, Label, FieldGroup, FieldError } from "@/components/ui/field";
 
-const signInSchema = z.object({
-  username: z.string().min(1, "Enter your username"),
-  password: z.string().min(1, "Enter your password"),
-});
-
-type SignInValues = z.infer<typeof signInSchema>;
-
 export function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [formError, setFormError] = useState<string | null>(null);
+
+  const [username, setUsername]       = useState("");
+  const [password, setPassword]       = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<SignInValues>({ resolver: zodResolver(signInSchema) });
+  // Field-level validation errors
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  // Server / auth-level error
+  const [formError, setFormError]     = useState<string | null>(null);
 
-  async function onSubmit(values: SignInValues) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+
+    // Reset errors
+    setUsernameError(null);
+    setPasswordError(null);
     setFormError(null);
 
-    const { error } = await (authClient.signIn as { username: (opts: { username: string; password: string }) => Promise<{ error: { message?: string } | null }> }).username({
-      username: values.username,
-      password: values.password,
-    });
-
-    if (error) {
-      setFormError(error.message ?? "Invalid username or password.");
-      return;
+    // Client-side field validation
+    let valid = true;
+    if (!username.trim()) {
+      setUsernameError("Enter your username");
+      valid = false;
     }
+    if (!password) {
+      setPasswordError("Enter your password");
+      valid = false;
+    }
+    if (!valid) return;
 
-    const redirectTo = searchParams.get("redirectTo") || "/dashboard";
-    router.push(redirectTo);
-    router.refresh();
+    setIsSubmitting(true);
+    try {
+      const { error } = await (
+        authClient.signIn as {
+          username: (opts: {
+            username: string;
+            password: string;
+          }) => Promise<{ error: { message?: string } | null }>;
+        }
+      ).username({ username: username.trim(), password });
+
+      if (error) {
+        setFormError(error.message ?? "Invalid username or password.");
+        return;
+      }
+
+      const redirectTo = searchParams.get("redirectTo") || "/dashboard";
+      router.push(redirectTo);
+      router.refresh();
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -59,17 +78,19 @@ export function SignInForm() {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} method="post" className="space-y-5">
+      <form onSubmit={handleSubmit} method="post" className="space-y-5" noValidate>
         <FieldGroup>
           <Label htmlFor="username">Username</Label>
           <Input
             id="username"
+            name="username"
             type="text"
             autoComplete="username"
             placeholder="e.g. aster.tadesse"
-            {...register("username")}
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
           />
-          <FieldError>{errors.username?.message}</FieldError>
+          <FieldError>{usernameError}</FieldError>
         </FieldGroup>
 
         <FieldGroup>
@@ -77,10 +98,12 @@ export function SignInForm() {
           <div className="relative">
             <Input
               id="password"
+              name="password"
               type={showPassword ? "text" : "password"}
               autoComplete="current-password"
               className="pr-10"
-              {...register("password")}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
             />
             <button
               type="button"
@@ -96,10 +119,14 @@ export function SignInForm() {
               )}
             </button>
           </div>
-          <FieldError>{errors.password?.message}</FieldError>
+          <FieldError>{passwordError}</FieldError>
         </FieldGroup>
 
-        {formError && <p className="text-sm text-red-600">{formError}</p>}
+        {formError && (
+          <p role="alert" className="text-sm text-red-600">
+            {formError}
+          </p>
+        )}
 
         <Button type="submit" size="lg" disabled={isSubmitting} className="w-full">
           {isSubmitting ? "Signing in…" : "Sign in"}

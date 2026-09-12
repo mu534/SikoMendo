@@ -265,7 +265,7 @@ export default async function EmployeeDetailPage({
                 history={employee.employmentHistory}
                 departments={departments}
                 positions={positions}
-                currentDepartmentId={employee.departmentId}
+                currentDepartmentId={employee.departmentId ?? ""}
                 canManage={canManageHistory}
                 linkedUser={employee.user ? { id: employee.user.id, role: employee.user.role } : null}
                 canChangeRole={canChangeRole}

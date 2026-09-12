@@ -35,7 +35,7 @@ type Props = {
   record: OffboardingRecord;
   canManage: boolean;
   /** Bound cancel action passed from the server page to avoid "use server" inside a client component. */
-  cancelAction: () => Promise<void>;
+  cancelAction: () => Promise<unknown>;
 };
 
 const OFFBOARDING_CHECKLIST_LABELS: Record<
@@ -305,7 +305,6 @@ export function OffboardingPanel({
                   variant="danger"
                   size="md"
                   pendingLabel="Completing…"
-                  disabled={completePending}
                 >
                   Complete offboarding
                 </ConfirmSubmitButton>
@@ -313,7 +312,7 @@ export function OffboardingPanel({
 
               {/* Cancel offboarding — uses the bound server action passed as a prop */}
               <div className="mt-3 border-t border-ink-900/8 pt-3">
-                <form action={cancelAction}>
+                <form action={cancelAction as unknown as (formData: FormData) => Promise<void>}>
                   <button
                     type="submit"
                     className="text-sm font-medium text-ink-900/45 hover:text-ink-900"
