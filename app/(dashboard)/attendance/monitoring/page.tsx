@@ -1,29 +1,24 @@
 import { redirect } from "next/navigation";
 import { requirePermission } from "@/lib/session";
-import { can } from "@/lib/permissions";
 import { getDailyRegister } from "@/features/attendance/queries";
 import { ReadOnlyRegister } from "@/features/attendance/read-only-register";
 import { getOrgLocalDateString } from "@/lib/attendance-date";
 import { parseStringParam } from "@/lib/utils";
 
 /**
- * Attendance Monitoring — HR Officer and Manager (VIEW_ATTENDANCE required).
+ * Attendance Monitoring — HR Officer and Manager (VIEW_ATTENDANCE_MONITOR required).
  * Organisation-wide read-only daily register.
  *
- * Admin has a richer management view at /attendance/management.
- * HR Officers and Managers both land here for read-only org-wide attendance.
+ * Admin does NOT have VIEW_ATTENDANCE_MONITOR — they use /attendance/management instead.
+ * HR Officers and Managers both see the full org-wide register here (read-only).
  */
 export default async function AttendanceMonitoringPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const session = await requirePermission("VIEW_ATTENDANCE");
-
-  // Admin uses the management page which has additional controls
-  if (can(session.user.role, "MANAGE_ATTENDANCE")) {
-    redirect("/attendance/management");
-  }
+  // requirePermission redirects Admin (no VIEW_ATTENDANCE_MONITOR) to /dashboard
+  await requirePermission("VIEW_ATTENDANCE_MONITOR");
 
   const params = await searchParams;
   const today  = getOrgLocalDateString();

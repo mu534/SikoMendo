@@ -1,33 +1,24 @@
 import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/session";
-import { can } from "@/lib/permissions";
 
 /**
- * /attendance — redirects to the appropriate sub-route based on role.
+ * /attendance — redirects each role to their appropriate attendance view.
  *
- * Admin → /attendance/management (with access to all sub-routes)
- * HR Officer → /attendance/monitoring
- * Manager → /attendance/team
- * Employee → /attendance/mine
- *
- * All roles can reach /attendance/mine directly.
+ * ADMIN       → /attendance/management  (edit controls + bulk marking)
+ * HR_OFFICER  → /attendance/monitoring  (org-wide read-only)
+ * MANAGER     → /attendance/monitoring  (org-wide read-only)
+ * EMPLOYEE    → /attendance/mine        (own attendance only)
  */
 export default async function AttendanceRootPage() {
   const session = await requireSession();
-  const role = session.user.role;
 
-  if (can(role, "MANAGE_ATTENDANCE")) {
-    redirect("/attendance/management");
+  switch (session.user.role) {
+    case "ADMIN":
+      redirect("/attendance/management");
+    case "HR_OFFICER":
+    case "MANAGER":
+      redirect("/attendance/monitoring");
+    default:
+      redirect("/attendance/mine");
   }
-
-  if (role === "HR_OFFICER") {
-    redirect("/attendance/monitoring");
-  }
-
-  if (role === "MANAGER") {
-    redirect("/attendance/monitoring");
-  }
-
-  // EMPLOYEE (and any other role)
-  redirect("/attendance/mine");
 }

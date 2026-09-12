@@ -23,6 +23,9 @@ export type Action =
   | "VIEW_COOPERATIVES"
   | "MANAGE_ATTENDANCE"
   | "VIEW_ATTENDANCE"
+  // Org-wide read-only attendance register — HR Officer and Manager only.
+  // Admin uses MANAGE_ATTENDANCE (which gives the management view) instead.
+  | "VIEW_ATTENDANCE_MONITOR"
   // Self attendance: all roles with an employee record can check in/out their own attendance.
   // Server actions derive the employee from the session — employeeId is never trusted from the client.
   | "SELF_ATTENDANCE"
@@ -96,6 +99,7 @@ export const PERMISSIONS: Record<Role, Action[]> = {
     // HR Officers can VIEW attendance org-wide (read-only register).
     // They can no longer MANAGE (edit) other employees' attendance — use SELF_ATTENDANCE for own.
     "VIEW_ATTENDANCE",
+    "VIEW_ATTENDANCE_MONITOR",
     "SELF_ATTENDANCE",
     "MANAGE_DOCUMENTS",
     "GENERATE_REPORTS",
@@ -122,6 +126,7 @@ export const PERMISSIONS: Record<Role, Action[]> = {
     // MANAGER can also configure the Attendance Policy.
     // Neither can modify another employee's attendance — use SELF_ATTENDANCE for own.
     "VIEW_ATTENDANCE",
+    "VIEW_ATTENDANCE_MONITOR",
     "SELF_ATTENDANCE",
     "MANAGE_ATTENDANCE_POLICY",
     "GENERATE_REPORTS",

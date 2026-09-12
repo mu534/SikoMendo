@@ -105,8 +105,8 @@ export const NAV_ITEMS: AnyNavItem[] = [
       { href: "/attendance/mine",       label: "My Attendance",        icon: CalendarCheck                                         },
       // Admin-only: check in/out employees, bulk marking, corrections
       { href: "/attendance/management", label: "Attendance Management", icon: CalendarCheck, requires: "MANAGE_ATTENDANCE"         },
-      // HR Officer + Manager: org-wide read-only attendance register
-      { href: "/attendance/monitoring", label: "Attendance Monitoring", icon: CalendarCheck, requires: "VIEW_ATTENDANCE"            },
+      // HR Officer + Manager: org-wide read-only attendance register (not shown to Admin)
+      { href: "/attendance/monitoring", label: "Attendance Monitoring", icon: CalendarCheck, requires: "VIEW_ATTENDANCE_MONITOR"   },
       // Admin + Manager: configure work hours, grace period, late thresholds
       { href: "/attendance/policy",     label: "Attendance Policy",     icon: ShieldCheck,   requires: "MANAGE_ATTENDANCE_POLICY"   },
     ],

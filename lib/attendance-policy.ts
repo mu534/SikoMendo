@@ -18,14 +18,14 @@ import { getOrgLocalDateString } from "@/lib/attendance-date";
 
 // ── Default policy (used when no DB row exists yet) ───────────────────────
 
-export const DEFAULT_POLICY = {
-  workStartTime:          "08:00",
-  workEndTime:            "17:00",
-  gracePeriodMinutes:     15,
-  halfDayThresholdMinutes: null as number | null,
-  workingDays:            [1, 2, 3, 4, 5], // Mon–Fri
-  isActive:               true,
-} as const;
+export const DEFAULT_POLICY: PolicyValues = {
+  workStartTime:           "08:00",
+  workEndTime:             "17:00",
+  gracePeriodMinutes:      15,
+  halfDayThresholdMinutes: null,
+  workingDays:             [1, 2, 3, 4, 5],
+  isActive:                true,
+};
 
 export type PolicyValues = {
   workStartTime:           string;       // "HH:MM"

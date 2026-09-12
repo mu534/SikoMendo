@@ -19,13 +19,13 @@ const policySchema = z.object({
     .regex(/^\d{2}:\d{2}$/, "Work end time must be in HH:MM format (e.g. 17:00)"),
 
   gracePeriodMinutes: z
-    .number({ invalid_type_error: "Grace period must be a number" })
+    .number({ error: "Grace period must be a number" })
     .int("Grace period must be a whole number")
     .min(0, "Grace period cannot be negative")
     .max(120, "Grace period cannot exceed 120 minutes"),
 
   halfDayThresholdMinutes: z
-    .number({ invalid_type_error: "Half-day threshold must be a number" })
+    .number({ error: "Half-day threshold must be a number" })
     .int("Half-day threshold must be a whole number")
     .min(1, "Half-day threshold must be at least 1 minute")
     .max(480, "Half-day threshold cannot exceed 8 hours (480 minutes)")
