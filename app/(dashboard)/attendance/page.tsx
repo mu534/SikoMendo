@@ -25,7 +25,7 @@ export default async function AttendanceRootPage() {
   }
 
   if (role === "MANAGER") {
-    redirect("/attendance/team");
+    redirect("/attendance/monitoring");
   }
 
   // EMPLOYEE (and any other role)

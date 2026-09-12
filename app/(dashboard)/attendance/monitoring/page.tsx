@@ -7,9 +7,11 @@ import { getOrgLocalDateString } from "@/lib/attendance-date";
 import { parseStringParam } from "@/lib/utils";
 
 /**
- * Attendance Monitoring — HR Officer (VIEW_ATTENDANCE required).
+ * Attendance Monitoring — HR Officer and Manager (VIEW_ATTENDANCE required).
  * Organisation-wide read-only daily register.
- * HR Officers cannot check in or modify another employee's attendance here.
+ *
+ * Admin has a richer management view at /attendance/management.
+ * HR Officers and Managers both land here for read-only org-wide attendance.
  */
 export default async function AttendanceMonitoringPage({
   searchParams,
@@ -18,12 +20,9 @@ export default async function AttendanceMonitoringPage({
 }) {
   const session = await requirePermission("VIEW_ATTENDANCE");
 
-  // HR Officer only — Admin goes to /management, Manager goes to /team
+  // Admin uses the management page which has additional controls
   if (can(session.user.role, "MANAGE_ATTENDANCE")) {
     redirect("/attendance/management");
-  }
-  if (session.user.role === "MANAGER") {
-    redirect("/attendance/team");
   }
 
   const params = await searchParams;
@@ -31,7 +30,7 @@ export default async function AttendanceMonitoringPage({
   const date   = parseStringParam(params.date) || today;
   const status = parseStringParam(params.status);
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) redirect(`/attendance/monitoring`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) redirect("/attendance/monitoring");
 
   const { employees, summary } = await getDailyRegister({ date, status });
 

@@ -26,7 +26,7 @@ export type Action =
   // Self attendance: all roles with an employee record can check in/out their own attendance.
   // Server actions derive the employee from the session — employeeId is never trusted from the client.
   | "SELF_ATTENDANCE"
-  // Admin-only: configure the organisation attendance policy (work start time, grace period, etc.)
+  // Admin + Manager: configure the organisation attendance policy (work start time, grace period, etc.)
   | "MANAGE_ATTENDANCE_POLICY"
   | "MANAGE_DOCUMENTS"
   | "GENERATE_REPORTS"
@@ -118,10 +118,12 @@ export const PERMISSIONS: Record<Role, Action[]> = {
   MANAGER: [
     "VIEW_EMPLOYEES",
     "VIEW_COOPERATIVES",
-    // MANAGER can VIEW attendance (scoped to their reporting hierarchy in queries).
-    // They can no longer mark/edit any employee's attendance — use SELF_ATTENDANCE for own.
+    // MANAGER can VIEW attendance org-wide (read-only).
+    // MANAGER can also configure the Attendance Policy.
+    // Neither can modify another employee's attendance — use SELF_ATTENDANCE for own.
     "VIEW_ATTENDANCE",
     "SELF_ATTENDANCE",
+    "MANAGE_ATTENDANCE_POLICY",
     "GENERATE_REPORTS",
     "VIEW_REPORTS",
     "DASHBOARD_ANALYTICS",

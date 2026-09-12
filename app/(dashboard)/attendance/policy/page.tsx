@@ -30,9 +30,9 @@ export default async function AttendancePolicyPage() {
             title="Work Schedule &amp; Rules"
             description="These rules are used to automatically determine whether a check-in is Present, Late, or Half Day."
             action={
-              <div className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+              <div className="flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-800">
                 <Shield className="h-3.5 w-3.5" />
-                Admin only
+                Admin &amp; Manager
               </div>
             }
           />

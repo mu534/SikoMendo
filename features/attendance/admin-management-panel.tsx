@@ -49,11 +49,8 @@ function AttendanceActionCell({
   const isOnLeave     = record?.status === "ON_LEAVE";
   const [showForm, setShowForm] = useState<"checkIn" | "checkOut" | null>(null);
 
-  const checkInBound   = adminCheckIn.bind(null, null);
-  const checkOutBound  = adminCheckOut.bind(null, null);
-
-  const [checkInState,  checkInAction,  checkInPending]  = useActionState(checkInBound, null);
-  const [checkOutState, checkOutAction, checkOutPending] = useActionState(checkOutBound, null);
+  const [checkInState,  checkInAction,  checkInPending]  = useActionState(adminCheckIn, null);
+  const [checkOutState, checkOutAction, checkOutPending] = useActionState(adminCheckOut, null);
 
   if (isOnLeave) {
     return <span className="text-xs text-ink-900/40">On leave</span>;
