@@ -86,7 +86,7 @@ export function SignInForm() {
             name="username"
             type="text"
             autoComplete="username"
-            placeholder="e.g. aster.tadesse"
+            placeholder="e.g. emp-0001"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
           />

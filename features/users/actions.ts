@@ -55,8 +55,10 @@ export async function createEmployeeLoginAccount(
     if (!employee) throw new Error("Employee not found.");
     if (employee.userId) throw new Error("This employee already has a login account.");
 
-    // Username = Employee ID exactly (e.g. EMP-0001)
-    const username = employee.employeeId;
+    // Username = Employee ID in lowercase (e.g. "emp-0001").
+    // Better Auth's username plugin normalises to lowercase on sign-in lookup,
+    // so the stored value must already be lowercase or the lookup won't match.
+    const username = employee.employeeId.toLowerCase();
 
     // Check the username isn't already taken (shouldn't be, but guard it)
     const existingByUsername = await prisma.user.findUnique({ where: { username } });

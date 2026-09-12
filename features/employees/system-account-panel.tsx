@@ -133,8 +133,8 @@ function CreateAccountForm({
 
       <div className="rounded-xl border border-ink-900/8 bg-sand-50 p-4">
         <p className="text-xs text-ink-900/60">
-          Username will be set to the Employee ID:{" "}
-          <span className="font-mono font-medium text-ink-900">{employeeCode}</span>
+          Username will be set to the Employee ID (lowercase):{" "}
+          <span className="font-mono font-medium text-ink-900">{employeeCode.toLowerCase()}</span>
         </p>
       </div>
 

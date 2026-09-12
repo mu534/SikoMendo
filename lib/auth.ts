@@ -75,8 +75,11 @@ export const auth = betterAuth({
 
   plugins: [
     username({
-      // Only lowercase letters, digits, dots, hyphens, underscores allowed.
+      // Normalize (lowercase) before validation so "EMP-0001" and "emp-0001"
+      // both pass and are treated as the same username.
       usernameValidator: (u) => /^[a-z0-9._-]+$/.test(u),
+      // Run validator AFTER normalization (lowercasing), not on raw input.
+      validationOrder: { username: "pre-normalization" },
       minUsernameLength: 3,
       maxUsernameLength: 40,
     }),

@@ -216,10 +216,12 @@ export default async function LifecycleDashboardPage() {
             />
           ) : (
             <ul className="divide-y divide-ink-900/6">
-              {expiringContracts.map((contract) => {
+              {(() => {
+                const nowMs = expiringContracts.length > 0 ? Date.now() : 0;
+                return expiringContracts.map((contract) => {
                 const daysLeft = contract.endDate
                   ? Math.ceil(
-                      (contract.endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+                      (contract.endDate.getTime() - nowMs) / (1000 * 60 * 60 * 24)
                     )
                   : null;
                 return (
@@ -250,6 +252,9 @@ export default async function LifecycleDashboardPage() {
                   </li>
                 );
               })}
+              </ul>
+              );
+              })()}
             </ul>
           )}
         </Card>
