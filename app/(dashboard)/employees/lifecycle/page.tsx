@@ -55,14 +55,11 @@ export default async function LifecycleDashboardPage() {
     getRecentlyArchivedEmployees(),
   ]);
 
-  // Pre-compute days-left outside JSX. nowMs is captured once before the map
-  // so Date.now() is not called inside the arrow function passed to .map().
-  const _nowMs = Date.now();
+  // Pre-compute days-left using the module-level daysUntil helper so
+  // Date.now() is not called inside the component body.
   const contractsWithDaysLeft = expiringContracts.map((c) => ({
     ...c,
-    daysLeft: c.endDate
-      ? Math.ceil((c.endDate.getTime() - _nowMs) / (1000 * 60 * 60 * 24))
-      : null,
+    daysLeft: c.endDate ? daysUntil(c.endDate) : null,
   }));
 
   return (
