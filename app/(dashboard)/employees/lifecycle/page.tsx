@@ -49,6 +49,16 @@ export default async function LifecycleDashboardPage() {
     getRecentlyArchivedEmployees(),
   ]);
 
+  // Pre-compute days-left outside JSX. Date.now() is safe in a server component
+  // (called once per request, not on re-render) — suppress the client-oriented rule.
+  const contractsWithDaysLeft = expiringContracts.map((c) => ({
+    ...c,
+    // eslint-disable-next-line react-hooks/purity
+    daysLeft: c.endDate
+      ? Math.ceil((c.endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+      : null,
+  }));
+
   return (
     <div className="space-y-8">
       {/* ── Page header ───────────────────────────────────────────────────── */}
@@ -216,14 +226,8 @@ export default async function LifecycleDashboardPage() {
             />
           ) : (
             <ul className="divide-y divide-ink-900/6">
-              {(() => {
-                const nowMs = expiringContracts.length > 0 ? Date.now() : 0;
-                return expiringContracts.map((contract) => {
-                const daysLeft = contract.endDate
-                  ? Math.ceil(
-                      (contract.endDate.getTime() - nowMs) / (1000 * 60 * 60 * 24)
-                    )
-                  : null;
+              {contractsWithDaysLeft.map((contract) => {
+                const { daysLeft } = contract;
                 return (
                   <li key={contract.id} className="flex items-center gap-3 px-5 py-3">
                     <div className="min-w-0 flex-1">
@@ -252,9 +256,6 @@ export default async function LifecycleDashboardPage() {
                   </li>
                 );
               })}
-              </ul>
-              );
-              })()}
             </ul>
           )}
         </Card>

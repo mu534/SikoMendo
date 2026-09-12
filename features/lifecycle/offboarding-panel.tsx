@@ -9,7 +9,6 @@ import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import {
   startOffboarding,
   completeOffboarding,
-  cancelOffboarding,
 } from "./actions";
 import {
   OFFBOARDING_REASONS,
@@ -61,7 +60,7 @@ export function OffboardingPanel({
   const completeBound = completeOffboarding.bind(null, employeeId);
 
   const [startState,    startAction,    startPending]    = useActionState<unknown, FormData>(startBound, null);
-  const [completeState, completeAction, completePending] = useActionState<unknown, FormData>(completeBound, null);
+  const [completeState, completeAction] = useActionState<unknown, FormData>(completeBound, null);
 
   const startError =
     startState && (startState as { success: boolean }).success === false

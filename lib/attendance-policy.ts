@@ -91,7 +91,7 @@ export type AttendanceStatusResult =
 export function evaluateCheckInStatus(
   checkInUtc: Date,
   policy: PolicyValues,
-  dateStr: string
+  _dateStr: string  // reserved for future working-day validation; unused for now
 ): AttendanceStatusResult {
   const workStartMinutes    = parseTimeToMinutes(policy.workStartTime);
   const graceCutoff         = workStartMinutes + policy.gracePeriodMinutes;

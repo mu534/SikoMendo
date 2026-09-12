@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef } from "react";
+import { useActionState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { Input, Label, FieldGroup, FieldError } from "@/components/ui/field";
@@ -40,19 +40,15 @@ function ErrorAlert({ message }: { message: string }) {
 }
 
 /**
- * Calls router.refresh() once when mounted, then disappears.
- * Isolating the side-effect in a leaf component keeps it out of
- * parent effects and avoids the react-hooks/set-state-in-effect rule.
+ * Calls router.refresh() exactly once when mounted.
+ * Uses useEffect so the refresh fires after paint, not during render.
  */
 function RouterRefresher() {
   const router = useRouter();
-  // useRef so this runs exactly once on mount without needing useEffect
-  const refreshed = useRef(false);
-  if (!refreshed.current) {
-    refreshed.current = true;
-    // Schedule after paint so the server re-fetch doesn't block rendering
-    Promise.resolve().then(() => router.refresh());
-  }
+  useEffect(() => {
+    router.refresh();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // empty deps — intentionally runs once on mount only
   return null;
 }
 
