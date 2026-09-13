@@ -8,7 +8,14 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest --run",
-    "postinstall": "node scripts/patch-better-auth.js"
+    "postinstall": "node scripts/patch-better-auth.js",
+    "db:health": "tsx scripts/db-health-check.ts",
+    "db:seed": "prisma db seed",
+    "env:validate": "tsx scripts/validate-env.ts",
+    "health:check": "tsx scripts/health-check.ts",
+    "dev:setup": "tsx scripts/dev-setup.ts",
+    "dev:clean": "tsx scripts/dev-clean.ts",
+    "predeploy": "tsx scripts/pre-deploy-check.ts"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.2.8",

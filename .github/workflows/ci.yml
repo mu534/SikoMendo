@@ -7,12 +7,12 @@ on:
     branches: [main]
 
 jobs:
-  # ── Step 1: lint, typecheck, unit tests (no database needed) ─────────────
+  # ── Job 1: lint, typecheck, unit tests (no database needed) ──────────────
   lint-typecheck-test:
     runs-on: ubuntu-latest
 
     env:
-      # Placeholder values — these steps don't connect to any real service.
+      # Placeholder values — nothing here connects to a real service.
       # lib/env.ts validates presence at import time; the actual values are
       # never used during lint / typecheck / pure unit tests.
       DATABASE_URL: "postgresql://user:password@localhost:5432/ci_placeholder"
@@ -47,10 +47,15 @@ jobs:
       - name: Run unit tests
         run: npm test
 
-  # ── Step 2: production build (requires a real reachable Postgres) ─────────
+      - name: Security audit
+        # Fails only on CRITICAL severity vulnerabilities.
+        # For HIGH/MODERATE, audit info is shown but the job continues.
+        run: npm audit --audit-level=critical
+
+  # ── Job 2: production build + migration (requires real Postgres) ──────────
   build:
     runs-on: ubuntu-latest
-    needs: lint-typecheck-test   # only run if lint/test pass
+    needs: lint-typecheck-test  # only run if Job 1 passes
 
     services:
       postgres:
@@ -69,7 +74,7 @@ jobs:
 
     env:
       DATABASE_URL: "postgresql://hris:hris_ci_pw@localhost:5432/siko_mendo_ci?schema=public"
-      BETTER_AUTH_SECRET: "ci-build-secret-at-least-32-chars-long"
+      BETTER_AUTH_SECRET: "ci-build-secret-at-least-32-chars-long!!"
       BETTER_AUTH_URL: "http://localhost:3000"
       NEXT_PUBLIC_APP_URL: "http://localhost:3000"
       CLOUDINARY_CLOUD_NAME: "ci-placeholder"
@@ -92,14 +97,19 @@ jobs:
         run: npx prisma generate
 
       - name: Wait for Postgres
-        run: |
-          until pg_isready -h localhost -U hris; do
-            echo "Waiting for Postgres…"
-            sleep 1
-          done
+        run: until pg_isready -h localhost -U hris; do echo "Waiting…"; sleep 1; done
 
       - name: Apply database migrations
         run: npx prisma migrate deploy
 
+      - name: Validate environment
+        run: npm run env:validate
+
+      - name: Database health check
+        run: npm run db:health
+
       - name: Production build
         run: npm run build
+
+      - name: Seed database (org structure only)
+        run: npx prisma db seed
