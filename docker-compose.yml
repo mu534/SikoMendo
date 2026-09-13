@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sikomendo_postgres
+    environment:
+      POSTGRES_USER: hris
+      POSTGRES_PASSWORD: hris_dev_pw
+      POSTGRES_DB: sikomendo_dev
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hris"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - sikomendo
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sikomendo_app
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: "postgresql://hris:hris_dev_pw@postgres:5432/sikomendo_dev"
+      BETTER_AUTH_SECRET: "dev-secret-must-be-at-least-32-characters-long!!"
+      BETTER_AUTH_URL: "http://localhost:3000"
+      NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+      CLOUDINARY_CLOUD_NAME: "dev-placeholder"
+      CLOUDINARY_API_KEY: "dev-placeholder"
+      CLOUDINARY_API_SECRET: "dev-placeholder"
+      NODE_ENV: "development"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - sikomendo
+    command: sh -c "npm ci && npx prisma generate && npx prisma migrate deploy && npm run dev"
+
+volumes:
+  postgres_data:
+
+networks:
+  sikomendo:
