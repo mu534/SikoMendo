@@ -7,6 +7,7 @@ import { Input, Label, Select, Textarea, FieldGroup, FieldError } from "@/compon
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { BasicInformationSection } from "./form-sections/BasicInformationSection";
+import { AddressInformationSection } from "./form-sections/AddressInformationSection";
 import { RequiredMark, SectionHeader, toDateInputValue } from "./form-utils";
 import type { CooperativeFormValues } from "./form-utils";
 
@@ -131,38 +132,7 @@ export function CooperativeForm({
         {/* ══════════════════════════════════════════════════════════════════
             SECTION 2 — Address Information
         ══════════════════════════════════════════════════════════════════ */}
-        <Card className="p-6">
-          <SectionHeader icon={MapPin} title="Address Information" />
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <FieldGroup>
-              <Label htmlFor="district">
-                District / Aanaa<RequiredMark />
-              </Label>
-              <Input
-                id="district"
-                name="district"
-                required
-                aria-required="true"
-                defaultValue={cooperative?.district ?? ""}
-                placeholder="e.g. Goba"
-              />
-            </FieldGroup>
-
-            <FieldGroup>
-              <Label htmlFor="kebele">
-                Kebele / Ganda<RequiredMark />
-              </Label>
-              <Input
-                id="kebele"
-                name="kebele"
-                required
-                aria-required="true"
-                defaultValue={cooperative?.kebele ?? ""}
-                placeholder="e.g. 01"
-              />
-            </FieldGroup>
-          </div>
-        </Card>
+        <AddressInformationSection cooperative={cooperative} />
 
         {/* ══════════════════════════════════════════════════════════════════
             SECTION 3 — Registration Details
