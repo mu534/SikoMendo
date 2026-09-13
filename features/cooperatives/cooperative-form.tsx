@@ -2,72 +2,16 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, MapPin, FileText, Users, Wallet } from "lucide-react";
+import { MapPin, FileText, Users, Wallet, Building2 } from "lucide-react";
 import { Input, Label, Select, Textarea, FieldGroup, FieldError } from "@/components/ui/field";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { BasicInformationSection } from "./form-sections/BasicInformationSection";
+import { RequiredMark, SectionHeader, toDateInputValue } from "./form-utils";
+import type { CooperativeFormValues } from "./form-utils";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-export type CooperativeFormValues = {
-  cooperativeId?: string;           // Auto-generated, read-only
-
-  // Section 1 — Basic (required)
-  name: string;
-  cooperativeType: string;
-  registrationNumber: string;
-  registrationDate: string;    // ISO string — RSC can't pass Date to client
-  dateJoinedUnion: string;     // ISO string — RSC can't pass Date to client
-  isActive: boolean;
-
-  // Section 2 — Address (required)
-  district: string;
-  kebele: string;
-
-  // Section 3 — Registration Details (required)
-  businessType: string;
-  registrationFee: number;
-  numberOfShares: number;
-  pricePerShare: number;
-
-  // Section 4 — Membership (required)
-  totalMembers: number;
-  maleMembers: number;
-  femaleMembers: number;
-
-  // Section 5 — Capital (required)
-  fixedAssets: number;
-  currentAssets: number;
-
-  // Section 6 — Contact & Additional (all optional)
-  description?: string | null;
-  location?: string | null;
-  contactPerson?: string | null;
-  contactEmail?: string | null;
-  contactPhone?: string | null;
-};
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function toDateInputValue(date?: string | null): string {
-  if (!date) return "";
-  return new Date(date).toISOString().split("T")[0];
-}
-
-function RequiredMark() {
-  return <span className="ml-0.5 text-red-500" aria-hidden="true">*</span>;
-}
-
-function SectionHeader({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
-  return (
-    <div className="mb-5 flex items-center gap-2.5 border-b border-ink-900/8 pb-4">
-      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
-        <Icon className="h-4 w-4" />
-      </div>
-      <h3 className="font-display text-base font-semibold text-ink-900">{title}</h3>
-    </div>
-  );
-}
+// Re-export so existing importers (pages) of the old location keep working
+export type { CooperativeFormValues };
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -182,127 +126,7 @@ export function CooperativeForm({
         {/* ══════════════════════════════════════════════════════════════════
             SECTION 1 — Basic Information
         ══════════════════════════════════════════════════════════════════ */}
-        <Card className="p-6">
-          <SectionHeader icon={Building2} title="Basic Information" />
-          <div className="space-y-5">
-
-            {/* Row: Cooperative ID (read-only) + Cooperative Name* */}
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <FieldGroup>
-                <Label htmlFor="cooperativeId_display">Cooperative ID</Label>
-                <Input
-                  id="cooperativeId_display"
-                  readOnly
-                  tabIndex={-1}
-                  aria-readonly="true"
-                  value={cooperative?.cooperativeId ?? cooperativeId ?? "Auto-generated"}
-                  className="cursor-default bg-sand-100"
-                />
-              </FieldGroup>
-
-              <FieldGroup>
-                <Label htmlFor="name">
-                  Cooperative Name<RequiredMark />
-                </Label>
-                <Input
-                  id="name"
-                  name="name"
-                  required
-                  aria-required="true"
-                  defaultValue={cooperative?.name ?? ""}
-                  placeholder="e.g. Bale Farmers Cooperative"
-                />
-              </FieldGroup>
-            </div>
-
-            {/* Row: Cooperative Type* + Registration Number* */}
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <FieldGroup>
-                <Label htmlFor="cooperativeType">
-                  Cooperative Type<RequiredMark />
-                </Label>
-                <Select
-                  id="cooperativeType"
-                  name="cooperativeType"
-                  required
-                  aria-required="true"
-                  defaultValue={cooperative?.cooperativeType ?? ""}
-                >
-                  <option value="">Select type…</option>
-                  <option value="Agricultural">Agricultural</option>
-                  <option value="Savings & Credit">Savings &amp; Credit</option>
-                  <option value="Consumer">Consumer</option>
-                  <option value="Marketing">Marketing</option>
-                  <option value="Service">Service</option>
-                  <option value="Multi-Purpose">Multi-Purpose</option>
-                </Select>
-              </FieldGroup>
-
-              <FieldGroup>
-                <Label htmlFor="registrationNumber">
-                  Registration Number<RequiredMark />
-                </Label>
-                <Input
-                  id="registrationNumber"
-                  name="registrationNumber"
-                  required
-                  aria-required="true"
-                  defaultValue={cooperative?.registrationNumber ?? ""}
-                />
-              </FieldGroup>
-            </div>
-
-            {/* Row: Registration Date* + Date Joined Union* */}
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <FieldGroup>
-                <Label htmlFor="registrationDate">
-                  Registration Date<RequiredMark />
-                </Label>
-                <Input
-                  id="registrationDate"
-                  name="registrationDate"
-                  type="date"
-                  required
-                  aria-required="true"
-                  defaultValue={toDateInputValue(cooperative?.registrationDate)}
-                />
-              </FieldGroup>
-
-              <FieldGroup>
-                <Label htmlFor="dateJoinedUnion">
-                  Date Joined Union<RequiredMark />
-                </Label>
-                <Input
-                  id="dateJoinedUnion"
-                  name="dateJoinedUnion"
-                  type="date"
-                  required
-                  aria-required="true"
-                  defaultValue={toDateInputValue(cooperative?.dateJoinedUnion)}
-                />
-              </FieldGroup>
-            </div>
-
-            {/* Row: Status* (half-width) */}
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <FieldGroup>
-                <Label htmlFor="isActive">
-                  Status<RequiredMark />
-                </Label>
-                <Select
-                  id="isActive"
-                  name="isActive"
-                  required
-                  aria-required="true"
-                  defaultValue={cooperative?.isActive === false ? "false" : "true"}
-                >
-                  <option value="true">Active</option>
-                  <option value="false">Inactive</option>
-                </Select>
-              </FieldGroup>
-            </div>
-          </div>
-        </Card>
+        <BasicInformationSection cooperative={cooperative} cooperativeId={cooperativeId} />
 
         {/* ══════════════════════════════════════════════════════════════════
             SECTION 2 — Address Information
