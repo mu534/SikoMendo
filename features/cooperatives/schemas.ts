@@ -106,3 +106,44 @@ export function cooperativeFormDataToObject(formData: FormData) {
     contactPhone: formData.get("contactPhone"),
   };
 }
+
+// ── Legal certificate file validation ─────────────────────────────────────────
+
+/** Allowed MIME types for the cooperative legal certificate. */
+export const CERTIFICATE_ALLOWED_MIME_TYPES = [
+  "application/pdf",
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+] as const;
+
+/** Allowed file extensions (lower-cased). */
+export const CERTIFICATE_ALLOWED_EXTENSIONS = ["pdf", "jpg", "jpeg", "png"] as const;
+
+/** Maximum file size: 10 MB. */
+export const CERTIFICATE_MAX_BYTES = 10 * 1024 * 1024;
+
+export type CertificateAllowedMime = (typeof CERTIFICATE_ALLOWED_MIME_TYPES)[number];
+
+/**
+ * Validates a legal certificate File object server-side.
+ * Returns null on success, or an error message string on failure.
+ */
+export function validateCertificateFile(file: File): string | null {
+  if (!file || file.size === 0) {
+    return "Legal certificate file is required.";
+  }
+  if (file.size > CERTIFICATE_MAX_BYTES) {
+    return `File is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum allowed size is 10 MB.`;
+  }
+  const mimeOk = (CERTIFICATE_ALLOWED_MIME_TYPES as readonly string[]).includes(file.type);
+  if (!mimeOk) {
+    return `Unsupported file type "${file.type}". Allowed formats: PDF, JPG, JPEG, PNG.`;
+  }
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  const extOk = (CERTIFICATE_ALLOWED_EXTENSIONS as readonly string[]).includes(ext);
+  if (!extOk) {
+    return `Unsupported file extension ".${ext}". Allowed extensions: .pdf, .jpg, .jpeg, .png.`;
+  }
+  return null;
+}

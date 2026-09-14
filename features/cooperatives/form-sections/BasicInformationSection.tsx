@@ -9,6 +9,7 @@ import type { CooperativeFormValues } from "../form-utils";
 type Props = {
   cooperative?: CooperativeFormValues;
   cooperativeId?: string;
+  onNameChange?: (v: string) => void;
 };
 
 /**
@@ -16,7 +17,7 @@ type Props = {
  * Contains cooperative ID (read-only), name, type, registration number,
  * registration date, date joined union, and status.
  */
-export function BasicInformationSection({ cooperative, cooperativeId }: Props) {
+export function BasicInformationSection({ cooperative, cooperativeId, onNameChange }: Props) {
   return (
     <Card className="p-6">
       <SectionHeader icon={Building2} title="Basic Information" />
@@ -47,6 +48,7 @@ export function BasicInformationSection({ cooperative, cooperativeId }: Props) {
               aria-required="true"
               defaultValue={cooperative?.name ?? ""}
               placeholder="e.g. Bale Farmers Cooperative"
+              onChange={onNameChange ? (e) => onNameChange(e.target.value) : undefined}
             />
           </FieldGroup>
         </div>

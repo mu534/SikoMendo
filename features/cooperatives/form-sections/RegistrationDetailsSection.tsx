@@ -4,6 +4,7 @@ import { FileText } from "lucide-react";
 import { Input, Label, FieldGroup } from "@/components/ui/field";
 import { Card } from "@/components/ui/card";
 import { RequiredMark, SectionHeader } from "../form-utils";
+import { LegalCertificateSection } from "./LegalCertificateSection";
 import type { CooperativeFormValues } from "../form-utils";
 
 type Props = {
@@ -13,13 +14,16 @@ type Props = {
   totalShareValue: number | null;
   onNumSharesChange: (v: string) => void;
   onPriceShareChange: (v: string) => void;
+  isCreate?: boolean;
+  onCertChange?: (uploaded: boolean) => void;
 };
 
 /**
- * Section 3 of CooperativeForm: Registration Details.
+ * Section 3 of CooperativeForm: Registration Details + Legal Certificate.
  * businessType and registrationFee use defaultValue (uncontrolled).
  * numberOfShares and pricePerShare are controlled so the parent can derive
  * the auto-calculated totalShareValue.
+ * The LegalCertificateSection is embedded at the bottom of this card.
  */
 export function RegistrationDetailsSection({
   cooperative,
@@ -28,10 +32,21 @@ export function RegistrationDetailsSection({
   totalShareValue,
   onNumSharesChange,
   onPriceShareChange,
+  isCreate = false,
+  onCertChange,
 }: Props) {
+  const existingCert =
+    cooperative?.legalCertificateFileName
+      ? {
+          fileName: cooperative.legalCertificateFileName,
+          fileSize: cooperative.legalCertificateFileSize ?? 0,
+          viewUrl: cooperative.legalCertificateViewUrl ?? null,
+        }
+      : null;
+
   return (
     <Card className="p-6">
-      <SectionHeader icon={FileText} title="Registration Details" />
+      <SectionHeader icon={FileText} title="Registration & Legal" />
       <div className="space-y-5">
 
         {/* Row: Business Type* + Registration Fee* */}
@@ -127,6 +142,9 @@ export function RegistrationDetailsSection({
             placeholder="Calculated from shares × price per share"
           />
         </FieldGroup>
+
+        {/* ── Legal Certificate ──────────────────────────────────────────── */}
+        <LegalCertificateSection existing={existingCert} isCreate={isCreate} onCertChange={onCertChange} />
       </div>
     </Card>
   );

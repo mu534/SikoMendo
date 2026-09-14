@@ -38,6 +38,11 @@ export type CooperativeFormValues = {
   contactPerson?: string | null;
   contactEmail?: string | null;
   contactPhone?: string | null;
+  // Legal certificate — populated on edit, absent on create
+  legalCertificateFileName?: string | null;
+  legalCertificateFileSize?: number | null;
+  /** Pre-generated signed view URL — only passed when editing so the View button works. */
+  legalCertificateViewUrl?: string | null;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

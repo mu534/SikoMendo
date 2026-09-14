@@ -394,6 +394,13 @@ model Cooperative {
   // unrelated in this system; a Union's own staff are separate from the
   // member cooperatives it oversees)
 
+  // Legal certificate (uploaded to Cloudinary, access: "authenticated")
+  legalCertificateKey          String? // Cloudinary public_id
+  legalCertificateUrl          String? // Cloudinary secure_url (plain — use signed URL at display time)
+  legalCertificateResourceType String? // "image" | "raw" — stored so getSignedFileUrl uses the right type
+  legalCertificateFileName     String? // Original file name shown in UI
+  legalCertificateFileSize     Int?    // Bytes, shown in UI
+
   // Timestamps & soft delete
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt

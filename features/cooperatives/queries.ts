@@ -5,11 +5,20 @@ import { PAGE_SIZE } from "@/lib/utils";
 export type CooperativeListFilters = {
   q?: string;
   status?: string; // "active" | "inactive" | ""
+  district?: string;
+  type?: string;
   showArchived?: boolean;
   page: number;
 };
 
-export async function listCooperatives({ q, status, showArchived, page }: CooperativeListFilters) {
+export async function listCooperatives({
+  q,
+  status,
+  district,
+  type,
+  showArchived,
+  page,
+}: CooperativeListFilters) {
   const where = {
     deletedAt: showArchived ? { not: null } : null,
     AND: [
@@ -19,11 +28,14 @@ export async function listCooperatives({ q, status, showArchived, page }: Cooper
               { name: { contains: q, mode: "insensitive" as const } },
               { cooperativeId: { contains: q, mode: "insensitive" as const } },
               { location: { contains: q, mode: "insensitive" as const } },
+              { district: { contains: q, mode: "insensitive" as const } },
             ],
           }
         : {},
       status === "active" ? { isActive: true } : {},
       status === "inactive" ? { isActive: false } : {},
+      district && district !== "" ? { district: { contains: district, mode: "insensitive" as const } } : {},
+      type && type !== "" ? { cooperativeType: { contains: type, mode: "insensitive" as const } } : {},
     ],
   };
 
@@ -33,11 +45,38 @@ export async function listCooperatives({ q, status, showArchived, page }: Cooper
       orderBy: { name: "asc" },
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
+      select: {
+        id: true,
+        cooperativeId: true,
+        name: true,
+        cooperativeType: true,
+        district: true,
+        location: true,
+        contactPerson: true,
+        contactPhone: true,
+        contactEmail: true,
+        totalMembers: true,
+        fixedAssets: true,
+        currentAssets: true,
+        isActive: true,
+        deletedAt: true,
+        legalCertificateKey: true,
+      },
     }),
     prisma.cooperative.count({ where }),
   ]);
 
   return { items, total, totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)) };
+}
+
+export async function getCooperativeCounts() {
+  const [total, active, inactive, archived] = await Promise.all([
+    prisma.cooperative.count({ where: { deletedAt: null } }),
+    prisma.cooperative.count({ where: { deletedAt: null, isActive: true } }),
+    prisma.cooperative.count({ where: { deletedAt: null, isActive: false } }),
+    prisma.cooperative.count({ where: { deletedAt: { not: null } } }),
+  ]);
+  return { total, active, inactive, archived };
 }
 
 export async function getCooperativeById(id: string) {

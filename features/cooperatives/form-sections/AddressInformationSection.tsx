@@ -8,13 +8,14 @@ import type { CooperativeFormValues } from "../form-utils";
 
 type Props = {
   cooperative?: CooperativeFormValues;
+  onDistrictChange?: (v: string) => void;
 };
 
 /**
  * Section 2 of CooperativeForm: Address Information.
  * Contains district (Aanaa) and kebele (Ganda) — both required.
  */
-export function AddressInformationSection({ cooperative }: Props) {
+export function AddressInformationSection({ cooperative, onDistrictChange }: Props) {
   return (
     <Card className="p-6">
       <SectionHeader icon={MapPin} title="Address Information" />
@@ -30,6 +31,7 @@ export function AddressInformationSection({ cooperative }: Props) {
             aria-required="true"
             defaultValue={cooperative?.district ?? ""}
             placeholder="e.g. Goba"
+            onChange={onDistrictChange ? (e) => onDistrictChange(e.target.value) : undefined}
           />
         </FieldGroup>
 
