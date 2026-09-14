@@ -383,7 +383,11 @@ export default async function EmployeeDetailPage({
               <SystemAccountPanel
                 employeeId={employee.id}
                 employeeCode={employee.employeeId}
-                linkedUser={"user" in employee ? (employee.user ?? null) : null}
+                linkedUser={
+                  "user" in employee && employee.user
+                    ? (employee.user as { id: string; username: string | null; role: string; banned: boolean; mustChangePassword: boolean })
+                    : null
+                }
                 canManage={canManageUsers}
               />
             )}
@@ -406,7 +410,7 @@ export default async function EmployeeDetailPage({
               positions={positions}
               currentDepartmentId={employee.departmentId ?? ""}
               canManage={canManageHistory}
-              linkedUser={"user" in employee && employee.user ? { id: employee.user.id, role: employee.user.role } : null}
+              linkedUser={"user" in employee && employee.user ? (employee.user as { id: string; role: string }) : null}
               canChangeRole={canChangeRole}
             />
 
