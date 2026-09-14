@@ -85,7 +85,8 @@ export async function getEmployeeByIdForViewer(
   const subordinateIds = await getSubordinateIds(viewerEmployee.id);
   if (!subordinateIds.includes(employeeId)) return null; // Not in hierarchy
 
-  // Return limited fields — no documents, no contracts, no user/security info
+  // Return limited fields for manager — includes documents (read-only view),
+  // but excludes contracts, user/security info (those remain admin/HR only)
   return prisma.employee.findUnique({
     where: { id: employeeId },
     include: {
@@ -99,8 +100,11 @@ export async function getEmployeeByIdForViewer(
         },
         orderBy: { effectiveDate: "desc" },
       },
-      // Sensitive relations intentionally omitted for MANAGER:
-      // user, documents, contracts
+      // Documents included for read-only manager access.
+      // Managers cannot upload or delete — that is enforced server-side by the
+      // MANAGE_DOCUMENTS permission check in features/employees/actions.ts.
+      documents: { where: { deletedAt: null }, orderBy: { createdAt: "desc" } },
+      // Intentionally omitted for MANAGER: user (security info), contracts
     },
   });
 }
@@ -381,17 +385,20 @@ export async function assertRestoreSafe(employeeId: string): Promise<{ keepStatu
 
 /**
  * Returns which tabs a viewer role can access on the employee detail page.
+ *
+ * Managers can view documents as read-only — they cannot upload or delete.
+ * Upload/delete requires MANAGE_DOCUMENTS which only Admin/HR_Officer hold.
  */
 export function getEmployeeDetailTabPermissions(role: string | undefined) {
   const isFullViewer = role === "ADMIN" || role === "HR_OFFICER";
   const isManager    = role === "MANAGER";
 
   return {
-    canViewOverview:    isFullViewer || isManager,
-    canViewHistory:     isFullViewer || isManager, // limited for manager — no role change
-    canViewContracts:   isFullViewer,              // sensitive — admin/HR only
-    canViewDocuments:   isFullViewer,              // sensitive — admin/HR only
-    canViewLifecycle:   isFullViewer || isManager, // managers can view lifecycle status
+    canViewOverview:      isFullViewer || isManager,
+    canViewHistory:       isFullViewer || isManager, // read-only for manager (no role change)
+    canViewContracts:     isFullViewer,              // sensitive — admin/HR only
+    canViewDocuments:     isFullViewer || isManager, // managers: read-only
+    canViewLifecycle:     isFullViewer || isManager,
     canViewSystemAccount: isFullViewer && role === "ADMIN", // admin only
     isFullViewer,
     isManager,
