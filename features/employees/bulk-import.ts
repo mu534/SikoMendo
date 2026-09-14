@@ -4,9 +4,9 @@ import { type EmploymentType, type EducationLevel, type MaritalStatus, type Gend
 import prisma from "@/lib/prisma";
 import { employeeSchema } from "./schemas";
 import { generateNextEmployeeId } from "./queries";
+import { assertPositionInDepartment } from "@/lib/employee-access";
 
-/** Column headers the import template/CSV must use. userId is deliberately
- *  excluded — that's a relationship field best set individually via the employee form. */
+/** Column headers the import template/CSV must use. */
 export const IMPORT_COLUMNS = [
   "firstName",
   "middleName",
@@ -24,13 +24,16 @@ export const IMPORT_COLUMNS = [
   "department",
   "position",
   "hireDate",
-  "employmentStatus",
   "employmentType",
   "educationLevel",
   "fieldOfStudy",
   "institutionName",
   "graduationYear",
 ] as const;
+
+// P2-12: employmentStatus is intentionally NOT in the import columns.
+// All imported employees start in ONBOARDING state. Arbitrary status import
+// is not permitted — it would bypass the lifecycle workflow.
 
 export type ImportRowResult =
   | { row: number; status: "created"; employeeId: string; name: string }
@@ -53,9 +56,17 @@ export function parseEmployeeCsv(text: string): {
 }
 
 /**
- * Creates one employee per valid row. Processed sequentially (not in parallel) —
- * generateNextEmployeeId reads the current max ID on each call, so rows must be
- * created one at a time within the batch to avoid generating duplicate IDs.
+ * Creates one employee per valid row.
+ *
+ * P2-12: Each successful row creates Employee + EmploymentHistory + OnboardingRecord
+ * in a single Prisma transaction so no partially-created state is left on failure.
+ * All imported employees start in ONBOARDING — the CSV cannot override this.
+ *
+ * P2-11: Position must belong to the selected department (verified server-side).
+ * P0-3: Manager assignment validation is applied when managerId is provided.
+ *
+ * Rows are processed sequentially (not in parallel) because generateNextEmployeeId
+ * uses a sequence that must advance one step at a time.
  */
 export async function importEmployeeRows(
   rows: Record<string, string>[],
@@ -65,116 +76,149 @@ export async function importEmployeeRows(
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
-    const rowNumber = i + 2; // +1 for 0-index, +1 for the header row
+    const rowNumber  = i + 2; // +1 for 0-index, +1 for the header row
     const displayName = `${row.firstName ?? ""} ${row.lastName ?? ""}`.trim() || `Row ${rowNumber}`;
 
-    // The CSV uses department/position names (user-friendly); resolve them to the
-    // IDs the schema actually expects. Case-insensitive, since spreadsheet entry
-    // is prone to casing slips.
-    const departmentName = row.department?.trim();
-    const positionName = row.position?.trim();
+    try {
+      // ── 1. Resolve department ──────────────────────────────────────────────
+      const departmentName = row.department?.trim();
+      if (!departmentName) {
+        results.push({ row: rowNumber, status: "error", name: displayName, errors: ["department: Department is required"] });
+        continue;
+      }
 
-    if (!departmentName) {
-      results.push({ row: rowNumber, status: "error", name: displayName, errors: ["department: Department is required"] });
-      continue;
-    }
-
-    const department = await prisma.department.findFirst({
-      where: { name: { equals: departmentName, mode: "insensitive" }, isActive: true },
-    });
-    if (!department) {
-      results.push({
-        row: rowNumber,
-        status: "error",
-        name: displayName,
-        errors: [`department: "${departmentName}" doesn't match any active department.`],
+      const department = await prisma.department.findFirst({
+        where: { name: { equals: departmentName, mode: "insensitive" }, isActive: true },
       });
-      continue;
-    }
-
-    if (!positionName) {
-      results.push({ row: rowNumber, status: "error", name: displayName, errors: ["position: Position is required"] });
-      continue;
-    }
-
-    const position = await prisma.position.findFirst({
-      where: { name: { equals: positionName, mode: "insensitive" }, departmentId: department.id, isActive: true },
-    });
-    if (!position) {
-      results.push({
-        row: rowNumber,
-        status: "error",
-        name: displayName,
-        errors: [`position: "${positionName}" doesn't match any active position in ${department.name}.`],
-      });
-      continue;
-    }
-
-    const parsed = employeeSchema.safeParse({
-      ...row,
-      departmentId: department.id,
-      positionId: position.id,
-      userId: "",
-    });
-    if (!parsed.success) {
-      results.push({
-        row: rowNumber,
-        status: "error",
-        name: displayName,
-        errors: parsed.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`),
-      });
-      continue;
-    }
-
-    if (parsed.data.email) {
-      const duplicate = await prisma.employee.findFirst({
-        where: { email: parsed.data.email, deletedAt: null },
-      });
-      if (duplicate) {
+      if (!department) {
         results.push({
-          row: rowNumber,
-          status: "error",
-          name: displayName,
-          errors: [
-            `Duplicate email — already exists for ${duplicate.firstName} ${duplicate.lastName} (${duplicate.employeeId}).`,
-          ],
+          row: rowNumber, status: "error", name: displayName,
+          errors: [`department: "${departmentName}" doesn't match any active department.`],
         });
         continue;
       }
-    }
 
-    try {
+      // ── 2. Resolve position ────────────────────────────────────────────────
+      const positionName = row.position?.trim();
+      if (!positionName) {
+        results.push({ row: rowNumber, status: "error", name: displayName, errors: ["position: Position is required"] });
+        continue;
+      }
+
+      const position = await prisma.position.findFirst({
+        where: {
+          name: { equals: positionName, mode: "insensitive" },
+          departmentId: department.id,
+          isActive: true,
+        },
+      });
+      if (!position) {
+        results.push({
+          row: rowNumber, status: "error", name: displayName,
+          errors: [`position: "${positionName}" doesn't match any active position in ${department.name}.`],
+        });
+        continue;
+      }
+
+      // ── 3. Parse and validate with Zod schema ──────────────────────────────
+      const parsed = employeeSchema.safeParse({
+        ...row,
+        departmentId: department.id,
+        positionId:   position.id,
+        userId: "",
+        // P2-12: Force ONBOARDING — ignore any employmentStatus in the CSV
+        employmentStatus: "ONBOARDING",
+      });
+      if (!parsed.success) {
+        results.push({
+          row: rowNumber, status: "error", name: displayName,
+          errors: parsed.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`),
+        });
+        continue;
+      }
+
+      // P2-11: Belt-and-suspenders position/department check
+      await assertPositionInDepartment(position.id, department.id);
+
+      // ── 4. Duplicate email check ───────────────────────────────────────────
+      if (parsed.data.email) {
+        const duplicate = await prisma.employee.findFirst({
+          where: { email: parsed.data.email, deletedAt: null },
+        });
+        if (duplicate) {
+          results.push({
+            row: rowNumber, status: "error", name: displayName,
+            errors: [
+              `Duplicate email — already exists for ${duplicate.firstName} ${duplicate.lastName} (${duplicate.employeeId}).`,
+            ],
+          });
+          continue;
+        }
+      }
+
+      // ── 5. Create Employee + EmploymentHistory + OnboardingRecord atomically
       const employeeId = await generateNextEmployeeId();
-      const created = await prisma.employee.create({
-        data: {
-          ...parsed.data,
-          employeeId,
-          employmentType: parsed.data.employmentType as EmploymentType | null ?? null,
-          educationLevel: parsed.data.educationLevel as EducationLevel | null ?? null,
-          maritalStatus: parsed.data.maritalStatus as MaritalStatus | null ?? null,
-          gender: parsed.data.gender as Gender | null ?? null,
-        },
-      });
 
-      await prisma.employmentHistory.create({
-        data: {
-          employeeId: created.id,
-          departmentId: parsed.data.departmentId,
-          positionId: parsed.data.positionId,
-          employmentType: parsed.data.employmentType as EmploymentType | null | undefined,
-          effectiveDate: created.hireDate ?? new Date(),
-          changeReason: "Initial hire (bulk import)",
-        },
-      });
+      await prisma.$transaction(async (tx) => {
+        const created = await tx.employee.create({
+          data: {
+            employeeId,
+            firstName:    parsed.data.firstName,
+            middleName:   parsed.data.middleName ?? null,
+            lastName:     parsed.data.lastName,
+            email:        parsed.data.email ?? null,
+            phone:        parsed.data.phone ?? null,
+            gender:       parsed.data.gender as Gender | null ?? null,
+            dateOfBirth:  parsed.data.dateOfBirth ?? null,
+            maritalStatus: parsed.data.maritalStatus as MaritalStatus | null ?? null,
+            address:      parsed.data.address ?? null,
+            emergencyContactName:         parsed.data.emergencyContactName ?? null,
+            emergencyContactPhone:        parsed.data.emergencyContactPhone ?? null,
+            emergencyContactRelationship: parsed.data.emergencyContactRelationship ?? null,
+            emergencyContactAddress:      parsed.data.emergencyContactAddress ?? null,
+            departmentId:   department.id,
+            positionId:     position.id,
+            hireDate:       parsed.data.hireDate ?? null,
+            // P2-12: Always ONBOARDING for imports
+            employmentStatus: "ONBOARDING",
+            employmentType: parsed.data.employmentType as EmploymentType | null ?? null,
+            educationLevel: parsed.data.educationLevel as EducationLevel | null ?? null,
+            fieldOfStudy:   parsed.data.fieldOfStudy ?? null,
+            institutionName: parsed.data.institutionName ?? null,
+            graduationYear:  parsed.data.graduationYear ?? null,
+          },
+        });
 
-      await prisma.auditLog.create({
-        data: {
-          action: "CREATE",
-          entity: "Employee",
-          entityId: created.id,
-          changes: { source: "bulk_import", employeeId },
-          userId: actorUserId,
-        },
+        await tx.employmentHistory.create({
+          data: {
+            employeeId:     created.id,
+            departmentId:   department.id,
+            positionId:     position.id,
+            employmentType: parsed.data.employmentType as EmploymentType | null | undefined,
+            effectiveDate:  created.hireDate ?? new Date(),
+            changeReason:   "Initial hire (bulk import)",
+          },
+        });
+
+        // P2-12: Every imported employee gets an OnboardingRecord
+        await tx.onboardingRecord.create({
+          data: {
+            employeeId:     created.id,
+            responsibleHrId: actorUserId,
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            action:   "CREATE",
+            entity:   "Employee",
+            entityId: created.id,
+            changes:  { source: "bulk_import", employeeId, importedBy: actorUserId },
+            userId:   actorUserId,
+          },
+        });
+
+        return created;
       });
 
       results.push({ row: rowNumber, status: "created", employeeId, name: displayName });

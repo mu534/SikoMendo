@@ -256,3 +256,28 @@ export async function getEmployeeLeaveBalances(
     };
   });
 }
+
+/**
+ * Recent leave requests for a single employee — used on the employee profile
+ * Leave tab. Returns the 5 most recent requests regardless of status.
+ *
+ * Security: `employeeId` must be resolved from session / hierarchy check by caller.
+ */
+export async function getRecentEmployeeLeaveRequests(employeeId: string, limit = 5) {
+  return prisma.leaveRequest.findMany({
+    where: { employeeId },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    select: {
+      id: true,
+      leaveId: true,
+      leaveType: true,
+      startDate: true,
+      endDate: true,
+      totalDays: true,
+      status: true,
+      reason: true,
+      appliedDate: true,
+    },
+  });
+}

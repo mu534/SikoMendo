@@ -220,3 +220,45 @@ export async function getMyAttendanceStats(employeeId: string) {
       countedDays > 0 ? Math.round((totalWorkingDays / countedDays) * 100) : null,
   };
 }
+
+/**
+ * Monthly attendance summary for a single employee — used on the employee
+ * profile Attendance tab. Returns counts broken down by status for the
+ * requested calendar month.
+ *
+ * Security: `employeeId` must be resolved from the session / hierarchy check
+ * by the caller — this query trusts whatever value it receives.
+ */
+export async function getEmployeeMonthlyAttendance(
+  employeeId: string,
+  year: number,
+  month: number // 1-based
+) {
+  const start = new Date(Date.UTC(year, month - 1, 1));
+  const end   = new Date(Date.UTC(year, month, 0, 23, 59, 59)); // last day of month
+
+  const records = await prisma.attendance.findMany({
+    where: { employeeId, date: { gte: start, lte: end } },
+    orderBy: { date: "desc" },
+    select: {
+      id: true,
+      date: true,
+      status: true,
+      checkIn: true,
+      checkOut: true,
+      notes: true,
+    },
+  });
+
+  const counts = { present: 0, late: 0, halfDay: 0, absent: 0, onLeave: 0, excused: 0 };
+  for (const r of records) {
+    if (r.status === "PRESENT")  counts.present++;
+    else if (r.status === "LATE")      counts.late++;
+    else if (r.status === "HALF_DAY")  counts.halfDay++;
+    else if (r.status === "ABSENT")    counts.absent++;
+    else if (r.status === "ON_LEAVE")  counts.onLeave++;
+    else if (r.status === "EXCUSED")   counts.excused++;
+  }
+
+  return { records, counts };
+}

@@ -148,7 +148,9 @@ model User {
   onboardingsResponsible  OnboardingRecord[]  @relation("OnboardingResponsibleHr")
   offboardingsStarted     OffboardingRecord[] @relation("OffboardingStartedBy")
   offboardingsCompleted   OffboardingRecord[] @relation("OffboardingCompletedBy")
+  offboardingsCancelled   OffboardingRecord[] @relation("OffboardingCancelledBy")
   attendancePolicyUpdates AttendancePolicy[]  @relation("PolicyUpdatedBy")
+  shiftsCreated           WorkShift[]         @relation("ShiftCreatedBy")
 
   @@map("user")
 }
@@ -239,6 +241,9 @@ model Employee {
   department    Department?    @relation(fields: [departmentId], references: [id], onDelete: Restrict)
   positionId    String?
   position      Position?      @relation(fields: [positionId], references: [id], onDelete: Restrict)
+  /// Optional assigned work shift. Null = use global policy defaults for attendance evaluation.
+  shiftId       String?
+  shift         WorkShift?     @relation(fields: [shiftId], references: [id], onDelete: SetNull)
   userId        String?        @unique
   user          User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
   attendances   Attendance[]
@@ -254,8 +259,8 @@ model Employee {
   contracts         Contract[]
 
   // Lifecycle
-  onboardingRecord  OnboardingRecord?
-  offboardingRecord OffboardingRecord?
+  onboardingRecord   OnboardingRecord?
+  offboardingRecords OffboardingRecord[]
 
   // Timestamps & soft delete
   createdAt DateTime  @default(now())
@@ -265,6 +270,7 @@ model Employee {
   @@index([employmentStatus])
   @@index([departmentId])
   @@index([positionId])
+  @@index([shiftId])
   @@index([managerId])
   @@index([deletedAt])
   @@map("employee")
@@ -591,9 +597,31 @@ model Notification {
 
 // ─── Attendance Policy ────────────────────────────────────────────────────
 
-/// Singleton attendance policy record (id = "singleton").
+/// Work shift definition. Multiple shifts can exist (morning, afternoon, etc.).
+/// Employees are optionally assigned to a shift; if none is assigned, the
+/// global attendance policy defaults (workStartTime / workEndTime) are used.
+model WorkShift {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  /// Work start time in "HH:MM" 24-hour format (org-local, EAT).
+  startTime String
+  /// Work end time in "HH:MM" 24-hour format (org-local, EAT).
+  endTime   String
+  isActive  Boolean  @default(true)
+
+  employees Employee[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  createdBy   User?    @relation("ShiftCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@map("work_shift")
+}
+
+/// Single-row attendance policy — global rules that apply when no shift-specific
+/// override exists (or for employees not assigned to any shift).
 /// Use getAttendancePolicy() — never read directly from the client.
-/// When no row exists, code falls back to sensible defaults.
 model AttendancePolicy {
   id String @id @default("singleton")
 
@@ -664,12 +692,13 @@ model OnboardingRecord {
   @@map("onboarding_record")
 }
 
-/// One record per employee offboarding event. An employee who is rehired
-/// after resignation would get a new OffboardingRecord on their next
-/// departure. completedAt null = offboarding in progress.
+/// One record per offboarding event. Multiple records can exist for the same
+/// employee across their career (hire → resign → rehire → retire = 2 records).
+/// completedAt null = offboarding in progress.
+/// cancelledAt non-null = offboarding was cancelled; record is preserved for audit.
 model OffboardingRecord {
   id         String   @id @default(cuid())
-  employeeId String   @unique
+  employeeId String
   employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   reason          OffboardingReason
@@ -678,6 +707,12 @@ model OffboardingRecord {
 
   startedAt   DateTime  @default(now())
   completedAt DateTime?
+
+  /// Set when an in-progress offboarding is cancelled instead of completed.
+  /// The record is kept for audit; a new offboarding can be started afterwards.
+  cancelledAt   DateTime?
+  cancelledById String?
+  cancelledBy   User?   @relation("OffboardingCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
 
   startedById String?
   startedBy   User?   @relation("OffboardingStartedBy", fields: [startedById], references: [id], onDelete: SetNull)
@@ -688,6 +723,8 @@ model OffboardingRecord {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([employeeId])
+  @@index([employeeId, completedAt])
   @@index([completedAt])
   @@map("offboarding_record")
 }

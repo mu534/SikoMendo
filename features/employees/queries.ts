@@ -24,6 +24,7 @@ const EMPLOYMENT_TYPES: EmploymentType[] = ["PERMANENT", "CONTRACT", "TEMPORARY"
 const employeeListInclude = {
   department: { select: { id: true, name: true } },
   position: { select: { id: true, name: true } },
+  manager: { select: { id: true, firstName: true, lastName: true, employeeId: true } },
 } satisfies Prisma.EmployeeInclude;
 
 export async function listEmployees({
@@ -152,7 +153,36 @@ export async function listAssignableManagers(employeeId: string) {
       deletedAt: null,
       id: { notIn: [employeeId, ...subordinateIds] },
     },
-    select: { id: true, firstName: true, lastName: true, employeeId: true },
+    select: { id: true, firstName: true, lastName: true, employeeId: true, position: { select: { name: true } } },
     orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
   });
+}
+
+/** Fast summary counts used for the employee directory KPI cards. */
+export async function getEmployeeDirectoryCounts(restrictToIds?: string[]) {
+  const baseWhere: Prisma.EmployeeWhereInput = {
+    deletedAt: null,
+    ...(restrictToIds ? { id: { in: restrictToIds } } : {}),
+  };
+
+  const [total, active, onboarding, onLeave, offboarding] = await Promise.all([
+    prisma.employee.count({ where: baseWhere }),
+    prisma.employee.count({ where: { ...baseWhere, employmentStatus: "ACTIVE" } }),
+    prisma.employee.count({ where: { ...baseWhere, employmentStatus: "ONBOARDING" } }),
+    prisma.employee.count({ where: { ...baseWhere, employmentStatus: "ON_LEAVE" } }),
+    // Count employees with an active (not yet completed) offboarding record.
+    // Note: cancelledAt column added by migration 20260914200000 — once that
+    // migration is applied on the target DB this query can add cancelledAt: null.
+    prisma.offboardingRecord.count({
+      where: {
+        completedAt: null,
+        employee: {
+          deletedAt: null,
+          ...(restrictToIds ? { id: { in: restrictToIds } } : {}),
+        },
+      },
+    }),
+  ]);
+
+  return { total, active, onboarding, onLeave, offboarding };
 }

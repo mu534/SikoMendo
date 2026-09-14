@@ -83,17 +83,22 @@ export type AttendanceStatusResult =
  * active policy. Called at check-in time — the result is stored permanently
  * and never recalculated when the policy changes.
  *
- * @param checkInUtc   The UTC timestamp of the check-in (server-generated).
- * @param policy       The active attendance policy.
- * @param dateStr      The org-local attendance date ("YYYY-MM-DD"), used to
- *                     verify the check-in is on a working day.
+ * If `shiftStartTime` is supplied it overrides `policy.workStartTime`, allowing
+ * per-employee shift-based evaluation while reusing the global grace/threshold rules.
+ *
+ * @param checkInUtc      The UTC timestamp of the check-in (server-generated).
+ * @param policy          The active attendance policy (grace period, thresholds).
+ * @param _dateStr        Reserved for future working-day validation.
+ * @param shiftStartTime  Optional "HH:MM" from the employee's assigned shift.
  */
 export function evaluateCheckInStatus(
   checkInUtc: Date,
   policy: PolicyValues,
-  _dateStr: string  // reserved for future working-day validation; unused for now
+  _dateStr: string,
+  shiftStartTime?: string | null
 ): AttendanceStatusResult {
-  const workStartMinutes    = parseTimeToMinutes(policy.workStartTime);
+  const effectiveStart = shiftStartTime ?? policy.workStartTime;
+  const workStartMinutes    = parseTimeToMinutes(effectiveStart);
   const graceCutoff         = workStartMinutes + policy.gracePeriodMinutes;
   const halfDayCutoff       =
     policy.halfDayThresholdMinutes != null

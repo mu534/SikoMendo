@@ -7,6 +7,8 @@ import { auth } from "@/lib/auth";
 import { getServerSession } from "@/lib/session";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
 import { createNotification } from "@/lib/notifications";
+import { requireOnboardingComplete, requireOffboardingComplete } from "@/lib/lifecycle-checklist";
+import { getActiveOffboardingRecord } from "./queries";
 import {
   completeOnboardingSchema,
   completeOnboardingFormDataToObject,
@@ -33,13 +35,8 @@ async function logAudit(
 // ── Onboarding ─────────────────────────────────────────────────────────────
 
 /**
- * Called automatically by createEmployee (in features/employees/actions.ts)
- * whenever a new employee is created. Creates the OnboardingRecord and ensures
- * the employee starts in ONBOARDING status.
- *
- * Exported so createEmployee can call it within a transaction or immediately
- * after — but it can also be called directly by HR to initialise onboarding
- * for legacy employees who are already in the system.
+ * Creates an OnboardingRecord and ensures the employee starts in ONBOARDING status.
+ * Called by createEmployee — idempotent if a record already exists.
  */
 export async function startOnboarding(
   employeeId: string,
@@ -85,7 +82,6 @@ export async function startOnboarding(
       session?.user.id
     );
 
-    // Notify the responsible HR officer
     const hrId = responsibleHrId ?? session?.user.id;
     if (hrId) {
       await createNotification(
@@ -104,7 +100,10 @@ export async function startOnboarding(
 
 /**
  * Marks onboarding as complete and transitions the employee to ACTIVE.
- * HR must confirm that checklist steps are done before calling this.
+ *
+ * P1-6: Server-side checklist is recomputed from the DB — client-supplied
+ * values are never trusted. All mandatory requirements must be met before
+ * the status transition occurs.
  */
 export async function completeOnboarding(
   employeeId: string,
@@ -143,6 +142,9 @@ export async function completeOnboarding(
       throw new Error("Onboarding is already marked as complete.");
     }
 
+    // P1-6: Recompute checklist from DB — never trust client
+    await requireOnboardingComplete(employeeId);
+
     const now = new Date();
 
     await prisma.$transaction([
@@ -168,7 +170,6 @@ export async function completeOnboarding(
       session?.user.id
     );
 
-    // Notify the employee's linked user account
     if (employee.user?.id) {
       await createNotification(
         employee.user.id,
@@ -188,8 +189,9 @@ export async function completeOnboarding(
 
 /**
  * Initiates the offboarding process for an employee.
- * Sets the appropriate terminal EmploymentStatus and creates an OffboardingRecord.
- * Does NOT immediately archive — HR must complete the checklist first.
+ *
+ * P2-15: OffboardingRecord is now one-to-many. We check for an *active*
+ * (not cancelled, not completed) offboarding record rather than any record.
  */
 export async function startOffboarding(
   employeeId: string,
@@ -212,17 +214,18 @@ export async function startOffboarding(
         lastName: true,
         employmentStatus: true,
         deletedAt: true,
-        offboardingRecord: { select: { id: true } },
         user: { select: { id: true } },
       },
     });
     if (!employee) throw new Error("Employee not found.");
     if (employee.deletedAt) throw new Error("This employee is already archived.");
-    if (employee.offboardingRecord) {
+
+    // P2-15: check for an active (not cancelled/completed) offboarding record
+    const activeOffboarding = await getActiveOffboardingRecord(employeeId);
+    if (activeOffboarding) {
       throw new Error("Offboarding has already been initiated for this employee.");
     }
 
-    // Map offboarding reason to the closest EmploymentStatus terminal state
     const reasonToStatus: Record<string, string> = {
       RESIGNATION:  "RESIGNED",
       RETIREMENT:   "RETIRED",
@@ -236,21 +239,24 @@ export async function startOffboarding(
       ? new Date(`${parsed.data.lastWorkingDate}T00:00:00.000Z`)
       : null;
 
-    const [record] = await prisma.$transaction([
-      prisma.offboardingRecord.create({
-        data: {
-          employeeId,
-          reason: parsed.data.reason,
-          lastWorkingDate,
-          notes: parsed.data.notes,
-          startedById: session!.user.id,
-        },
-      }),
-      prisma.employee.update({
-        where: { id: employeeId },
-        data: { employmentStatus: newStatus as never },
-      }),
-    ]);
+    const record = await prisma.$transaction(async (tx) => {
+      const [offboardingRecord] = await Promise.all([
+        tx.offboardingRecord.create({
+          data: {
+            employeeId,
+            reason: parsed.data.reason,
+            lastWorkingDate,
+            notes: parsed.data.notes,
+            startedById: session!.user.id,
+          },
+        }),
+        tx.employee.update({
+          where: { id: employeeId },
+          data: { employmentStatus: newStatus as never },
+        }),
+      ]);
+      return offboardingRecord;
+    });
 
     await logAudit(
       "OFFBOARDING_STARTED",
@@ -272,11 +278,11 @@ export async function startOffboarding(
 }
 
 /**
- * Completes offboarding: archives the employee (sets deletedAt), deactivates
- * their user account via Better Auth ban, and closes the OffboardingRecord.
+ * Completes offboarding: archives the employee, deactivates their user account,
+ * and closes the OffboardingRecord.
  *
- * This is the point of no return for the normal HR workflow. The employee
- * can be restored by an Admin using restoreEmployee in the employees module.
+ * P1-7: Server-side offboarding checklist is recomputed from the DB before
+ * allowing completion — client-supplied checklist values are never trusted.
  */
 export async function completeOffboarding(
   employeeId: string,
@@ -298,31 +304,30 @@ export async function completeOffboarding(
         firstName: true,
         lastName: true,
         deletedAt: true,
-        offboardingRecord: { select: { id: true, completedAt: true } },
         user: { select: { id: true, banned: true } },
       },
     });
     if (!employee) throw new Error("Employee not found.");
     if (employee.deletedAt) throw new Error("This employee is already archived.");
-    if (!employee.offboardingRecord) {
+
+    // P2-15: find the active offboarding record
+    const activeRecord = await getActiveOffboardingRecord(employeeId);
+    if (!activeRecord) {
       throw new Error("Offboarding has not been initiated. Start offboarding first.");
     }
-    if (employee.offboardingRecord.completedAt) {
-      throw new Error("Offboarding is already marked as complete.");
-    }
+
+    // P1-7: Recompute checklist from DB — never trust client
+    await requireOffboardingComplete(employeeId);
 
     const now = new Date();
 
-    // Archive employee + close offboarding record in a transaction
     await prisma.$transaction([
       prisma.offboardingRecord.update({
-        where: { employeeId },
+        where: { id: activeRecord.id },
         data: {
           completedAt: now,
           completedById: session!.user.id,
-          notes: parsed.data.notes
-            ? `${parsed.data.notes}`
-            : undefined,
+          notes: parsed.data.notes ?? undefined,
         },
       }),
       prisma.employee.update({
@@ -331,8 +336,7 @@ export async function completeOffboarding(
       }),
     ]);
 
-    // Deactivate linked user account (ban via Better Auth)
-    // Non-fatal — if this fails, the archive still stands; an Admin can ban manually
+    // Deactivate linked user account (ban via Better Auth) — non-fatal
     if (employee.user && !employee.user.banned) {
       try {
         await auth.api.banUser({
@@ -350,7 +354,6 @@ export async function completeOffboarding(
           session?.user.id
         );
       } catch {
-        // Log the failure but don't roll back the archive
         console.error(`[completeOffboarding] Failed to ban user ${employee.user.id}`);
       }
     }
@@ -366,13 +369,19 @@ export async function completeOffboarding(
     revalidatePath(`/employees/${employeeId}`);
     revalidatePath("/employees");
     revalidatePath("/employees/lifecycle");
-    return { id: employee.offboardingRecord.id };
+    return { id: activeRecord.id };
   });
 }
 
 /**
  * Cancels an in-progress offboarding and restores the employee to ACTIVE.
- * Only available while offboarding is not yet completed (completedAt is null).
+ *
+ * P2-14 intent: preserve the record with cancelledAt instead of deleting so
+ * the audit trail is kept. This requires migration 20260914200000 to be applied.
+ * Until that migration runs on the target DB, we fall back to the previous
+ * behaviour (delete the record) so the action doesn't crash at runtime.
+ * Once the migration is confirmed applied, replace the delete with:
+ *   prisma.offboardingRecord.update({ where: { id }, data: { cancelledAt, cancelledById } })
  */
 export async function cancelOffboarding(
   employeeId: string
@@ -380,26 +389,18 @@ export async function cancelOffboarding(
   const session = await getServerSession();
 
   return withPermission(session, "MANAGE_OFFBOARDING", async () => {
-    const employee = await prisma.employee.findUnique({
-      where: { id: employeeId },
-      select: {
-        id: true,
-        offboardingRecord: { select: { id: true, completedAt: true } },
-      },
-    });
-    if (!employee) throw new Error("Employee not found.");
-    if (!employee.offboardingRecord) throw new Error("No active offboarding found.");
-    if (employee.offboardingRecord.completedAt) {
-      throw new Error("Cannot cancel a completed offboarding.");
-    }
+    const activeRecord = await getActiveOffboardingRecord(employeeId);
+    if (!activeRecord) throw new Error("No active offboarding found.");
 
-    const recordId = employee.offboardingRecord.id;
+    const recordId = activeRecord.id;
 
     await prisma.$transaction([
-      prisma.offboardingRecord.delete({ where: { employeeId } }),
+      // Delete the record for now — replace with cancelledAt update after
+      // migration 20260914200000 is applied on the target database.
+      prisma.offboardingRecord.delete({ where: { id: recordId } }),
       prisma.employee.update({
         where: { id: employeeId },
-        data: { employmentStatus: "ACTIVE" },
+        data:  { employmentStatus: "ACTIVE" },
       }),
     ]);
 
@@ -407,7 +408,7 @@ export async function cancelOffboarding(
       "OFFBOARDING_CANCELLED",
       "Employee",
       employeeId,
-      { cancelledBy: session?.user.name },
+      { cancelledBy: session?.user.name, recordId },
       session?.user.id
     );
 

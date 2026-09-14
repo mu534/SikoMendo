@@ -1,123 +1,45 @@
 import "server-only";
 import prisma from "@/lib/prisma";
 
-// ── Onboarding checklist (computed from real data, never stored) ─────────────
+// Re-export checklist types and computation from the canonical location so
+// existing imports in pages/components continue to work.
+export type { OnboardingChecklist, OffboardingChecklist } from "@/lib/lifecycle-checklist";
+export {
+  computeOnboardingChecklist as getOnboardingChecklist,
+  computeOffboardingChecklist as getOffboardingChecklist,
+} from "@/lib/lifecycle-checklist";
 
-export type OnboardingChecklist = {
-  hasName: boolean;
-  hasDepartment: boolean;
-  hasPosition: boolean;
-  hasHireDate: boolean;
-  hasContract: boolean;
-  hasIdDocument: boolean;
-  hasUserAccount: boolean;
-  completedSteps: number;
-  totalSteps: number;
-  isComplete: boolean;
-};
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
-export async function getOnboardingChecklist(employeeId: string): Promise<OnboardingChecklist> {
-  const employee = await prisma.employee.findUnique({
-    where: { id: employeeId },
-    select: {
-      firstName: true,
-      lastName: true,
-      departmentId: true,
-      positionId: true,
-      hireDate: true,
-      userId: true,
-      contracts: { where: { status: "ACTIVE" }, take: 1, select: { id: true } },
-      documents: {
-        where: { deletedAt: null, type: "ID_DOCUMENT" },
-        take: 1,
-        select: { id: true },
-      },
+/**
+ * Returns the single in-progress OffboardingRecord for an employee, or null.
+ *
+ * NOTE: The DB still has the pre-migration schema where offboarding_record has
+ * a UNIQUE constraint on employeeId (one-to-one). Migration
+ * 20260914200000_offboarding_one_to_many_with_cancel must be applied before
+ * the one-to-many features (cancelledAt, plural relation) are usable.
+ * Until then we query offboardingRecord directly via the Employee relation.
+ */
+export async function getActiveOffboardingRecord(employeeId: string) {
+  return prisma.offboardingRecord.findFirst({
+    where: {
+      employeeId,
+      completedAt: null,
     },
+    orderBy: { startedAt: "desc" },
   });
-
-  if (!employee) {
-    return { hasName: false, hasDepartment: false, hasPosition: false, hasHireDate: false, hasContract: false, hasIdDocument: false, hasUserAccount: false, completedSteps: 0, totalSteps: 7, isComplete: false };
-  }
-
-  const hasName        = !!employee.firstName && !!employee.lastName;
-  const hasDepartment  = !!employee.departmentId;
-  const hasPosition    = !!employee.positionId;
-  const hasHireDate    = !!employee.hireDate;
-  const hasContract    = employee.contracts.length > 0;
-  const hasIdDocument  = employee.documents.length > 0;
-  const hasUserAccount = !!employee.userId;
-
-  const steps = [hasName, hasDepartment, hasPosition, hasHireDate, hasContract, hasIdDocument, hasUserAccount];
-  const completedSteps = steps.filter(Boolean).length;
-  const totalSteps = steps.length;
-
-  return {
-    hasName,
-    hasDepartment,
-    hasPosition,
-    hasHireDate,
-    hasContract,
-    hasIdDocument,
-    hasUserAccount,
-    completedSteps,
-    totalSteps,
-    isComplete: completedSteps === totalSteps,
-  };
 }
 
-// ── Offboarding checklist (computed from real data) ──────────────────────────
-
-export type OffboardingChecklist = {
-  hasTerminatedContract: boolean;
-  hasNoActiveLeave: boolean;
-  userAccountDeactivated: boolean;
-  completedSteps: number;
-  totalSteps: number;
-  isComplete: boolean;
-};
-
-export async function getOffboardingChecklist(employeeId: string): Promise<OffboardingChecklist> {
-  const employee = await prisma.employee.findUnique({
-    where: { id: employeeId },
-    select: {
-      userId: true,
-      user: { select: { banned: true } },
-      contracts: {
-        where: { status: "ACTIVE" },
-        take: 1,
-        select: { id: true },
-      },
-      leaveRequests: {
-        where: { status: "PENDING" },
-        take: 1,
-        select: { id: true },
-      },
+/** Returns the most recent OffboardingRecord for display purposes. */
+export async function getLatestOffboardingRecord(employeeId: string) {
+  return prisma.offboardingRecord.findFirst({
+    where: { employeeId },
+    orderBy: { startedAt: "desc" },
+    include: {
+      startedBy:   { select: { id: true, name: true } },
+      completedBy: { select: { id: true, name: true } },
     },
   });
-
-  if (!employee) {
-    return { hasTerminatedContract: true, hasNoActiveLeave: true, userAccountDeactivated: true, completedSteps: 3, totalSteps: 3, isComplete: true };
-  }
-
-  // No active contract = contract already closed/terminated/expired
-  const hasTerminatedContract = employee.contracts.length === 0;
-  // No pending leave requests
-  const hasNoActiveLeave       = employee.leaveRequests.length === 0;
-  // User account is deactivated (banned) or employee has no account
-  const userAccountDeactivated = !employee.userId || (employee.user?.banned === true);
-
-  const steps = [hasTerminatedContract, hasNoActiveLeave, userAccountDeactivated];
-  const completedSteps = steps.filter(Boolean).length;
-  const totalSteps = steps.length;
-
-  return {
-    hasTerminatedContract,
-    hasNoActiveLeave,
-    userAccountDeactivated,
-    completedSteps,
-    totalSteps,
-    isComplete: completedSteps === totalSteps,
-  };
 }
 
 // ── Lifecycle dashboard queries ──────────────────────────────────────────────
@@ -134,7 +56,7 @@ export async function getOnboardingEmployees() {
       profileImageUrl: true,
       hireDate: true,
       department: { select: { name: true } },
-      position: { select: { name: true } },
+      position:   { select: { name: true } },
       onboardingRecord: {
         select: { startedAt: true, responsibleHr: { select: { name: true } } },
       },
@@ -161,7 +83,7 @@ export async function getRecentlyOnboardedEmployees() {
       lastName: true,
       profileImageUrl: true,
       department: { select: { name: true } },
-      position: { select: { name: true } },
+      position:   { select: { name: true } },
       onboardingRecord: { select: { completedAt: true } },
     },
     orderBy: { onboardingRecord: { completedAt: "desc" } },
@@ -175,16 +97,14 @@ export async function getEmployeesMissingDocuments() {
     where: {
       employmentStatus: "ONBOARDING",
       deletedAt: null,
-      documents: {
-        none: { type: "ID_DOCUMENT", deletedAt: null },
-      },
+      documents: { none: { type: "ID_DOCUMENT", deletedAt: null } },
     },
     select: {
       id: true,
       employeeId: true,
       firstName: true,
       lastName: true,
-      department: { select: { name: true } },
+      department:       { select: { name: true } },
       onboardingRecord: { select: { startedAt: true } },
     },
     take: 20,
@@ -193,14 +113,14 @@ export async function getEmployeesMissingDocuments() {
 
 /** Active contracts expiring within the next 30 days. */
 export async function getContractsExpiringSoon(daysAhead = 30) {
-  const today = new Date();
+  const today  = new Date();
   const cutoff = new Date();
   cutoff.setDate(today.getDate() + daysAhead);
 
   return prisma.contract.findMany({
     where: {
-      status: "ACTIVE",
-      endDate: { gte: today, lte: cutoff },
+      status:   "ACTIVE",
+      endDate:  { gte: today, lte: cutoff },
       employee: { deletedAt: null },
     },
     select: {
@@ -222,8 +142,9 @@ export async function getContractsExpiringSoon(daysAhead = 30) {
   });
 }
 
-/** Employees currently being offboarded (offboardingRecord present, completedAt null). */
+/** Employees currently being offboarded (active offboarding record exists). */
 export async function getOffboardingEmployees() {
+  // Use the singular offboardingRecord relation (pre-migration schema)
   return prisma.employee.findMany({
     where: {
       deletedAt: null,
@@ -254,18 +175,18 @@ export async function getOffboardingEmployees() {
 export async function getRecentlyArchivedEmployees() {
   const sixtyDaysAgo = new Date();
   sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+
   return prisma.employee.findMany({
-    where: {
-      deletedAt: { gte: sixtyDaysAgo, not: null },
-    },
+    where: { deletedAt: { gte: sixtyDaysAgo, not: null } },
     select: {
       id: true,
       employeeId: true,
       firstName: true,
       lastName: true,
       employmentStatus: true,
-      department: { select: { name: true } },
-      deletedAt: true,
+      department:  { select: { name: true } },
+      deletedAt:   true,
+      // singular relation — pre-migration schema
       offboardingRecord: { select: { reason: true } },
     },
     orderBy: { deletedAt: "desc" },
@@ -273,7 +194,7 @@ export async function getRecentlyArchivedEmployees() {
   });
 }
 
-/** Single lifecycle record for an employee profile page. */
+/** Single lifecycle record for the employee profile Lifecycle tab. */
 export async function getEmployeeLifecycleRecord(employeeId: string) {
   return prisma.employee.findUnique({
     where: { id: employeeId },
@@ -288,9 +209,10 @@ export async function getEmployeeLifecycleRecord(employeeId: string) {
           completedAt: true,
           notes: true,
           responsibleHr: { select: { id: true, name: true } },
-          completedBy: { select: { id: true, name: true } },
+          completedBy:   { select: { id: true, name: true } },
         },
       },
+      // singular relation — pre-migration schema
       offboardingRecord: {
         select: {
           reason: true,
@@ -298,7 +220,7 @@ export async function getEmployeeLifecycleRecord(employeeId: string) {
           startedAt: true,
           completedAt: true,
           notes: true,
-          startedBy: { select: { id: true, name: true } },
+          startedBy:   { select: { id: true, name: true } },
           completedBy: { select: { id: true, name: true } },
         },
       },
@@ -308,16 +230,11 @@ export async function getEmployeeLifecycleRecord(employeeId: string) {
 
 /** Summary counts for the lifecycle dashboard stat cards. */
 export async function getLifecycleSummaryCounts() {
-  const today = new Date();
+  const today         = new Date();
   const thirtyDaysOut = new Date();
   thirtyDaysOut.setDate(today.getDate() + 30);
 
-  const [
-    onboarding,
-    missingDocs,
-    expiring,
-    offboarding,
-  ] = await Promise.all([
+  const [onboarding, missingDocs, expiring, offboarding] = await Promise.all([
     prisma.employee.count({ where: { employmentStatus: "ONBOARDING", deletedAt: null } }),
     prisma.employee.count({
       where: {
@@ -328,13 +245,17 @@ export async function getLifecycleSummaryCounts() {
     }),
     prisma.contract.count({
       where: {
-        status: "ACTIVE",
-        endDate: { gte: today, lte: thirtyDaysOut },
+        status:   "ACTIVE",
+        endDate:  { gte: today, lte: thirtyDaysOut },
         employee: { deletedAt: null },
       },
     }),
+    // Active offboardings — singular relation (pre-migration schema)
     prisma.employee.count({
-      where: { deletedAt: null, offboardingRecord: { completedAt: null } },
+      where: {
+        deletedAt: null,
+        offboardingRecord: { completedAt: null },
+      },
     }),
   ]);
 

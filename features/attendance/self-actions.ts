@@ -36,6 +36,7 @@ async function resolveOwnEmployee(userId: string) {
       lastName: true,
       employmentStatus: true,
       deletedAt: true,
+      shift: { select: { startTime: true, isActive: true } },
     },
   });
 
@@ -112,9 +113,10 @@ export async function selfCheckIn(): Promise<ActionResult<{ id: string }>> {
     // Server timestamp — never from client
     const now = getServerNow();
 
-    // Load active policy and calculate status
+    // Load active policy and employee's shift start time (if assigned)
     const policy = await getAttendancePolicy();
-    const status = evaluateCheckInStatus(now, policy, todayStr);
+    const shiftStartTime = employee.shift?.isActive ? employee.shift.startTime : null;
+    const status = evaluateCheckInStatus(now, policy, todayStr, shiftStartTime);
 
     let record;
     if (existing) {

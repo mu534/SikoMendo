@@ -2,27 +2,27 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
 import {
-  FileText,
-  Trash2,
-  User,
-  Phone,
-  Briefcase,
-  GraduationCap,
+  ArrowLeft,
+  Pencil,
+  History,
+  MoreHorizontal,
   Calendar,
+  Clock,
+  UserCircle2,
 } from "lucide-react";
 import { requirePermission } from "@/lib/session";
 import { can } from "@/lib/permissions";
-import { getEmployeeById, listAssignableManagers } from "@/features/employees/queries";
+import { getEmployeeByIdForViewer, getEmployeeDetailTabPermissions } from "@/lib/employee-access";
+import { listAssignableManagers } from "@/features/employees/queries";
 import { updateEmployee, deleteEmployeeDocument } from "@/features/employees/actions";
-import { EmployeeForm } from "@/features/employees/employee-form";
-import { SectionHeader } from "@/features/employees/section-header";
-import { DocumentUploadForm } from "@/features/employees/document-upload-form";
 import { ProfileTabs } from "@/features/employees/profile-tabs";
 import { SystemAccountPanel } from "@/features/employees/system-account-panel";
-import { EmploymentHistoryPanel } from "@/features/employment-history/employment-history-panel";
-import { ContractsPanel } from "@/features/contracts/contracts-panel";
-import { OnboardingPanel } from "@/features/lifecycle/onboarding-panel";
-import { OffboardingPanel } from "@/features/lifecycle/offboarding-panel";
+import { OverviewPanel } from "@/features/employees/overview-panel";
+import { EmploymentPanel } from "@/features/employees/employment-panel";
+import { AttendancePanel } from "@/features/employees/attendance-panel";
+import { LeavePanel } from "@/features/employees/leave-panel";
+import { DocumentsPanel } from "@/features/employees/documents-panel";
+import { LifecyclePanel } from "@/features/employees/lifecycle-panel";
 import {
   getEmployeeLifecycleRecord,
   getOnboardingChecklist,
@@ -31,17 +31,72 @@ import {
 import { cancelOffboarding } from "@/features/lifecycle/actions";
 import { listActiveDepartments } from "@/features/departments/queries";
 import { listActivePositions } from "@/features/positions/queries";
-import { formatDate, formatBytes } from "@/lib/utils";
-import { formatDateWithEthiopian } from "@/lib/ethiopian-calendar";
-import { Card, CardHeader } from "@/components/ui/card";
+import { getEmployeeMonthlyAttendance } from "@/features/attendance/queries";
+import {
+  getEmployeeLeaveBalances,
+  getRecentEmployeeLeaveRequests,
+} from "@/features/leave/queries";
+import { formatDate } from "@/lib/utils";
+import { Card, CardHeader as CardHeaderImport } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
+import { ButtonLink } from "@/components/ui/button";
+import { ContractsPanel as ContractsPanelImport } from "@/features/contracts/contracts-panel";
 import type { Document } from "@prisma/client";
-import { getSignedFileUrl } from "@/lib/cloudinary";
+import type { OffboardingReasonValue } from "@/features/lifecycle/schemas";
+import type { ProfileTab } from "@/features/employees/profile-tabs";
 
-type Tab = "overview" | "history" | "contracts" | "documents" | "lifecycle";
+// ── Status helpers ────────────────────────────────────────────────────────────
+
+const STATUS_TONE = {
+  ACTIVE:      "success",
+  ON_LEAVE:    "warning",
+  ONBOARDING:  "brand",
+  RESIGNED:    "neutral",
+  RETIRED:     "neutral",
+  INACTIVE:    "neutral",
+  SUSPENDED:   "warning",
+  TERMINATED:  "danger",
+} as const;
+
+const STATUS_LABEL: Record<string, string> = {
+  ACTIVE:      "Active",
+  ON_LEAVE:    "On Leave",
+  ONBOARDING:  "Onboarding",
+  RESIGNED:    "Resigned",
+  RETIRED:     "Retired",
+  INACTIVE:    "Inactive",
+  SUSPENDED:   "Suspended",
+  TERMINATED:  "Terminated",
+};
+
+const EMPLOYMENT_TYPE_LABEL: Record<string, string> = {
+  PERMANENT:  "Permanent",
+  CONTRACT:   "Contract",
+  TEMPORARY:  "Temporary",
+  PROBATION:  "Probation",
+  INTERNSHIP: "Internship",
+};
+
+function yearsOfService(hireDate: Date | null): string | null {
+  if (!hireDate) return null;
+  const now = new Date();
+  let years = now.getFullYear() - hireDate.getFullYear();
+  const hasHadAnniversary =
+    now.getMonth() > hireDate.getMonth() ||
+    (now.getMonth() === hireDate.getMonth() && now.getDate() >= hireDate.getDate());
+  if (!hasHadAnniversary) years -= 1;
+  if (years < 1) {
+    const months = Math.floor(
+      (now.getTime() - hireDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44)
+    );
+    return months < 1 ? "Less than a month" : `${months} month${months === 1 ? "" : "s"}`;
+  }
+  return `${years} year${years === 1 ? "" : "s"}`;
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function EmployeeDetailPage({
   params,
@@ -53,24 +108,42 @@ export default async function EmployeeDetailPage({
   const session = await requirePermission("VIEW_EMPLOYEES");
   const { id } = await params;
   const sp = await searchParams;
-  const tab = (typeof sp.tab === "string" ? sp.tab : "overview") as Tab;
+  const rawTab = typeof sp.tab === "string" ? sp.tab : "overview";
 
-  const employee = await getEmployeeById(id);
+  // P0-1: Scoped query — Manager can only access their own subordinates
+  const employee = await getEmployeeByIdForViewer(id, session);
   if (!employee) notFound();
 
-  const canManage          = can(session.user.role, "MANAGE_EMPLOYEES");
-  const canManageDocuments = can(session.user.role, "MANAGE_DOCUMENTS");
-  const canManageHistory   = can(session.user.role, "MANAGE_EMPLOYMENT_HISTORY");
-  const canManageContracts = can(session.user.role, "MANAGE_CONTRACTS");
-  const canManageUsers     = can(session.user.role, "MANAGE_USERS");
-  // MANAGE_ROLES is ADMIN-only; controls whether the role selector appears in the form
-  const canChangeRole      = can(session.user.role, "MANAGE_ROLES");
-  const canViewLifecycle   = can(session.user.role, "VIEW_LIFECYCLE");
+  // P0-2: Determine tab permissions per role
+  const tabPerms = getEmployeeDetailTabPermissions(session.user.role);
+
+  const canManage           = can(session.user.role, "MANAGE_EMPLOYEES");
+  const canManageDocuments  = can(session.user.role, "MANAGE_DOCUMENTS") && tabPerms.canViewDocuments;
+  const canManageHistory    = can(session.user.role, "MANAGE_EMPLOYMENT_HISTORY");
+  const canManageContracts  = can(session.user.role, "MANAGE_CONTRACTS") && tabPerms.canViewContracts;
+  const canManageUsers      = can(session.user.role, "MANAGE_USERS") && tabPerms.canViewSystemAccount;
+  const canChangeRole       = can(session.user.role, "MANAGE_ROLES");
+  const canViewLifecycle    = can(session.user.role, "VIEW_LIFECYCLE") && tabPerms.canViewLifecycle;
   const canManageOnboarding  = can(session.user.role, "MANAGE_ONBOARDING");
   const canManageOffboarding = can(session.user.role, "MANAGE_OFFBOARDING");
+  const canViewAttendance   = can(session.user.role, "VIEW_ATTENDANCE");
+  const canViewLeave        = can(session.user.role, "VIEW_ALL_LEAVE") || can(session.user.role, "MANAGE_LEAVE");
 
-  // Only fetch these when they're actually needed (History / Contracts tabs or edit form)
-  const needDeptPos = canManage || tab === "history" || tab === "contracts";
+  // Build visible tabs for this role
+  const visibleTabs: ProfileTab[] = ["overview", "employment"];
+  if (canViewAttendance) visibleTabs.push("attendance");
+  if (canViewLeave) visibleTabs.push("leave");
+  if (tabPerms.canViewDocuments) visibleTabs.push("documents");
+  if (canViewLifecycle) visibleTabs.push("lifecycle");
+
+  // Redirect sensitive tabs to overview
+  const tab: ProfileTab =
+    visibleTabs.includes(rawTab as ProfileTab) ? (rawTab as ProfileTab) : "overview";
+
+  // ── Data fetching per active tab ────────────────────────────────────────────
+
+  // Departments and positions are needed for overview (edit) and employment tabs
+  const needDeptPos = canManage || tab === "employment";
   const [departments, positions, managers] = needDeptPos
     ? await Promise.all([
         listActiveDepartments(),
@@ -79,22 +152,47 @@ export default async function EmployeeDetailPage({
       ])
     : [[], [], []];
 
-  // Contracts: add expiring-soon flag
+  // Contracts — with expiring-soon flag
   const today = new Date();
   const thirtyDaysOut = new Date(today);
   thirtyDaysOut.setDate(today.getDate() + 30);
-  const contractRows = employee.contracts.map((c) => ({
-    ...c,
-    isExpiringSoon:
-      c.status === "ACTIVE" &&
-      c.endDate !== null &&
-      c.endDate <= thirtyDaysOut &&
-      c.endDate >= today,
-  }));
+  const contractRows =
+    tabPerms.canViewContracts && "contracts" in employee && Array.isArray(employee.contracts)
+      ? (employee.contracts as Array<{
+          id: string; employeeId: string; contractType: string;
+          startDate: Date; endDate: Date | null; status: string;
+          remarks: string | null; createdAt: Date; updatedAt: Date;
+        }>).map((c) => ({
+          ...c,
+          isExpiringSoon:
+            c.status === "ACTIVE" &&
+            c.endDate !== null &&
+            c.endDate <= thirtyDaysOut &&
+            c.endDate >= today,
+        }))
+      : [];
 
-  // Lifecycle data — only fetched when the lifecycle tab is active or the user can view it
+  // Attendance
+  const now = new Date();
+  const { records: attendanceRecords, counts: attendanceCounts } =
+    canViewAttendance && tab === "attendance"
+      ? await getEmployeeMonthlyAttendance(employee.id, now.getFullYear(), now.getMonth() + 1)
+      : { records: [], counts: { present: 0, late: 0, halfDay: 0, absent: 0, onLeave: 0, excused: 0 } };
+
+  const monthLabel = now.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+
+  // Leave
+  const [leaveBalances, recentLeaveRequests] =
+    canViewLeave && tab === "leave"
+      ? await Promise.all([
+          getEmployeeLeaveBalances(employee.id),
+          getRecentEmployeeLeaveRequests(employee.id, 5),
+        ])
+      : [[], []];
+
+  // Lifecycle
   const [lifecycleRecord, onboardingChecklist, offboardingChecklist] =
-    (canViewLifecycle && tab === "lifecycle")
+    canViewLifecycle && tab === "lifecycle"
       ? await Promise.all([
           getEmployeeLifecycleRecord(employee.id),
           getOnboardingChecklist(employee.id),
@@ -102,343 +200,299 @@ export default async function EmployeeDetailPage({
         ])
       : [null, null, null];
 
-  // Form values for the edit form (Overview tab, admin/HR only)
+  // ── Form values for the edit form (Overview tab, admin/HR only) ─────────────
   const formValues = canManage
     ? {
-        id: employee.id,
-        employeeId: employee.employeeId,
-        firstName: employee.firstName,
-        middleName: employee.middleName ?? null,
-        lastName: employee.lastName,
-        email: employee.email ?? null,
-        phone: employee.phone ?? null,
-        gender: (employee.gender as "MALE" | "FEMALE" | null) ?? null,
-        dateOfBirth: employee.dateOfBirth ? employee.dateOfBirth.toISOString() : null,
-        maritalStatus: employee.maritalStatus ?? null,
-        address: employee.address ?? null,
-        emergencyContactName: employee.emergencyContactName ?? null,
-        emergencyContactPhone: employee.emergencyContactPhone ?? null,
+        id:                           employee.id,
+        employeeId:                   employee.employeeId,
+        firstName:                    employee.firstName,
+        middleName:                   employee.middleName ?? null,
+        lastName:                     employee.lastName,
+        email:                        employee.email ?? null,
+        phone:                        employee.phone ?? null,
+        gender:                       (employee.gender as "MALE" | "FEMALE" | null) ?? null,
+        dateOfBirth:                  employee.dateOfBirth ? employee.dateOfBirth.toISOString() : null,
+        maritalStatus:                employee.maritalStatus ?? null,
+        address:                      employee.address ?? null,
+        emergencyContactName:         employee.emergencyContactName ?? null,
+        emergencyContactPhone:        employee.emergencyContactPhone ?? null,
         emergencyContactRelationship: employee.emergencyContactRelationship ?? null,
-        emergencyContactAddress: employee.emergencyContactAddress ?? null,
-        departmentId: employee.departmentId ?? null,
-        positionId: employee.positionId ?? null,
-        managerId: employee.manager?.id ?? null,
-        employmentType: employee.employmentType ?? null,
-        hireDate: employee.hireDate ? employee.hireDate.toISOString() : null,
-        employmentStatus: employee.employmentStatus as
+        emergencyContactAddress:      employee.emergencyContactAddress ?? null,
+        departmentId:                 employee.departmentId ?? null,
+        positionId:                   employee.positionId ?? null,
+        managerId:                    employee.manager?.id ?? null,
+        employmentType:               employee.employmentType ?? null,
+        hireDate:                     employee.hireDate ? employee.hireDate.toISOString() : null,
+        employmentStatus:             employee.employmentStatus as
           | "ONBOARDING" | "ACTIVE" | "ON_LEAVE" | "RESIGNED" | "RETIRED"
           | "SUSPENDED" | "TERMINATED" | "INACTIVE",
-        educationLevel: employee.educationLevel ?? null,
-        fieldOfStudy: employee.fieldOfStudy ?? null,
-        institutionName: employee.institutionName ?? null,
-        graduationYear: employee.graduationYear ?? null,
-        profileImageUrl: employee.profileImageUrl ?? null,
+        educationLevel:               employee.educationLevel ?? null,
+        fieldOfStudy:                 employee.fieldOfStudy ?? null,
+        institutionName:              employee.institutionName ?? null,
+        graduationYear:               employee.graduationYear ?? null,
+        profileImageUrl:              employee.profileImageUrl ?? null,
       }
     : null;
 
+  // ── Derived display values ───────────────────────────────────────────────────
+  const fullName = `${employee.firstName}${employee.middleName ? ` ${employee.middleName}` : ""} ${employee.lastName}`;
+  const tenure = yearsOfService(employee.hireDate);
+  const statusTone = STATUS_TONE[employee.employmentStatus as keyof typeof STATUS_TONE] ?? "neutral";
+
   return (
     <div className="space-y-0">
-      {/* ── Profile header ───────────────────────────────────────────── */}
-      <ProfileHeader employee={employee} />
 
-      {/* ── Tab bar ─────────────────────────────────────────────────── */}
-      <Suspense fallback={null}>
-        <ProfileTabs employeeId={employee.id} />
-      </Suspense>
+      {/* ── Back + breadcrumb ────────────────────────────────────────────── */}
+      <div className="mb-4 flex items-center gap-2">
+        <Link
+          href="/employees"
+          className="flex items-center gap-1.5 text-sm text-ink-900/50 hover:text-ink-900 transition-colors"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+          Employees
+        </Link>
+        <span className="text-ink-900/25">/</span>
+        <span className="text-sm text-ink-900/70 truncate max-w-[200px]">{fullName}</span>
+      </div>
 
-      {/* ── Tab content ─────────────────────────────────────────────── */}
-      <div className="mt-6 space-y-6 px-0">
+      {/* ── Profile header ────────────────────────────────────────────────── */}
+      <Card className="overflow-hidden rounded-b-none">
+        {/* Brand accent strip */}
+        <div className="h-1 bg-brand-700" />
 
-        {/* ══ OVERVIEW ══════════════════════════════════════════════ */}
-        {tab === "overview" && (
-          <>
-            {canManage && formValues ? (
-              /* Admin / HR: full edit form */
-              <EmployeeForm
-                action={updateEmployee.bind(null, employee.id)}
-                employee={formValues}
-                departments={departments}
-                positions={positions}
-                managers={managers}
+        <div className="px-5 py-5 sm:px-6">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+
+            {/* Left: avatar + name + meta */}
+            <div className="flex items-start gap-4">
+              <Avatar
+                name={fullName}
+                imageUrl={employee.profileImageUrl}
+                size="xl"
+                className="shrink-0"
               />
-            ) : (
-              /* Manager: read-only cards */
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                {/* Personal Information */}
-                <Card className="p-6">
-                  <SectionHeader icon={User} title="Personal Information" />
-                  <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                    <ReadField label="Gender" value={employee.gender} />
-                    <ReadField
-                      label="Date of Birth"
-                      value={formatDateWithEthiopian(employee.dateOfBirth)}
-                    />
-                    <ReadField label="Marital Status" value={employee.maritalStatus} />
-                    <ReadField label="Phone" value={employee.phone} />
-                    <ReadField label="Email" value={employee.email} className="sm:col-span-2" />
-                    <ReadField label="Address" value={employee.address} className="sm:col-span-2" />
-                  </dl>
-                </Card>
+              <div className="min-w-0">
+                {/* Name + status */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="font-display text-xl font-semibold text-ink-900 sm:text-2xl">
+                    {fullName}
+                  </h1>
+                  <Badge tone={statusTone}>
+                    {STATUS_LABEL[employee.employmentStatus] ?? employee.employmentStatus}
+                  </Badge>
+                  {employee.deletedAt && (
+                    <Badge tone="danger">Archived</Badge>
+                  )}
+                </div>
 
-                {/* Emergency Contact */}
-                <Card className="p-6">
-                  <SectionHeader icon={Phone} title="Emergency Contact" />
-                  <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                    <ReadField label="Name" value={employee.emergencyContactName} />
-                    <ReadField
-                      label="Relationship"
-                      value={employee.emergencyContactRelationship}
-                    />
-                    <ReadField label="Phone" value={employee.emergencyContactPhone} />
-                    <ReadField label="Address" value={employee.emergencyContactAddress} />
-                  </dl>
-                </Card>
+                {/* Employee ID */}
+                <p className="mt-0.5 text-sm font-medium text-brand-700">{employee.employeeId}</p>
 
-                {/* Employment Information */}
-                <Card className="p-6">
-                  <SectionHeader icon={Briefcase} title="Employment Information" />
-                  <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                    <ReadField label="Department" value={employee.department?.name} />
-                    <ReadField label="Position" value={employee.position?.name} />
-                    <ReadField label="Employment Type" value={employee.employmentType} />
-                    <ReadField label="Employment Status" value={employee.employmentStatus} />
-                    <ReadField
-                      label="Hire Date"
-                      value={formatDateWithEthiopian(employee.hireDate)}
-                    />
-                    <ReadField
-                      label="Reports To"
-                      value={
-                        employee.manager
-                          ? `${employee.manager.firstName} ${employee.manager.lastName}`
-                          : null
-                      }
-                    />
-                  </dl>
-                  <p className="mt-4 text-xs text-ink-900/45">
-                    To change department, position, or employment type use the{" "}
+                {/* Position · Department */}
+                <p className="mt-1 text-sm text-ink-900/60">
+                  {employee.position?.name ?? "No position"}
+                  {employee.department?.name ? ` · ${employee.department.name}` : ""}
+                </p>
+
+                {/* Manager */}
+                {employee.manager && (
+                  <p className="mt-0.5 text-sm text-ink-900/50">
+                    Reports to{" "}
                     <Link
-                      href={`/employees/${employee.id}?tab=history`}
+                      href={`/employees/${employee.manager.id}`}
                       className="font-medium text-brand-700 hover:underline"
                     >
-                      Employment History
-                    </Link>{" "}
-                    tab → Record Employment Change.
+                      {employee.manager.firstName} {employee.manager.lastName}
+                    </Link>
                   </p>
-                </Card>
+                )}
 
-                {/* Education */}
-                <Card className="p-6">
-                  <SectionHeader icon={GraduationCap} title="Education" />
-                  <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                    <ReadField label="Education Level" value={employee.educationLevel} />
-                    <ReadField label="Field of Study" value={employee.fieldOfStudy} />
-                    <ReadField label="Institution" value={employee.institutionName} />
-                    <ReadField label="Graduation Year" value={employee.graduationYear} />
-                  </dl>
-                </Card>
+                {/* Hire date + employment type */}
+                <div className="mt-2 flex flex-wrap items-center gap-3">
+                  {employee.hireDate && (
+                    <span className="flex items-center gap-1 text-xs text-ink-900/45">
+                      <Calendar className="h-3 w-3" aria-hidden="true" />
+                      Joined {formatDate(employee.hireDate)}
+                    </span>
+                  )}
+                  {employee.employmentType && (
+                    <span className="flex items-center gap-1 text-xs text-ink-900/45">
+                      <UserCircle2 className="h-3 w-3" aria-hidden="true" />
+                      {EMPLOYMENT_TYPE_LABEL[employee.employmentType] ?? employee.employmentType}
+                    </span>
+                  )}
+                  {tenure && (
+                    <span className="flex items-center gap-1 text-xs text-ink-900/45">
+                      <Clock className="h-3 w-3" aria-hidden="true" />
+                      {tenure}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Right: action buttons (admin/HR only) */}
+            {canManage && (
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <ButtonLink
+                  href={`/employees/${employee.id}?tab=overview`}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                  Edit
+                </ButtonLink>
+                {canManageHistory && (
+                  <ButtonLink
+                    href={`/employees/${employee.id}?tab=employment`}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <History className="h-3.5 w-3.5" aria-hidden="true" />
+                    Employment
+                  </ButtonLink>
+                )}
               </div>
             )}
+          </div>
+        </div>
+      </Card>
 
-            {/* System Account — visible to MANAGE_USERS roles (Admin) */}
+      {/* ── Tab navigation ───────────────────────────────────────────────── */}
+      <Suspense fallback={null}>
+        <ProfileTabs employeeId={employee.id} visibleTabs={visibleTabs} />
+      </Suspense>
+
+      {/* ── Tab content ──────────────────────────────────────────────────── */}
+      <div className="mt-5 space-y-5">
+
+        {/* ══ OVERVIEW ══════════════════════════════════════════════════ */}
+        {tab === "overview" && (
+          <>
+            <OverviewPanel
+              employee={employee}
+              formValues={formValues}
+              canManage={canManage}
+              departments={departments}
+              positions={positions}
+              managers={managers}
+              updateAction={updateEmployee.bind(null, employee.id)}
+            />
+            {/* System Account — Admin only */}
             {canManageUsers && (
               <SystemAccountPanel
                 employeeId={employee.id}
                 employeeCode={employee.employeeId}
-                linkedUser={employee.user ?? null}
+                linkedUser={"user" in employee ? (employee.user ?? null) : null}
                 canManage={canManageUsers}
               />
             )}
           </>
         )}
 
-        {/* ══ EMPLOYMENT HISTORY ════════════════════════════════════ */}
-        {tab === "history" && (
-          <Card>
-            <CardHeader
-              title="Employment History"
-              description="Append-only record of department, position, and employment-type changes. Use &ldquo;Record Employment Change&rdquo; to add a new entry — existing records are never edited."
+        {/* ══ EMPLOYMENT ════════════════════════════════════════════════ */}
+        {tab === "employment" && (
+          <>
+            <EmploymentPanel
+              employeeId={employee.id}
+              department={employee.department}
+              position={employee.position}
+              manager={employee.manager}
+              employmentType={employee.employmentType}
+              hireDate={employee.hireDate}
+              employmentStatus={employee.employmentStatus}
+              history={employee.employmentHistory}
+              departments={departments}
+              positions={positions}
+              currentDepartmentId={employee.departmentId ?? ""}
+              canManage={canManageHistory}
+              linkedUser={"user" in employee && employee.user ? { id: employee.user.id, role: employee.user.role } : null}
+              canChangeRole={canChangeRole}
             />
-            <div className="px-6 pb-6">
-              <EmploymentHistoryPanel
-                employeeId={employee.id}
-                history={employee.employmentHistory}
-                departments={departments}
-                positions={positions}
-                currentDepartmentId={employee.departmentId ?? ""}
-                canManage={canManageHistory}
-                linkedUser={employee.user ? { id: employee.user.id, role: employee.user.role } : null}
-                canChangeRole={canChangeRole}
-              />
-            </div>
-          </Card>
-        )}
 
-        {/* ══ CONTRACTS ═════════════════════════════════════════════ */}
-        {tab === "contracts" && (
-          <Card>
-            <CardHeader
-              title="Contracts"
-              description="Employment contracts. Creating a new contract automatically closes the previous active one."
-            />
-            <div className="px-6 pb-6">
-              <ContractsPanel
-                employeeId={employee.id}
-                contracts={contractRows}
-                canManage={canManageContracts}
-              />
-            </div>
-          </Card>
-        )}
-
-        {/* ══ DOCUMENTS ═════════════════════════════════════════════ */}
-        {tab === "documents" && (
-          <Card>
-            <CardHeader
-              title="Documents"
-              description="Contracts, ID copies, certificates, and other HR documents."
-            />
-            {employee.documents.length === 0 && !canManageDocuments ? (
-              <EmptyState
-                icon={<FileText className="h-8 w-8" />}
-                title="No documents yet"
-              />
-            ) : employee.documents.length === 0 ? (
-              /* Empty but admin/HR can upload — keep it compact */
-              <div className="px-6 py-4 text-sm text-ink-900/50">
-                No documents have been added yet.
-              </div>
-            ) : (
-              <ul className="divide-y divide-ink-900/6">
-                {employee.documents.map((doc: Document) => {
-                  const isImage = doc.mimeType.startsWith("image/");
-                  const isPdf   = doc.mimeType === "application/pdf";
-                  const cloudinaryResourceType =
-                    doc.fileResourceType === "image" || doc.fileResourceType === "raw"
-                      ? doc.fileResourceType
-                      : isImage ? "image" : "raw";
-                  const signedUrl = getSignedFileUrl(doc.fileKey, cloudinaryResourceType);
-
-                  return (
-                    <li
-                      key={doc.id}
-                      className="flex items-center justify-between gap-3 px-6 py-3"
-                    >
-                      {/* Icon / thumbnail */}
-                      <div className="flex min-w-0 items-center gap-3">
-                        {isImage ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={signedUrl}
-                            alt=""
-                            className="h-9 w-9 shrink-0 rounded-lg object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
-                            <FileText className="h-4 w-4" />
-                          </div>
-                        )}
-
-                        {/* Title + metadata */}
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-ink-900">
-                            {doc.title}
-                          </p>
-                          <p className="text-xs text-ink-900/45">
-                            <Badge tone="neutral" className="mr-1.5 py-0 text-[10px]">
-                              {doc.type.replace(/_/g, " ")}
-                            </Badge>
-                            {formatBytes(doc.fileSize)} · {formatDate(doc.createdAt)}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex shrink-0 items-center gap-3">
-                        {/* Preview — images and PDFs */}
-                        {(isImage || isPdf) && (
-                          <a
-                            href={signedUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm font-medium text-brand-700 hover:underline"
-                          >
-                            Preview
-                          </a>
-                        )}
-
-                        {/* Download */}
-                        <a
-                          href={signedUrl}
-                          download={doc.fileName}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm font-medium text-ink-900/55 hover:text-ink-900"
-                        >
-                          Download
-                        </a>
-
-                        {/* Soft-delete — MANAGE_DOCUMENTS only */}
-                        {canManageDocuments && (
-                          <form
-                            action={async () => {
-                              "use server";
-                              await deleteEmployeeDocument(doc.id, employee.id);
-                            }}
-                          >
-                            <ConfirmSubmitButton
-                              confirmMessage={`Remove "${doc.title}" from this employee's record?`}
-                              size="sm"
-                              variant="ghost"
-                              className="text-ink-900/35 hover:text-red-600"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              <span className="sr-only">Remove</span>
-                            </ConfirmSubmitButton>
-                          </form>
-                        )}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
+            {/* Contracts — only for full viewers, shown inside employment tab */}
+            {tabPerms.canViewContracts && contractRows.length > 0 && (
+              <Card>
+                <CardHeaderImport title="Contracts" description="Employment contracts. Creating a new contract automatically closes the previous active one." />
+                <div className="px-5 pb-5">
+                  <ContractsPanelImport
+                    employeeId={employee.id}
+                    contracts={contractRows}
+                    canManage={canManageContracts}
+                  />
+                </div>
+              </Card>
             )}
-            {canManageDocuments && <DocumentUploadForm employeeId={employee.id} />}
-          </Card>
+            {tabPerms.canViewContracts && canManageContracts && contractRows.length === 0 && (
+              <Card>
+                <CardHeaderImport title="Contracts" />
+                <div className="px-5 pb-5">
+                  <ContractsPanelImport
+                    employeeId={employee.id}
+                    contracts={[]}
+                    canManage={canManageContracts}
+                  />
+                </div>
+              </Card>
+            )}
+          </>
         )}
 
-        {/* ══ LIFECYCLE ═════════════════════════════════════════════ */}
-        {tab === "lifecycle" && canViewLifecycle && lifecycleRecord && onboardingChecklist && offboardingChecklist && (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            {/* Onboarding column */}
-            <Card>
-              <CardHeader title="Onboarding" description="Pre-boarding checklist and activation status." />
-              <div className="p-6">
-                <OnboardingPanel
-                  employeeId={employee.id}
-                  employmentStatus={lifecycleRecord.employmentStatus}
-                  checklist={onboardingChecklist}
-                  record={lifecycleRecord.onboardingRecord}
-                  canManage={canManageOnboarding}
-                />
-              </div>
-            </Card>
+        {/* ══ ATTENDANCE ════════════════════════════════════════════════ */}
+        {tab === "attendance" && canViewAttendance && (
+          <AttendancePanel
+            records={attendanceRecords}
+            counts={attendanceCounts}
+            monthLabel={monthLabel}
+            employeeId={employee.id}
+          />
+        )}
 
-            {/* Offboarding column */}
-            <Card>
-              <CardHeader title="Offboarding" description="Departure workflow and archiving." />
-              <div className="p-6">
-                <OffboardingPanel
-                  employeeId={employee.id}
-                  employmentStatus={lifecycleRecord.employmentStatus}
-                  checklist={offboardingChecklist}
-                  record={lifecycleRecord.offboardingRecord}
-                  canManage={canManageOffboarding}
-                  cancelAction={cancelOffboarding.bind(null, employee.id)}
-                />
-              </div>
-            </Card>
-          </div>
+        {/* ══ LEAVE ═════════════════════════════════════════════════════ */}
+        {tab === "leave" && canViewLeave && (
+          <LeavePanel
+            balances={leaveBalances}
+            recentRequests={recentLeaveRequests}
+            year={now.getFullYear()}
+          />
+        )}
+
+        {/* ══ DOCUMENTS ═════════════════════════════════════════════════ */}
+        {tab === "documents" && tabPerms.canViewDocuments && (
+          <DocumentsPanel
+            employeeId={employee.id}
+            documents={"documents" in employee ? (employee.documents as Document[]) : []}
+            canManage={canManageDocuments}
+          />
+        )}
+
+        {/* ══ LIFECYCLE ═════════════════════════════════════════════════ */}
+        {tab === "lifecycle" && canViewLifecycle && onboardingChecklist && offboardingChecklist && (
+          <LifecyclePanel
+            employeeId={employee.id}
+            employmentStatus={employee.employmentStatus}
+            checklist={onboardingChecklist}
+            offboardingChecklist={offboardingChecklist}
+            onboardingRecord={lifecycleRecord?.onboardingRecord ?? null}
+            offboardingRecord={lifecycleRecord?.offboardingRecord
+              ? {
+                  reason:          lifecycleRecord.offboardingRecord.reason as OffboardingReasonValue,
+                  lastWorkingDate: lifecycleRecord.offboardingRecord.lastWorkingDate,
+                  startedAt:       lifecycleRecord.offboardingRecord.startedAt,
+                  completedAt:     lifecycleRecord.offboardingRecord.completedAt,
+                  notes:           lifecycleRecord.offboardingRecord.notes,
+                  startedBy:       lifecycleRecord.offboardingRecord.startedBy,
+                  completedBy:     lifecycleRecord.offboardingRecord.completedBy,
+                }
+              : null
+            }
+            canManage={canManage}
+            canManageOnboarding={canManageOnboarding}
+            canManageOffboarding={canManageOffboarding}
+            cancelOffboardingAction={cancelOffboarding.bind(null, employee.id)}
+            employmentHistory={employee.employmentHistory}
+            hireDate={employee.hireDate}
+          />
         )}
 
         {tab === "lifecycle" && !canViewLifecycle && (
@@ -448,114 +502,6 @@ export default async function EmployeeDetailPage({
           />
         )}
       </div>
-    </div>
-  );
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function yearsOfService(hireDate: Date | null): string | null {
-  if (!hireDate) return null;
-  const now = new Date();
-  let years = now.getFullYear() - hireDate.getFullYear();
-  const hasHadAnniversaryThisYear =
-    now.getMonth() > hireDate.getMonth() ||
-    (now.getMonth() === hireDate.getMonth() && now.getDate() >= hireDate.getDate());
-  if (!hasHadAnniversaryThisYear) years -= 1;
-  if (years < 1) return "Less than a year";
-  return `${years} year${years === 1 ? "" : "s"}`;
-}
-
-function ProfileHeader({
-  employee,
-}: {
-  employee: NonNullable<Awaited<ReturnType<typeof getEmployeeById>>>;
-}) {
-  const fullName = `${employee.firstName}${employee.middleName ? ` ${employee.middleName}` : ""} ${employee.lastName}`;
-  const tenure = yearsOfService(employee.hireDate);
-
-  const statusTone =
-    employee.employmentStatus === "ACTIVE"
-      ? "success"
-      : employee.employmentStatus === "ONBOARDING"
-        ? "brand"
-        : employee.employmentStatus === "ON_LEAVE"
-          ? "warning"
-          : employee.employmentStatus === "SUSPENDED" || employee.employmentStatus === "TERMINATED"
-            ? "danger"
-            : "neutral";
-
-  return (
-    <Card className="overflow-hidden rounded-b-none">
-      <div className="h-1 bg-brand-700" />
-      <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-5">
-          <Avatar name={fullName} imageUrl={employee.profileImageUrl} size="xl" />
-          <div>
-            <h2 className="font-display text-2xl font-semibold text-ink-900">{fullName}</h2>
-            <p className="mt-0.5 text-sm text-ink-900/60">
-              {employee.position?.name ?? "No position assigned"}
-              {employee.department?.name ? ` · ${employee.department.name}` : ""}
-            </p>
-            <div className="mt-2.5 flex flex-wrap items-center gap-2">
-              <Badge tone="brand">{employee.employeeId}</Badge>
-              <Badge tone={statusTone}>{employee.employmentStatus.replace(/_/g, " ")}</Badge>
-              {employee.employmentType && (
-                <Badge tone="neutral">{employee.employmentType.replace(/_/g, " ")}</Badge>
-              )}
-              {employee.user?.username && (
-                <span className="text-xs text-ink-900/45">@{employee.user.username}</span>
-              )}
-              {employee.deletedAt && <Badge tone="danger">Archived</Badge>}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-6 sm:border-l sm:border-ink-900/8 sm:pl-6">
-          <div>
-            <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-ink-900/40">
-              <Calendar className="h-3.5 w-3.5" /> Tenure
-            </p>
-            <p className="mt-1 text-sm font-medium text-ink-900">{tenure ?? "—"}</p>
-          </div>
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-ink-900/40">Hired</p>
-            <p className="mt-1 text-sm font-medium text-ink-900">
-              {formatDate(employee.hireDate)}
-            </p>
-          </div>
-          {employee.manager && (
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-ink-900/40">
-                Reports to
-              </p>
-              <Link
-                href={`/employees/${employee.manager.id}`}
-                className="mt-1 block text-sm font-medium text-brand-700 hover:underline"
-              >
-                {employee.manager.firstName} {employee.manager.lastName}
-              </Link>
-            </div>
-          )}
-        </div>
-      </div>
-    </Card>
-  );
-}
-
-function ReadField({
-  label,
-  value,
-  className,
-}: {
-  label: string;
-  value?: string | null;
-  className?: string;
-}) {
-  return (
-    <div className={className}>
-      <dt className="text-xs font-medium uppercase tracking-wide text-ink-900/45">{label}</dt>
-      <dd className="mt-1 text-sm text-ink-900/80">{value || "—"}</dd>
     </div>
   );
 }

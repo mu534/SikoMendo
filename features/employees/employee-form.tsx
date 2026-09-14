@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { User, Briefcase, GraduationCap, Phone } from "lucide-react";
+import { User, Briefcase, GraduationCap, Phone, Search } from "lucide-react";
 import { Input, Label, Select, Textarea, FieldGroup } from "@/components/ui/field";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -14,10 +14,10 @@ export { SectionHeader } from "./section-header";
 export const EMPLOYEE_FORM_ID = "employee-form";
 
 const EMPLOYMENT_TYPE_LABELS: Record<string, string> = {
-  PERMANENT: "Permanent",
-  CONTRACT: "Contract",
-  TEMPORARY: "Temporary",
-  PROBATION: "Probation",
+  PERMANENT:  "Permanent",
+  CONTRACT:   "Contract",
+  TEMPORARY:  "Temporary",
+  PROBATION:  "Probation",
   INTERNSHIP: "Internship",
 };
 
@@ -26,8 +26,14 @@ type EmploymentStatus =
   | "SUSPENDED" | "TERMINATED" | "INACTIVE";
 
 export type DepartmentOption = { id: string; name: string };
-export type PositionOption  = { id: string; name: string; departmentId: string };
-export type ManagerOption   = { id: string; firstName: string; lastName: string; employeeId: string };
+export type PositionOption   = { id: string; name: string; departmentId: string };
+export type ManagerOption    = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  employeeId: string;
+  position?: { name: string } | null;
+};
 
 export type EmployeeFormValues = {
   id?: string;
@@ -45,7 +51,6 @@ export type EmployeeFormValues = {
   emergencyContactPhone?: string | null;
   emergencyContactRelationship?: string | null;
   emergencyContactAddress?: string | null;
-  // FK-based fields
   departmentId?: string | null;
   positionId?: string | null;
   managerId?: string | null;
@@ -68,12 +73,141 @@ function RequiredMark() {
   return <span className="ml-0.5 text-red-500" aria-hidden="true">*</span>;
 }
 
+// ── Searchable Manager Combobox ───────────────────────────────────────────────
+
+function ManagerCombobox({
+  managers,
+  defaultValue,
+  name,
+}: {
+  managers: ManagerOption[];
+  defaultValue?: string | null;
+  name: string;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<ManagerOption | null>(
+    managers.find((m) => m.id === defaultValue) ?? null
+  );
+
+  const filtered =
+    query.trim() === ""
+      ? managers.slice(0, 12)
+      : managers.filter((m) => {
+          const full = `${m.firstName} ${m.lastName} ${m.employeeId}`.toLowerCase();
+          return full.includes(query.toLowerCase());
+        }).slice(0, 12);
+
+  return (
+    <div className="relative">
+      {/* Hidden input for form submission */}
+      <input type="hidden" name={name} value={selected?.id ?? ""} />
+
+      {/* Trigger / search input */}
+      <div className="relative">
+        <Search
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-900/35"
+          aria-hidden="true"
+        />
+        <input
+          type="text"
+          role="combobox"
+          aria-expanded={open}
+          aria-haspopup="listbox"
+          aria-label="Search manager"
+          placeholder={selected ? `${selected.firstName} ${selected.lastName}` : "Search by name or ID…"}
+          value={query}
+          onFocus={() => setOpen(true)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+          }}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          className="w-full rounded-lg border border-ink-900/15 bg-white py-2 pl-9 pr-3 text-sm text-ink-900 placeholder:text-ink-900/35 focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-600/20"
+        />
+      </div>
+
+      {/* Currently selected — shown below input when closed */}
+      {selected && !open && (
+        <div className="mt-1.5 flex items-center justify-between rounded-lg border border-ink-900/8 bg-sand-50 px-3 py-2">
+          <div>
+            <p className="text-sm font-medium text-ink-900">
+              {selected.firstName} {selected.lastName}
+            </p>
+            <p className="text-xs text-ink-900/45">
+              {selected.employeeId}
+              {selected.position?.name ? ` · ${selected.position.name}` : ""}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => { setSelected(null); setQuery(""); }}
+            className="text-xs font-medium text-ink-900/40 hover:text-ink-900"
+            aria-label="Remove manager selection"
+          >
+            Remove
+          </button>
+        </div>
+      )}
+
+      {/* Dropdown list */}
+      {open && (
+        <ul
+          role="listbox"
+          aria-label="Manager options"
+          className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-xl border border-ink-900/10 bg-white py-1 shadow-lg shadow-ink-900/8"
+        >
+          <li
+            role="option"
+            aria-selected={!selected}
+            onMouseDown={() => { setSelected(null); setQuery(""); setOpen(false); }}
+            className="cursor-pointer px-3 py-2 text-sm text-ink-900/45 hover:bg-sand-50"
+          >
+            — No manager —
+          </li>
+          {filtered.length === 0 && (
+            <li className="px-3 py-2 text-sm text-ink-900/40">No employees found.</li>
+          )}
+          {filtered.map((m) => (
+            <li
+              key={m.id}
+              role="option"
+              aria-selected={selected?.id === m.id}
+              onMouseDown={() => { setSelected(m); setQuery(""); setOpen(false); }}
+              className={`cursor-pointer px-3 py-2.5 hover:bg-sand-50 ${
+                selected?.id === m.id ? "bg-brand-50" : ""
+              }`}
+            >
+              <p className="text-sm font-medium text-ink-900">
+                {m.firstName} {m.lastName}
+              </p>
+              <p className="text-xs text-ink-900/45">
+                {m.employeeId}
+                {m.position?.name ? ` · ${m.position.name}` : ""}
+              </p>
+            </li>
+          ))}
+          {managers.length > 12 && filtered.length === 12 && (
+            <li className="px-3 py-1.5 text-xs text-ink-900/35">
+              Type to narrow results…
+            </li>
+          )}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// ── Form actions bar ──────────────────────────────────────────────────────────
+
 export function EmployeeFormActions({
   isPending,
   isEdit,
+  onCancel,
 }: {
   isPending?: boolean;
   isEdit?: boolean;
+  onCancel?: () => void;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-3 border-t border-ink-900/8 pt-4">
@@ -88,11 +222,21 @@ export function EmployeeFormActions({
           </span>
         ) : isEdit ? "Save changes" : "Create employee"}
       </Button>
-      <Button type="reset" form={EMPLOYEE_FORM_ID} variant="outline">Reset</Button>
-      <ButtonLink href="/employees" variant="ghost">Cancel</ButtonLink>
+      {isEdit && onCancel ? (
+        <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
+      ) : isEdit ? (
+        <Button type="reset" form={EMPLOYEE_FORM_ID} variant="outline">Reset</Button>
+      ) : (
+        <>
+          <Button type="reset" form={EMPLOYEE_FORM_ID} variant="outline">Reset</Button>
+          <ButtonLink href="/employees" variant="ghost">Cancel</ButtonLink>
+        </>
+      )}
     </div>
   );
 }
+
+// ── Main form ─────────────────────────────────────────────────────────────────
 
 export function EmployeeForm({
   action,
@@ -100,6 +244,7 @@ export function EmployeeForm({
   departments = [],
   positions = [],
   managers = [],
+  onSaveSuccess,
 }: {
   action: (
     prevState: { success: boolean; data?: unknown; error?: { message: string } } | null,
@@ -109,6 +254,7 @@ export function EmployeeForm({
   departments?: DepartmentOption[];
   positions?: PositionOption[];
   managers?: ManagerOption[];
+  onSaveSuccess?: () => void;
 }) {
   const router = useRouter();
   const [state, formAction, isPending] = useActionState(action, null);
@@ -119,31 +265,32 @@ export function EmployeeForm({
     ? positions.filter((p) => p.departmentId === selectedDeptId)
     : positions;
 
-  // When the department changes, clear the position selection unless it belongs to the new dept
   const [selectedPosId, setSelectedPosId] = useState(employee?.positionId ?? "");
-  const [selectedManagerId, setSelectedManagerId] = useState(employee?.managerId ?? "");
   function handleDeptChange(e: React.ChangeEvent<HTMLSelectElement>) {
     setSelectedDeptId(e.target.value);
-    setSelectedPosId(""); // reset position when dept changes
+    setSelectedPosId("");
   }
 
+  // On create success → navigate to new employee profile
   useEffect(() => {
     if (state && (state as { success: boolean; data?: { id: string } }).success && !employee) {
       router.push(`/employees/${(state as { data: { id: string } }).data.id}`);
     }
   }, [state, router, employee]);
 
+  // On edit success → callback (e.g. close edit panel) or show toast
   const [showToast, setShowToast] = useState(false);
   useEffect(() => {
     if (state && (state as { success: boolean }).success && !!employee) {
-      // Reacting to a useActionState result changing (an external system) —
-      // not a derived-state anti-pattern.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setShowToast(true);
-      const t = setTimeout(() => setShowToast(false), 4000);
-      return () => clearTimeout(t);
+      if (onSaveSuccess) {
+        onSaveSuccess();
+      } else {
+        setShowToast(true);
+        const t = setTimeout(() => setShowToast(false), 4000);
+        return () => clearTimeout(t);
+      }
     }
-  }, [state, employee]);
+  }, [state, employee, onSaveSuccess]);
 
   const errorMessage =
     state && !(state as { success: boolean }).success
@@ -151,8 +298,6 @@ export function EmployeeForm({
       : null;
 
   const isEdit = !!employee;
-  // Extract employmentType before JSX so TypeScript doesn't narrow employee to never
-  // inside the !isEdit branch (where employee is undefined).
   const currentEmploymentType = employee?.employmentType ?? "";
 
   return (
@@ -244,42 +389,14 @@ export function EmployeeForm({
           </div>
         </Card>
 
-        {/* ── Section 2: Emergency Contact ─────────────────────────────── */}
-        <Card className="p-6">
-          <SectionHeader icon={Phone} title="Emergency Contact" />
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <FieldGroup>
-              <Label htmlFor="emergencyContactName">Contact Name</Label>
-              <Input id="emergencyContactName" name="emergencyContactName" defaultValue={employee?.emergencyContactName ?? ""} />
-            </FieldGroup>
-            <FieldGroup>
-              <Label htmlFor="emergencyContactRelationship">Relationship</Label>
-              <Input id="emergencyContactRelationship" name="emergencyContactRelationship" placeholder="e.g. Spouse, Parent, Sibling" defaultValue={employee?.emergencyContactRelationship ?? ""} />
-            </FieldGroup>
-            <FieldGroup>
-              <Label htmlFor="emergencyContactPhone">Phone Number</Label>
-              <Input id="emergencyContactPhone" name="emergencyContactPhone" placeholder="+251 9XX XXX XXX" defaultValue={employee?.emergencyContactPhone ?? ""} />
-            </FieldGroup>
-            <FieldGroup>
-              <Label htmlFor="emergencyContactAddress">Address (Optional)</Label>
-              <Input id="emergencyContactAddress" name="emergencyContactAddress" defaultValue={employee?.emergencyContactAddress ?? ""} />
-            </FieldGroup>
-          </div>
-        </Card>
-
-        {/* ── Section 3: Employment Information ────────────────────────── */}
+        {/* ── Section 2: Employment Information ────────────────────────── */}
         <Card className="p-6">
           <SectionHeader icon={Briefcase} title="Employment Information" />
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
 
-            {/* Department, Position, and Employment Type: on create, pick them
-                directly. On edit, they're locked — changing them here would
-                bypass EmploymentHistory tracking, so we point to the dedicated
-                "Record employment change" flow instead, which keeps history
-                accurate. The hidden inputs still submit the current values so
-                the rest of the form (name, phone, etc.) can still be saved. */}
             {isEdit ? (
               <>
+                {/* Locked on edit — changes go through Employment History */}
                 <FieldGroup>
                   <Label htmlFor="departmentId">Department</Label>
                   <Select id="departmentId" value={selectedDeptId} disabled onChange={() => {}}>
@@ -307,15 +424,13 @@ export function EmployeeForm({
                   </Select>
                   <input type="hidden" name="employmentType" value={employee?.employmentType ?? ""} />
                   <p className="mt-1 text-xs text-ink-900/50">
-                    Locked. Use <span className="font-medium">Record Employment Change</span> on this
-                    employee&apos;s profile to update department, position, or employment type — it keeps
-                    their employment history accurate.
+                    Use <span className="font-medium">Record Employment Change</span> to update
+                    department, position, or type.
                   </p>
                 </FieldGroup>
               </>
             ) : (
               <>
-                {/* Department — cascades to Position */}
                 <FieldGroup>
                   <Label htmlFor="departmentId">Department<RequiredMark /></Label>
                   <Select
@@ -332,7 +447,6 @@ export function EmployeeForm({
                   </Select>
                 </FieldGroup>
 
-                {/* Position — filtered by selected department */}
                 <FieldGroup>
                   <Label htmlFor="positionId">Position<RequiredMark /></Label>
                   <Select
@@ -352,14 +466,15 @@ export function EmployeeForm({
                   </Select>
                   {selectedDeptId && filteredPositions.length === 0 && (
                     <p className="mt-1 text-xs text-ink-900/50">
-                      No active positions in this department. Ask an Admin to add positions.
+                      No active positions in this department.
                     </p>
                   )}
                 </FieldGroup>
 
                 <FieldGroup>
                   <Label htmlFor="employmentType">Employment Type</Label>
-                  <Select id="employmentType" name="employmentType" defaultValue={currentEmploymentType}>                    <option value="">Not specified</option>
+                  <Select id="employmentType" name="employmentType" defaultValue={currentEmploymentType}>
+                    <option value="">Not specified</option>
                     <option value="PERMANENT">Permanent</option>
                     <option value="CONTRACT">Contract</option>
                     <option value="TEMPORARY">Temporary</option>
@@ -372,39 +487,94 @@ export function EmployeeForm({
 
             <FieldGroup>
               <Label htmlFor="hireDate">Hire Date</Label>
-              <Input id="hireDate" name="hireDate" type="date" defaultValue={toDateInputValue(employee?.hireDate)} />
+              <Input
+                id="hireDate"
+                name="hireDate"
+                type="date"
+                defaultValue={toDateInputValue(employee?.hireDate)}
+              />
             </FieldGroup>
 
-            <FieldGroup>
-              <Label htmlFor="employmentStatus">Employment Status<RequiredMark /></Label>
-              <Select id="employmentStatus" name="employmentStatus" required defaultValue={employee?.employmentStatus ?? "ONBOARDING"}>
-                <option value="ONBOARDING">Onboarding</option>
-                <option value="ACTIVE">Active</option>
-                <option value="ON_LEAVE">On Leave</option>
-                <option value="RESIGNED">Resigned</option>
-                <option value="RETIRED">Retired</option>
-                <option value="SUSPENDED">Suspended</option>
-                <option value="TERMINATED">Terminated</option>
-                <option value="INACTIVE">Inactive</option>
-              </Select>
-            </FieldGroup>
+            {/*
+              Employment Status: only shown in EDIT mode, and only for
+              administrative adjustments (ON_LEAVE, SUSPENDED).
+              New employees always start in ONBOARDING (server-enforced).
+              Lifecycle transitions (ACTIVE, RESIGNED, TERMINATED, etc.)
+              are controlled by lifecycle workflows — not this form.
+            */}
+            {isEdit && (
+              <FieldGroup>
+                <Label htmlFor="employmentStatus">Administrative Status</Label>
+                <Select
+                  id="employmentStatus"
+                  name="employmentStatus"
+                  defaultValue={employee?.employmentStatus ?? "ONBOARDING"}
+                >
+                  {/* Show current value if it's lifecycle-controlled (read-only display) */}
+                  {["ONBOARDING","ACTIVE","RESIGNED","RETIRED","TERMINATED","INACTIVE"].includes(
+                    employee?.employmentStatus ?? ""
+                  ) && (
+                    <option value={employee?.employmentStatus ?? "ONBOARDING"} disabled>
+                      {(employee?.employmentStatus ?? "ONBOARDING").replace(/_/g, " ")} (set by lifecycle)
+                    </option>
+                  )}
+                  <option value="ON_LEAVE">On Leave</option>
+                  <option value="SUSPENDED">Suspended</option>
+                </Select>
+                <p className="mt-1 text-xs text-ink-900/45">
+                  Only administrative adjustments (On Leave, Suspended) can be set here. Use the{" "}
+                  <span className="font-medium">Lifecycle</span> tab for onboarding, offboarding, and
+                  other status transitions.
+                </p>
+              </FieldGroup>
+            )}
 
-            {/* Manager / Reports-to selector */}
+            {/* Hidden status for create — server always enforces ONBOARDING */}
+            {!isEdit && (
+              <input type="hidden" name="employmentStatus" value="ONBOARDING" />
+            )}
+
+            {/* Manager / Reports-to — searchable combobox */}
             <FieldGroup className="sm:col-span-2">
               <Label htmlFor="managerId">Reports To (Manager)</Label>
-              <Select
-                id="managerId"
+              <ManagerCombobox
+                managers={managers}
+                defaultValue={employee?.managerId}
                 name="managerId"
-                value={selectedManagerId}
-                onChange={(e) => setSelectedManagerId(e.target.value)}
-              >
-                <option value="">— None —</option>
-                {managers.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.firstName} {m.lastName} ({m.employeeId})
-                  </option>
-                ))}
-              </Select>
+              />
+            </FieldGroup>
+          </div>
+        </Card>
+
+        {/* ── Section 3: Emergency Contact ─────────────────────────────── */}
+        <Card className="p-6">
+          <SectionHeader icon={Phone} title="Emergency Contact" />
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <FieldGroup>
+              <Label htmlFor="emergencyContactName">Contact Name</Label>
+              <Input id="emergencyContactName" name="emergencyContactName" defaultValue={employee?.emergencyContactName ?? ""} />
+            </FieldGroup>
+            <FieldGroup>
+              <Label htmlFor="emergencyContactRelationship">Relationship</Label>
+              <Input
+                id="emergencyContactRelationship"
+                name="emergencyContactRelationship"
+                placeholder="e.g. Spouse, Parent, Sibling"
+                defaultValue={employee?.emergencyContactRelationship ?? ""}
+              />
+            </FieldGroup>
+            <FieldGroup>
+              <Label htmlFor="emergencyContactPhone">Phone Number</Label>
+              <Input
+                id="emergencyContactPhone"
+                name="emergencyContactPhone"
+                placeholder="+251 9XX XXX XXX"
+                defaultValue={employee?.emergencyContactPhone ?? ""}
+              />
+            </FieldGroup>
+            <FieldGroup>
+              <Label htmlFor="emergencyContactAddress">Address (Optional)</Label>
+              <Input id="emergencyContactAddress" name="emergencyContactAddress" defaultValue={employee?.emergencyContactAddress ?? ""} />
             </FieldGroup>
           </div>
         </Card>
@@ -436,16 +606,18 @@ export function EmployeeForm({
             </FieldGroup>
             <FieldGroup>
               <Label htmlFor="graduationYear">Graduation Year</Label>
-              <Input id="graduationYear" name="graduationYear" placeholder="e.g. 2018" defaultValue={employee?.graduationYear ?? ""} />
+              <Input
+                id="graduationYear"
+                name="graduationYear"
+                placeholder="e.g. 2018"
+                defaultValue={employee?.graduationYear ?? ""}
+              />
             </FieldGroup>
           </div>
         </Card>
 
       </form>
-      {/* Actions bar — rendered inside the form wrapper so it's always
-          co-located with the form it submits, regardless of what other
-          panels (Employment History, Contracts, Documents) appear below. */}
-      <EmployeeFormActions isEdit={isEdit} isPending={isPending} />
+      <EmployeeFormActions isEdit={isEdit} isPending={isPending} onCancel={onSaveSuccess} />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { auth } from "@/lib/auth";
 import { getServerSession } from "@/lib/session";
 import { can, type Role } from "@/lib/permissions";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
+import { assertPositionInDepartment } from "@/lib/employee-access";
 import { employmentChangeSchema, employmentChangeFormDataToObject } from "./schemas";
 
 function dayBefore(date: Date): Date {
@@ -33,6 +34,9 @@ export async function recordEmploymentChange(
       include: { user: { select: { id: true, role: true } } },
     });
     if (!employee) throw new Error("Employee not found.");
+
+    // P2-11: Validate that the position belongs to the selected department
+    await assertPositionInDepartment(parsed.data.positionId, parsed.data.departmentId);
 
     const effectiveDate = new Date(`${parsed.data.effectiveDate}T00:00:00.000Z`);
 

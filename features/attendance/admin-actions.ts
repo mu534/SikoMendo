@@ -109,7 +109,10 @@ export async function adminCheckIn(
     // Verify employee exists and is not archived
     const employee = await prisma.employee.findUnique({
       where: { id: employeeId },
-      select: { id: true, firstName: true, lastName: true, employeeId: true, deletedAt: true },
+      select: {
+        id: true, firstName: true, lastName: true, employeeId: true, deletedAt: true,
+        shift: { select: { startTime: true, isActive: true } },
+      },
     });
     if (!employee) throw new Error("Employee not found.");
     if (employee.deletedAt !== null) {
@@ -148,7 +151,8 @@ export async function adminCheckIn(
 
     // Policy-based status calculation — Admin does NOT manually pick status
     const policy = await getAttendancePolicy();
-    const status  = evaluateCheckInStatus(checkInTs, policy, dateInput);
+    const shiftStartTime = employee.shift?.isActive ? employee.shift.startTime : null;
+    const status  = evaluateCheckInStatus(checkInTs, policy, dateInput, shiftStartTime);
 
     let record;
     if (existing) {
