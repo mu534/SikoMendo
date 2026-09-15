@@ -48,11 +48,20 @@ describe("BasicInformationSection — props contract", () => {
   });
 
   it("missing cooperativeId falls back to cooperativeId prop then to placeholder", () => {
-    const withoutId = { ...baseCooperative, cooperativeId: undefined };
-    const fallbackToCoopId = withoutId.cooperativeId ?? "COOP-PROP" ?? "Auto-generated";
+    // Simulate a form values object where cooperativeId is absent (new cooperative).
+    const withoutId: Omit<CooperativeFormValues, "cooperativeId"> & { cooperativeId?: string } = {
+      ...baseCooperative,
+      cooperativeId: undefined,
+    };
+
+    // First fallback: use an externally supplied cooperativeId prop
+    const externalCoopId: string | undefined = "COOP-PROP";
+    const fallbackToCoopId = withoutId.cooperativeId ?? externalCoopId ?? "Auto-generated";
     expect(fallbackToCoopId).toBe("COOP-PROP");
 
-    const noId = withoutId.cooperativeId ?? undefined ?? "Auto-generated";
+    // Second fallback: no external prop either — fall through to placeholder
+    const noExternalId: string | undefined = undefined;
+    const noId = withoutId.cooperativeId ?? noExternalId ?? "Auto-generated";
     expect(noId).toBe("Auto-generated");
   });
 });

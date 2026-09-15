@@ -13,7 +13,7 @@ type Props = {
 
 /**
  * Section 2 of CooperativeForm: Address Information.
- * Contains district (Aanaa) and kebele (Ganda) — both required.
+ * Contains district (Aanaa) and ganda — both required.
  */
 export function AddressInformationSection({ cooperative, onDistrictChange }: Props) {
   return (
@@ -37,7 +37,7 @@ export function AddressInformationSection({ cooperative, onDistrictChange }: Pro
 
         <FieldGroup>
           <Label htmlFor="kebele">
-            Kebele / Ganda<RequiredMark />
+            Ganda<RequiredMark />
           </Label>
           <Input
             id="kebele"
@@ -45,7 +45,7 @@ export function AddressInformationSection({ cooperative, onDistrictChange }: Pro
             required
             aria-required="true"
             defaultValue={cooperative?.kebele ?? ""}
-            placeholder="e.g. 01"
+            placeholder="e.g. Horabooqa"
           />
         </FieldGroup>
       </div>

@@ -21,7 +21,8 @@ describe("AddressInformationSection — props contract", () => {
   });
 
   it("falls back to empty string when cooperative is undefined", () => {
-    const coop: CooperativeFormValues | undefined = undefined;
+    const getCoopOrUndefined = (): Partial<CooperativeFormValues> | undefined => undefined;
+    const coop = getCoopOrUndefined();
     expect(coop?.district ?? "").toBe("");
     expect(coop?.kebele ?? "").toBe("");
   });
@@ -29,7 +30,7 @@ describe("AddressInformationSection — props contract", () => {
   it("falls back to empty string when fields are null", () => {
     // district and kebele are required strings, so null won't appear at runtime,
     // but the fallback chain is still tested for defensive correctness.
-    const district = (null as unknown as string) ?? "";
-    expect(district).toBe("");
+    const district: string | null = null as string | null;
+    expect(district ?? "").toBe("");
   });
 });

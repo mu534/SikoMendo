@@ -11,15 +11,7 @@ export {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-/**
- * Returns the single in-progress OffboardingRecord for an employee, or null.
- *
- * NOTE: The DB still has the pre-migration schema where offboarding_record has
- * a UNIQUE constraint on employeeId (one-to-one). Migration
- * 20260914200000_offboarding_one_to_many_with_cancel must be applied before
- * the one-to-many features (cancelledAt, plural relation) are usable.
- * Until then we query offboardingRecord directly via the Employee relation.
- */
+/** Returns the single in-progress OffboardingRecord for an employee, or null. */
 export async function getActiveOffboardingRecord(employeeId: string) {
   return prisma.offboardingRecord.findFirst({
     where: {
@@ -144,11 +136,10 @@ export async function getContractsExpiringSoon(daysAhead = 30) {
 
 /** Employees currently being offboarded (active offboarding record exists). */
 export async function getOffboardingEmployees() {
-  // Use the singular offboardingRecord relation (pre-migration schema)
-  return prisma.employee.findMany({
+  const rows = await prisma.employee.findMany({
     where: {
       deletedAt: null,
-      offboardingRecord: { completedAt: null },
+      offboardingRecords: { some: { completedAt: null, cancelledAt: null } },
     },
     select: {
       id: true,
@@ -157,18 +148,27 @@ export async function getOffboardingEmployees() {
       lastName: true,
       employmentStatus: true,
       department: { select: { name: true } },
-      offboardingRecord: {
+      offboardingRecords: {
+        where: { completedAt: null, cancelledAt: null },
         select: {
           reason: true,
           lastWorkingDate: true,
           startedAt: true,
           startedBy: { select: { name: true } },
         },
+        orderBy: { startedAt: "desc" },
+        take: 1,
       },
     },
-    orderBy: { offboardingRecord: { startedAt: "desc" } },
+    orderBy: { createdAt: "desc" },
     take: 20,
   });
+
+  // Flatten to the same shape callers expect: { ...employee, offboardingRecord }
+  return rows.map((emp) => ({
+    ...emp,
+    offboardingRecord: emp.offboardingRecords[0] ?? null,
+  }));
 }
 
 /** Recently archived employees (last 60 days). */
@@ -176,7 +176,7 @@ export async function getRecentlyArchivedEmployees() {
   const sixtyDaysAgo = new Date();
   sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
 
-  return prisma.employee.findMany({
+  const rows = await prisma.employee.findMany({
     where: { deletedAt: { gte: sixtyDaysAgo, not: null } },
     select: {
       id: true,
@@ -186,17 +186,25 @@ export async function getRecentlyArchivedEmployees() {
       employmentStatus: true,
       department:  { select: { name: true } },
       deletedAt:   true,
-      // singular relation — pre-migration schema
-      offboardingRecord: { select: { reason: true } },
+      offboardingRecords: {
+        select: { reason: true },
+        orderBy: { startedAt: "desc" },
+        take: 1,
+      },
     },
     orderBy: { deletedAt: "desc" },
     take: 10,
   });
+
+  return rows.map((emp) => ({
+    ...emp,
+    offboardingRecord: emp.offboardingRecords[0] ?? null,
+  }));
 }
 
 /** Single lifecycle record for the employee profile Lifecycle tab. */
 export async function getEmployeeLifecycleRecord(employeeId: string) {
-  return prisma.employee.findUnique({
+  const record = await prisma.employee.findUnique({
     where: { id: employeeId },
     select: {
       id: true,
@@ -212,8 +220,7 @@ export async function getEmployeeLifecycleRecord(employeeId: string) {
           completedBy:   { select: { id: true, name: true } },
         },
       },
-      // singular relation — pre-migration schema
-      offboardingRecord: {
+      offboardingRecords: {
         select: {
           reason: true,
           lastWorkingDate: true,
@@ -223,9 +230,18 @@ export async function getEmployeeLifecycleRecord(employeeId: string) {
           startedBy:   { select: { id: true, name: true } },
           completedBy: { select: { id: true, name: true } },
         },
+        orderBy: { startedAt: "desc" },
+        take: 1,
       },
     },
   });
+
+  if (!record) return null;
+
+  return {
+    ...record,
+    offboardingRecord: record.offboardingRecords[0] ?? null,
+  };
 }
 
 /** Summary counts for the lifecycle dashboard stat cards. */
@@ -250,11 +266,11 @@ export async function getLifecycleSummaryCounts() {
         employee: { deletedAt: null },
       },
     }),
-    // Active offboardings — singular relation (pre-migration schema)
+    // Active offboardings
     prisma.employee.count({
       where: {
         deletedAt: null,
-        offboardingRecord: { completedAt: null },
+        offboardingRecords: { some: { completedAt: null, cancelledAt: null } },
       },
     }),
   ]);

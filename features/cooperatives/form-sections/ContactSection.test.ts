@@ -20,7 +20,8 @@ describe("ContactSection — optional field fallbacks", () => {
   });
 
   it("falls back to empty string when contactPerson is null", () => {
-    expect((null as string | null) ?? "").toBe("");
+    const contactPerson: string | null = null as string | null;
+    expect(contactPerson ?? "").toBe("");
   });
 
   it("falls back to empty string when contactEmail is undefined", () => {
@@ -29,11 +30,13 @@ describe("ContactSection — optional field fallbacks", () => {
   });
 
   it("falls back to empty string when location is null", () => {
-    expect((null as string | null) ?? "").toBe("");
+    const location: string | null = null as string | null;
+    expect(location ?? "").toBe("");
   });
 
   it("falls back to empty string when description is null", () => {
-    expect((null as string | null) ?? "").toBe("");
+    const description: string | null = null as string | null;
+    expect(description ?? "").toBe("");
   });
 
   it("passes all fields when fully populated", () => {
