@@ -113,17 +113,27 @@ export async function submitLeaveRequest(
   return withPermission(session, "MANAGE_OWN_LEAVE", async () => {
     const employee = await getOwnEmployeeOrThrow(session!.user.id);
 
-    // Only a direct manager can decide a leave request, so there must be an
-    // active, logged-in manager to route this to before we accept it at all —
-    // otherwise it would sit pending forever with no one able to act on it.
-    // EXCEPTION: the General Manager (MANAGER role) can submit their own leave
-    // even without a direct manager — Admin can decide on their behalf.
+    // Resolve who will approve this leave request.
+    //
+    // Priority:
+    //   1. Direct manager (primary) — owns day-to-day team coverage.
+    //   2. General Manager (org-wide fallback) — valid when no direct manager
+    //      is assigned or reachable. The GM holds MANAGE_LEAVE org-wide.
+    //   3. Unroutable — neither path available; block submission with a clear
+    //      actionable message so the employee knows exactly what HR must fix.
+    //
+    // The General Manager is ALWAYS a valid approver for any employee's leave,
+    // so an employee with no direct manager can still submit leave — it will
+    // route to the GM instead.
+    //
+    // EXCEPTION: if the submitter IS the General Manager, skip route validation
+    // entirely — there is no upward approver, and Admin will decide on their
+    // behalf from the leave management view.
     const isGeneralManager = session!.user.role === "MANAGER";
     const route = await resolveLeaveApprovalRoute(employee.id);
-    if (route.kind !== "MANAGER" && !isGeneralManager) {
-      throw new Error(
-        `You can't submit a leave request yet: ${route.reason} Leave requests can only be decided by your direct manager, so please ask HR to assign one to your employee record first.`
-      );
+
+    if (!isGeneralManager && route.kind === "UNROUTABLE") {
+      throw new Error(route.reason);
     }
 
     const parsed = leaveRequestSchema.safeParse(leaveRequestFormDataToObject(formData));
@@ -175,10 +185,13 @@ export async function submitLeaveRequest(
 
     await logAudit("CREATE", "LeaveRequest", leaveRequest.id, { leaveId, leaveType: parsed.data.leaveType, totalDays }, session!.user.id);
 
-    // Notify the approver only if a direct manager route was resolved.
-    // The General Manager submitting their own leave has no upward route —
-    // an Admin will decide manually from the leave management view.
-    if (route.kind === "MANAGER") {
+    // Send a notification to the resolved approver.
+    //
+    // - MANAGER route: direct manager is notified (primary path).
+    // - GENERAL_MANAGER route: GM is notified as the fallback approver.
+    // - GM submitting own leave (isGeneralManager): no upward approver exists;
+    //   no notification sent — Admin decides from the leave management view.
+    if (!isGeneralManager && (route.kind === "MANAGER" || route.kind === "GENERAL_MANAGER")) {
       const employeeName = `${employee.firstName} ${employee.lastName}`;
       await createNotification(
         route.userId,

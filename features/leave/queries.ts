@@ -8,16 +8,24 @@ import type { Prisma } from "@prisma/client";
  * Resolves who a leave request should route to for a decision, per the
  * approval workflow:
  *   1. Direct manager decides first — they own day-to-day team coverage.
- *   2. HR Officer is the fallback — no manager assigned, the manager has no
- *      linked login, or the manager's account is disabled.
- * (Admin can always decide as an override, but is not part of this routing —
- * see the "decidedVia" tagging in features/leave/actions.ts.)
+ *      Returns kind:"MANAGER" with the manager's userId.
+ *   2. General Manager fallback — no direct manager is assigned (or the
+ *      manager has no login / is banned), but an active General Manager
+ *      exists. Returns kind:"GENERAL_MANAGER" with the GM's userId.
+ *      The GM has organisation-wide authority and is a valid approver for
+ *      any employee regardless of the reporting hierarchy.
+ *   3. Unroutable — neither a direct manager nor a GM can be found.
+ *      Returns kind:"UNROUTABLE" so the caller can give a precise error.
+ *
+ * NOTE: Admin can always decide as an override but is not part of this
+ * notification routing.
  */
 export async function resolveLeaveApprovalRoute(
   employeeId: string
 ): Promise<
-  | { kind: "MANAGER"; userId: string; managerName: string }
-  | { kind: "HR_FALLBACK"; reason: string }
+  | { kind: "MANAGER";          userId: string; managerName: string }
+  | { kind: "GENERAL_MANAGER";  userId: string; managerName: string }
+  | { kind: "UNROUTABLE";       reason: string }
 > {
   const employee = await prisma.employee.findUnique({
     where: { id: employeeId },
@@ -34,16 +42,57 @@ export async function resolveLeaveApprovalRoute(
   });
 
   const manager = employee?.manager;
+
+  // ── Primary route: direct manager ────────────────────────────────────────
+  if (manager && manager.userId && !manager.user?.banned) {
+    return {
+      kind: "MANAGER",
+      userId: manager.userId,
+      managerName: `${manager.firstName} ${manager.lastName}`,
+    };
+  }
+
+  // ── Fallback route: General Manager ──────────────────────────────────────
+  // If the direct manager is missing, has no login, or is banned, the General
+  // Manager (MANAGER role) is the valid org-wide fallback approver.
+  const generalManager = await prisma.user.findFirst({
+    where: { role: "MANAGER", banned: false },
+    select: { id: true, name: true },
+  });
+
+  if (generalManager) {
+    // Describe why the direct route was skipped (for the notification message)
+    let fallbackReason: string;
+    if (!manager) {
+      fallbackReason = "no direct manager assigned";
+    } else if (!manager.userId) {
+      fallbackReason = "direct manager has no login account";
+    } else {
+      fallbackReason = "direct manager account is disabled";
+    }
+    return {
+      kind: "GENERAL_MANAGER",
+      userId: generalManager.id,
+      managerName: generalManager.name,
+    };
+  }
+
+  // ── No valid approver found ───────────────────────────────────────────────
+  let reason: string;
   if (!manager) {
-    return { kind: "HR_FALLBACK", reason: "No manager is assigned to this employee." };
+    reason =
+      "No manager is assigned to your employee record and no General Manager account is active. " +
+      "Please ask HR to assign a manager before submitting leave.";
+  } else if (!manager.userId) {
+    reason =
+      "Your manager does not have a login account and no General Manager is available as a fallback. " +
+      "Please ask HR to set up your manager's account.";
+  } else {
+    reason =
+      "Your manager's account is currently disabled and no General Manager is available as a fallback. " +
+      "Please contact HR.";
   }
-  if (!manager.userId) {
-    return { kind: "HR_FALLBACK", reason: "This employee's manager has no linked login account." };
-  }
-  if (manager.user?.banned) {
-    return { kind: "HR_FALLBACK", reason: "This employee's manager account is currently disabled." };
-  }
-  return { kind: "MANAGER", userId: manager.userId, managerName: `${manager.firstName} ${manager.lastName}` };
+  return { kind: "UNROUTABLE", reason };
 }
 
 export async function generateNextLeaveId() {
