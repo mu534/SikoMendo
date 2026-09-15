@@ -64,7 +64,11 @@ async function AllLeaveRequests({
 
   let managerEmployeeId: string | undefined;
   let managerHasNoEmployeeRecord = false;
-  if (role === "MANAGER") {
+  // MANAGER = General Manager: org-wide authority — do NOT scope to direct reports.
+  // Only other roles that might have MANAGE_LEAVE in the future would be scoped.
+  // Currently MANAGE_LEAVE is MANAGER-only, so this block is effectively a no-op
+  // for the GM, but left here for clarity and future-proofing.
+  if (role !== "MANAGER" && role !== "ADMIN" && role !== "HR_OFFICER") {
     const managerEmployee = await prisma.employee.findUnique({
       where: { userId },
       select: { id: true },
@@ -108,7 +112,7 @@ async function AllLeaveRequests({
         <h2 className="font-display text-xl font-semibold text-ink-900">Leave Requests</h2>
         <p className="mt-1 text-sm text-ink-900/60">
           {role === "MANAGER"
-            ? "Approve or reject leave requests from your direct reports."
+            ? "Review and approve leave requests across the organisation."
             : "Review leave requests across the union."}
         </p>
       </div>

@@ -25,10 +25,16 @@ import type { AuthSession } from "@/lib/auth";
  */
 export type ViewerCapability = "FULL" | "SCOPED" | "NONE";
 
-/** Derive the viewer's capability from their role. */
+/**
+ * Derive the viewer's capability from their role.
+ *
+ * MANAGER (General Manager) receives FULL access — they have org-wide authority
+ * and must be able to view all employee profiles, not just their direct reports.
+ * Sensitive tabs (contracts, user/security, lifecycle) are still gated separately
+ * in getEmployeeDetailTabPermissions().
+ */
 export function resolveViewerCapability(role: string | undefined): ViewerCapability {
-  if (role === "ADMIN" || role === "HR_OFFICER") return "FULL";
-  if (role === "MANAGER") return "SCOPED";
+  if (role === "ADMIN" || role === "HR_OFFICER" || role === "MANAGER") return "FULL";
   return "NONE";
 }
 
@@ -36,9 +42,9 @@ export function resolveViewerCapability(role: string | undefined): ViewerCapabil
  * Returns a scoped employee record for a given viewer, or null when the
  * viewer does not have access.
  *
- * - ADMIN / HR_OFFICER: access any employee, full data.
- * - MANAGER: access only employees in their reporting hierarchy; receives a
- *   reduced field set (no documents, no contracts, no user account details).
+ * - ADMIN / HR_OFFICER: access any employee, full data including contracts and user account.
+ * - MANAGER (General Manager): org-wide access; receives documents (read-only) and
+ *   employment history but NOT contracts or user/security info (those are Admin/HR only).
  * - EMPLOYEE / unknown: access denied → always returns null.
  *
  * Callers must treat null as "not found" — do not reveal whether the employee
@@ -52,8 +58,10 @@ export async function getEmployeeByIdForViewer(
   const capability = resolveViewerCapability(session.user.role);
   if (capability === "NONE") return null;
 
-  // FULL viewer: unrestricted
-  if (capability === "FULL") {
+  const isAdminOrHR = session.user.role === "ADMIN" || session.user.role === "HR_OFFICER";
+
+  // ADMIN and HR_OFFICER: unrestricted — all fields including contracts and user account
+  if (isAdminOrHR) {
     return prisma.employee.findUnique({
       where: { id: employeeId },
       include: {
@@ -74,19 +82,9 @@ export async function getEmployeeByIdForViewer(
     });
   }
 
-  // SCOPED viewer (Manager): first verify the employee is in their hierarchy
-  const viewerEmployee = await prisma.employee.findFirst({
-    where: { userId: session.user.id, deletedAt: null },
-    select: { id: true },
-  });
-
-  if (!viewerEmployee) return null; // Manager has no linked employee record
-
-  const subordinateIds = await getSubordinateIds(viewerEmployee.id);
-  if (!subordinateIds.includes(employeeId)) return null; // Not in hierarchy
-
-  // Return limited fields for manager — includes documents (read-only view),
-  // but excludes contracts, user/security info (those remain admin/HR only)
+  // MANAGER (General Manager): org-wide access — all employees visible.
+  // Excluded: contracts (sensitive financial), user/security info (admin-only).
+  // Documents included read-only; upload/delete requires MANAGE_DOCUMENTS (Admin/HR only).
   return prisma.employee.findUnique({
     where: { id: employeeId },
     include: {
@@ -100,9 +98,6 @@ export async function getEmployeeByIdForViewer(
         },
         orderBy: { effectiveDate: "desc" },
       },
-      // Documents included for read-only manager access.
-      // Managers cannot upload or delete — that is enforced server-side by the
-      // MANAGE_DOCUMENTS permission check in features/employees/actions.ts.
       documents: { where: { deletedAt: null }, orderBy: { createdAt: "desc" } },
       // Intentionally omitted for MANAGER: user (security info), contracts
     },
@@ -139,6 +134,8 @@ export async function getSubordinateIds(managerId: string): Promise<string[]> {
  *  - A descendant becoming the ancestor (would create a cycle)
  *  - Archived managers (deletedAt not null)
  *  - Non-existent manager IDs
+ *  - Managers who are not in an ACTIVE employment status (cannot manage if ONBOARDING,
+ *    SUSPENDED, TERMINATED, RESIGNED, etc.)
  *
  * @throws Error with a user-facing message on any violation.
  */
@@ -154,7 +151,13 @@ export async function validateManagerAssignment(
 
   const manager = await prisma.employee.findUnique({
     where: { id: managerId },
-    select: { id: true, firstName: true, lastName: true, deletedAt: true },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      deletedAt: true,
+      employmentStatus: true,
+    },
   });
 
   if (!manager) {
@@ -164,6 +167,15 @@ export async function validateManagerAssignment(
   if (manager.deletedAt) {
     throw new Error(
       `${manager.firstName} ${manager.lastName} is archived and cannot be assigned as a manager.`
+    );
+  }
+
+  // Only ACTIVE employees can be managers — assigning an ONBOARDING, SUSPENDED,
+  // TERMINATED, RESIGNED, or RETIRED employee as manager would create an unworkable
+  // reporting relationship.
+  if (manager.employmentStatus !== "ACTIVE") {
+    throw new Error(
+      `${manager.firstName} ${manager.lastName} has status "${manager.employmentStatus}" and cannot be assigned as a manager. Only Active employees can manage others.`
     );
   }
 
@@ -403,4 +415,89 @@ export function getEmployeeDetailTabPermissions(role: string | undefined) {
     isFullViewer,
     isManager,
   } as const;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 10. General Manager uniqueness guard (P3-5)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Ensures there is at most ONE active General Manager in the organisation.
+ *
+ * The General Manager is represented by the MANAGER system role. This function
+ * must be called before assigning the MANAGER role to any user account — either
+ * on creation or on role update.
+ *
+ * @param excludeUserId  The user ID being updated (so we don't count them against
+ *                       themselves on an update operation). Pass undefined on create.
+ *
+ * @throws Error with a user-facing message if a General Manager already exists.
+ */
+export async function assertSingleGeneralManager(
+  excludeUserId?: string
+): Promise<void> {
+  const existing = await prisma.user.findFirst({
+    where: {
+      role: "MANAGER",
+      banned: false,
+      ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
+    },
+    select: { id: true, name: true, username: true },
+  });
+
+  if (existing) {
+    throw new Error(
+      `There is already an active General Manager (${existing.name ?? existing.username ?? existing.id}). ` +
+      `Another General Manager cannot be assigned until the existing one is changed or suspended. ` +
+      `Contact the administrator to end or change the current General Manager assignment first.`
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 11. Leave authorization helper (P3-8)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Determines whether a given user (the approver) has authority to decide a
+ * specific employee's leave request.
+ *
+ * Authority rules:
+ *   - MANAGER (General Manager): org-wide authority — can decide any request.
+ *   - ADMIN: preserved existing admin authority.
+ *   - Anyone else with MANAGE_LEAVE: must be the employee's direct manager
+ *     (employee.managerId === approver's employee ID).
+ *
+ * Returns an object describing the outcome so callers can craft precise error messages.
+ */
+export async function assertLeaveDecisionAuthority(
+  approverUserId: string,
+  approverRole: string,
+  requestEmployeeManagerId: string | null
+): Promise<void> {
+  // General Manager has org-wide authority — no direct-report check needed.
+  if (approverRole === "MANAGER") return;
+
+  // Admin has org-wide authority.
+  if (approverRole === "ADMIN") return;
+
+  // Everyone else (currently no other role has MANAGE_LEAVE, but be explicit):
+  // must be the direct manager.
+  const approverEmployee = await prisma.employee.findUnique({
+    where: { userId: approverUserId },
+    select: { id: true },
+  });
+
+  if (!approverEmployee) {
+    throw new Error(
+      "Your account is not linked to an employee record. You cannot decide leave requests."
+    );
+  }
+
+  if (requestEmployeeManagerId !== approverEmployee.id) {
+    throw new Error(
+      "You can only approve leave requests from employees within your authorized scope. " +
+      "You are not the direct manager of this employee."
+    );
+  }
 }

@@ -11,6 +11,7 @@ import { generateTempPassword } from "@/lib/credentials";
 import { createNotification } from "@/lib/notifications";
 import { generateUsernameFromName } from "@/lib/username-utils";
 import { uploadToCloudinary } from "@/lib/cloudinary";
+import { assertSingleGeneralManager } from "@/lib/employee-access";
 
 function getPhotoFile(formData: FormData): File | null {
   const file = formData.get("photo");
@@ -46,6 +47,11 @@ export async function createEmployeeLoginAccount(
 
     if (!employeeId) throw new Error("Employee ID is required.");
     if (!role) throw new Error("Role is required.");
+
+    // Prevent creating a second General Manager
+    if (role === "MANAGER") {
+      await assertSingleGeneralManager();
+    }
 
     // Load the employee to get their Employee ID (e.g. EMP-0001) and full name
     const employee = await prisma.employee.findUnique({
@@ -147,6 +153,11 @@ export async function createUserAccount(
       throw new Error(parsed.error.issues[0]?.message ?? "Invalid input.");
     }
 
+    // Prevent creating a second General Manager
+    if (parsed.data.role === "MANAGER") {
+      await assertSingleGeneralManager();
+    }
+
     // Check username uniqueness before attempting creation
     const existingByUsername = await prisma.user.findUnique({
       where: { username: parsed.data.username },
@@ -230,6 +241,13 @@ export async function updateUserAccount(
 
     const target = await prisma.user.findUnique({ where: { id: userId } });
     if (!target) throw new Error("User not found.");
+
+    // Prevent assigning a second General Manager.
+    // If the role is changing TO MANAGER and this user is not already the MANAGER,
+    // ensure no other active MANAGER exists.
+    if (parsed.data.role === "MANAGER" && target.role !== "MANAGER") {
+      await assertSingleGeneralManager(userId);
+    }
 
     // Username is immutable — always use the stored value regardless of
     // what was submitted. The internal email is also kept as-is.

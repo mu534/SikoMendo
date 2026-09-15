@@ -16,6 +16,7 @@ import {
   LEAVE_TYPES,
 } from "./schemas";
 import { generateNextLeaveId, hasOverlappingLeave, getEmployeeLeaveBalances, resolveLeaveApprovalRoute } from "./queries";
+import { assertLeaveDecisionAuthority } from "@/lib/employee-access";
 
 async function logAudit(action: string, entity: string, entityId: string, changes: unknown, userId?: string) {
   await prisma.auditLog.create({
@@ -115,8 +116,11 @@ export async function submitLeaveRequest(
     // Only a direct manager can decide a leave request, so there must be an
     // active, logged-in manager to route this to before we accept it at all —
     // otherwise it would sit pending forever with no one able to act on it.
+    // EXCEPTION: the General Manager (MANAGER role) can submit their own leave
+    // even without a direct manager — Admin can decide on their behalf.
+    const isGeneralManager = session!.user.role === "MANAGER";
     const route = await resolveLeaveApprovalRoute(employee.id);
-    if (route.kind !== "MANAGER") {
+    if (route.kind !== "MANAGER" && !isGeneralManager) {
       throw new Error(
         `You can't submit a leave request yet: ${route.reason} Leave requests can only be decided by your direct manager, so please ask HR to assign one to your employee record first.`
       );
@@ -171,14 +175,18 @@ export async function submitLeaveRequest(
 
     await logAudit("CREATE", "LeaveRequest", leaveRequest.id, { leaveId, leaveType: parsed.data.leaveType, totalDays }, session!.user.id);
 
-    // route was already validated as MANAGER above — notify them directly.
-    const employeeName = `${employee.firstName} ${employee.lastName}`;
-    await createNotification(
-      route.userId,
-      "LEAVE_SUBMITTED",
-      "New leave request awaiting your decision",
-      `${employeeName} submitted a ${LEAVE_TYPE_LABELS[parsed.data.leaveType]} request (${leaveId}, ${totalDays} day${totalDays === 1 ? "" : "s"}) for your review.`
-    );
+    // Notify the approver only if a direct manager route was resolved.
+    // The General Manager submitting their own leave has no upward route —
+    // an Admin will decide manually from the leave management view.
+    if (route.kind === "MANAGER") {
+      const employeeName = `${employee.firstName} ${employee.lastName}`;
+      await createNotification(
+        route.userId,
+        "LEAVE_SUBMITTED",
+        "New leave request awaiting your decision",
+        `${employeeName} submitted a ${LEAVE_TYPE_LABELS[parsed.data.leaveType]} request (${leaveId}, ${totalDays} day${totalDays === 1 ? "" : "s"}) for your review.`
+      );
+    }
 
     revalidatePath("/leave");
     return { id: leaveRequest.id };
@@ -247,7 +255,7 @@ export async function decideLeaveRequest(
         startDate: true,
         endDate: true,
         leaveId: true,
-        employee: { select: { managerId: true } },
+        employee: { select: { managerId: true, userId: true } },
       },
     });
     if (!existing) throw new Error("Leave request not found.");
@@ -255,26 +263,24 @@ export async function decideLeaveRequest(
       throw new Error("This request has already been decided.");
     }
 
-    // Leave approval is manager-only: MANAGE_LEAVE is granted solely to the
-    // MANAGER role (see lib/permissions.ts), so anyone reaching this point is
-    // a manager. They can still only decide for their own direct reports —
-    // the manager hierarchy (Employee.managerId) enforces that here rather
-    // than letting any manager approve anyone in the org.
-    const approverEmployee = await prisma.employee.findUnique({
-      where: { userId: session!.user.id },
-      select: { id: true },
-    });
-    if (!approverEmployee || existing.employee.managerId !== approverEmployee.id) {
-      throw new Error("You can only decide leave requests for your own direct reports.");
-    }
+    // Authorization: General Manager has org-wide authority.
+    // All other approvers must be the employee's direct manager.
+    await assertLeaveDecisionAuthority(
+      session!.user.id,
+      session!.user.role,
+      existing.employee.managerId
+    );
 
     const parsed = leaveDecisionSchema.safeParse(leaveDecisionFormDataToObject(formData));
     if (!parsed.success) {
       throw new Error(parsed.error.issues[0]?.message ?? "Invalid input.");
     }
 
-    await prisma.leaveRequest.update({
-      where: { id },
+    // Concurrency / double-decision protection: use updateMany with a status
+    // filter so only one concurrent request can succeed. If the count is 0,
+    // another request already decided this leave since we fetched it above.
+    const updated = await prisma.leaveRequest.updateMany({
+      where: { id, status: "PENDING" }, // Optimistic lock on PENDING state
       data: {
         status: parsed.data.decision,
         decisionDate: new Date(),
@@ -282,6 +288,11 @@ export async function decideLeaveRequest(
         rejectionReason: parsed.data.decision === "REJECTED" ? parsed.data.rejectionReason : null,
       },
     });
+
+    if (updated.count === 0) {
+      // Another concurrent request already decided this — return a safe message.
+      throw new Error("This leave request was already decided by another action. Please refresh the page.");
+    }
 
     if (parsed.data.decision === "APPROVED") {
       await markAttendanceForApprovedLeave(
@@ -297,25 +308,27 @@ export async function decideLeaveRequest(
       parsed.data.decision === "APPROVED" ? "APPROVE" : "REJECT",
       "LeaveRequest",
       id,
-      { decision: parsed.data.decision, rejectionReason: parsed.data.rejectionReason ?? null },
+      {
+        decision: parsed.data.decision,
+        rejectionReason: parsed.data.rejectionReason ?? null,
+        decidedBy: session!.user.id,
+        approverRole: session!.user.role,
+      },
       session!.user.id
     );
 
-    const employee = await prisma.employee.findUnique({
-      where: { id: existing.employeeId },
-      select: { userId: true },
-    });
-    if (employee?.userId) {
+    const employeeUserId = existing.employee.userId;
+    if (employeeUserId) {
       if (parsed.data.decision === "APPROVED") {
         await createNotification(
-          employee.userId,
+          employeeUserId,
           "LEAVE_APPROVED",
           "Leave request approved",
           `Your ${existing.leaveId} leave request has been approved.`
         );
       } else {
         await createNotification(
-          employee.userId,
+          employeeUserId,
           "LEAVE_REJECTED",
           "Leave request rejected",
           `Your ${existing.leaveId} leave request was rejected${parsed.data.rejectionReason ? `: ${parsed.data.rejectionReason}` : "."}`

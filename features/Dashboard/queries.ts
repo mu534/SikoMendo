@@ -8,17 +8,72 @@ export async function getOrganizationStats() {
   const endOfDay = new Date(startOfDay);
   endOfDay.setDate(endOfDay.getDate() + 1);
 
-  const [totalEmployees, activeEmployees, totalCooperatives, presentToday, absentToday, pendingReports] =
+  const [totalEmployees, activeEmployees, totalCooperatives, presentToday, absentToday, onLeaveToday, pendingReports] =
     await Promise.all([
-      prisma.employee.count(),
-      prisma.employee.count({ where: { employmentStatus: "ACTIVE" } }),
-      prisma.cooperative.count(),
+      prisma.employee.count({ where: { deletedAt: null } }),
+      prisma.employee.count({ where: { employmentStatus: "ACTIVE", deletedAt: null } }),
+      prisma.cooperative.count({ where: { deletedAt: null } }),
       prisma.attendance.count({ where: { date: { gte: startOfDay, lt: endOfDay }, status: "PRESENT" } }),
       prisma.attendance.count({ where: { date: { gte: startOfDay, lt: endOfDay }, status: "ABSENT" } }),
+      prisma.attendance.count({ where: { date: { gte: startOfDay, lt: endOfDay }, status: "ON_LEAVE" } }),
       prisma.report.count(),
     ]);
 
-  return { totalEmployees, activeEmployees, totalCooperatives, presentToday, absentToday, pendingReports };
+  return { totalEmployees, activeEmployees, totalCooperatives, presentToday, absentToday, onLeaveToday, pendingReports };
+}
+
+/**
+ * Real actionable items that need attention, based on live database data.
+ * Used in the "Needs Attention" section of the dashboard.
+ */
+export async function getNeedsAttention() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const thirtyDaysOut = new Date(today);
+  thirtyDaysOut.setDate(today.getDate() + 30);
+
+  const [
+    pendingLeave,
+    onboarding,
+    offboarding,
+    expiringContracts,
+    missingDocuments,
+  ] = await Promise.all([
+    // Pending leave requests awaiting a decision
+    prisma.leaveRequest.count({ where: { status: "PENDING" } }),
+    // Employees actively in onboarding
+    prisma.employee.count({
+      where: { employmentStatus: "ONBOARDING", deletedAt: null },
+    }),
+    // Active (in-progress) offboardings
+    prisma.offboardingRecord.count({
+      where: { completedAt: null, cancelledAt: null },
+    }),
+    // Contracts expiring within 30 days
+    prisma.contract.count({
+      where: {
+        status: "ACTIVE",
+        endDate: { gte: today, lte: thirtyDaysOut },
+        employee: { deletedAt: null },
+      },
+    }),
+    // Active employees missing a required ID document
+    prisma.employee.count({
+      where: {
+        employmentStatus: { in: ["ACTIVE", "ONBOARDING"] },
+        deletedAt: null,
+        documents: { none: { type: "ID_DOCUMENT", deletedAt: null } },
+      },
+    }),
+  ]);
+
+  return {
+    pendingLeave,
+    onboarding,
+    offboarding,
+    expiringContracts,
+    missingDocuments,
+  };
 }
 
 export async function getRecentAuditLogs(limit = 6) {

@@ -20,6 +20,7 @@ import {
   getAttendanceTrend,
   getLeaveStatusBreakdown,
   getEmployeesByDepartment,
+  getNeedsAttention,
 } from "@/features/Dashboard/queries";
 import { getEmployeeLeaveBalances } from "@/features/leave/queries";
 import { getRecentNotifications } from "@/features/notifications/queries";
@@ -84,12 +85,13 @@ export default async function DashboardPage() {
 // ── Organisation dashboard (Admin / HR / Manager) ─────────────────────────────
 
 async function OrganizationDashboard({ userName }: { userName: string }) {
-  const [stats, logs, attendanceTrend, leaveBreakdown, departmentHeadcount] = await Promise.all([
+  const [stats, logs, attendanceTrend, leaveBreakdown, departmentHeadcount, needsAttention] = await Promise.all([
     getOrganizationStats(),
     getRecentAuditLogs(8),
     getAttendanceTrend(30),
     getLeaveStatusBreakdown(),
     getEmployeesByDepartment(),
+    getNeedsAttention(),
   ]);
 
   // Attendance rate for today (avoid divide-by-zero)
@@ -144,6 +146,64 @@ async function OrganizationDashboard({ userName }: { userName: string }) {
           />
         </Link>
       </div>
+
+      {/* ── Needs Attention ───────────────────────────────────── */}
+      {(needsAttention.pendingLeave > 0 ||
+        needsAttention.onboarding > 0 ||
+        needsAttention.offboarding > 0 ||
+        needsAttention.expiringContracts > 0 ||
+        needsAttention.missingDocuments > 0) && (
+        <Card className="p-5">
+          <div className="mb-3 flex items-center gap-2">
+            <Bell className="h-4 w-4 text-gold-600" />
+            <h3 className="text-sm font-semibold text-ink-900">Needs Attention</h3>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {needsAttention.pendingLeave > 0 && (
+              <Link
+                href="/leave?status=PENDING"
+                className="inline-flex items-center gap-2 rounded-lg border border-gold-400/30 bg-gold-400/10 px-3 py-2 text-sm font-medium text-ink-900 hover:bg-gold-400/20 transition-colors"
+              >
+                <CalendarOff className="h-3.5 w-3.5 text-gold-600" />
+                {needsAttention.pendingLeave} pending leave request{needsAttention.pendingLeave !== 1 ? "s" : ""}
+              </Link>
+            )}
+            {needsAttention.onboarding > 0 && (
+              <Link
+                href="/employees/lifecycle"
+                className="inline-flex items-center gap-2 rounded-lg border border-brand-400/30 bg-brand-400/10 px-3 py-2 text-sm font-medium text-ink-900 hover:bg-brand-400/20 transition-colors"
+              >
+                <UserCheck className="h-3.5 w-3.5 text-brand-600" />
+                {needsAttention.onboarding} employee{needsAttention.onboarding !== 1 ? "s" : ""} onboarding
+              </Link>
+            )}
+            {needsAttention.offboarding > 0 && (
+              <Link
+                href="/employees/lifecycle"
+                className="inline-flex items-center gap-2 rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm font-medium text-ink-900 hover:bg-red-400/20 transition-colors"
+              >
+                <ArrowRight className="h-3.5 w-3.5 text-red-600" />
+                {needsAttention.offboarding} active offboarding{needsAttention.offboarding !== 1 ? "s" : ""}
+              </Link>
+            )}
+            {needsAttention.expiringContracts > 0 && (
+              <Link
+                href="/employees"
+                className="inline-flex items-center gap-2 rounded-lg border border-orange-400/30 bg-orange-400/10 px-3 py-2 text-sm font-medium text-ink-900 hover:bg-orange-400/20 transition-colors"
+              >
+                <FileBarChart className="h-3.5 w-3.5 text-orange-600" />
+                {needsAttention.expiringContracts} contract{needsAttention.expiringContracts !== 1 ? "s" : ""} expiring soon
+              </Link>
+            )}
+            {needsAttention.missingDocuments > 0 && (
+              <span className="inline-flex items-center gap-2 rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm font-medium text-ink-900">
+                <FileBarChart className="h-3.5 w-3.5 text-red-600" />
+                {needsAttention.missingDocuments} employee{needsAttention.missingDocuments !== 1 ? "s" : ""} missing ID document
+              </span>
+            )}
+          </div>
+        </Card>
+      )}
 
       {/* ── Charts ─────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

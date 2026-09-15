@@ -400,7 +400,7 @@ export default async function CooperativeDetailPage({
                   <ReadField label="Cooperative Type" value={cooperative.cooperativeType} />
                   <ReadField label="Status" value={cooperative.isActive ? "Active" : "Inactive"} />
                   <ReadField label="District / Aanaa" value={cooperative.district} />
-                  <ReadField label="Kebele / Ganda" value={cooperative.kebele} />
+                  <ReadField label="Ganda" value={cooperative.kebele} />
                   <ReadField label="Location" value={cooperative.location} />
                   <ReadField
                     label="Date Joined Union"
@@ -712,7 +712,7 @@ export default async function CooperativeDetailPage({
             <Card className="p-6">
               <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <ReadField label="District / Aanaa" value={cooperative.district} />
-                <ReadField label="Kebele / Ganda" value={cooperative.kebele} />
+                <ReadField label="Ganda" value={cooperative.kebele} />
                 <ReadField label="Location" value={cooperative.location} />
                 <ReadField label="Contact Person" value={cooperative.contactPerson} />
                 <ReadField label="Contact Phone" value={cooperative.contactPhone} />
