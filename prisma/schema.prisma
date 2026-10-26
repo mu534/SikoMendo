@@ -44,11 +44,32 @@ enum EmploymentType {
 enum EducationLevel {
   PRIMARY
   SECONDARY
+  HIGH_SCHOOL
   CERTIFICATE
   DIPLOMA
   BACHELOR
   MASTER
   PHD
+  OTHER
+}
+
+/// The kind of institution an education qualification was earned at. Drives
+/// which institution names are offered (university directory vs college/TVET
+/// list vs free-text high school / other).
+enum InstitutionType {
+  HIGH_SCHOOL
+  UNIVERSITY
+  COLLEGE
+  TVET
+  OTHER
+}
+
+/// Whether a qualification is finished or still being pursued. Used so the
+/// form can reject future graduation years for completed qualifications and
+/// allow an empty year while a qualification is in progress.
+enum QualificationStatus {
+  IN_PROGRESS
+  COMPLETED
 }
 
 enum MaritalStatus {
@@ -257,6 +278,7 @@ model Employee {
 
   employmentHistory EmploymentHistory[]
   contracts         Contract[]
+  educations        Education[]
 
   // Lifecycle
   onboardingRecord   OnboardingRecord?
@@ -274,6 +296,26 @@ model Employee {
   @@index([managerId])
   @@index([deletedAt])
   @@map("employee")
+}
+
+/// One education qualification belonging to an employee. An employee may have
+/// many (e.g. high school + bachelor's + master's). Each row is independent and
+/// can be edited or removed without affecting the others.
+model Education {
+  id                  String             @id @default(cuid())
+  employeeId          String
+  employee            Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  educationLevel      EducationLevel
+  fieldOfStudy        String?
+  institutionType     InstitutionType?
+  institutionName     String?
+  graduationYear      Int?
+  qualificationStatus  QualificationStatus?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  @@index([employeeId])
+  @@map("education")
 }
 
 model Department {
