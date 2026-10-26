@@ -1,5 +1,8 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# Agent/tooling scratch space — inspection scripts and run logs, not project source
+.agents/
+
 # dependencies
 /node_modules
 /.pnp
