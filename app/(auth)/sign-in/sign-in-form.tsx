@@ -58,7 +58,11 @@ export function SignInForm() {
         return;
       }
 
-      const redirectTo = searchParams.get("redirectTo") || "/dashboard";
+      // Only follow a redirectTo that is a safe relative path — never an
+      // absolute URL or protocol-relative URL (open-redirect prevention).
+      const raw = searchParams.get("redirectTo") ?? "";
+      const redirectTo =
+        raw.startsWith("/") && !raw.startsWith("//") ? raw : "/dashboard";
       router.push(redirectTo);
       router.refresh();
     } finally {
