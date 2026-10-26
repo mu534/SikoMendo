@@ -226,10 +226,24 @@ export default async function EmployeeDetailPage({
         employmentStatus:             employee.employmentStatus as
           | "ONBOARDING" | "ACTIVE" | "ON_LEAVE" | "RESIGNED" | "RETIRED"
           | "SUSPENDED" | "TERMINATED" | "INACTIVE",
-        educationLevel:               employee.educationLevel ?? null,
-        fieldOfStudy:                 employee.fieldOfStudy ?? null,
-        institutionName:              employee.institutionName ?? null,
-        graduationYear:               employee.graduationYear ?? null,
+        educations: ("educations" in employee && Array.isArray(employee.educations)
+          ? (employee.educations as Array<{
+              id: string;
+              educationLevel: string;
+              fieldOfStudy: string | null;
+              institutionType: string | null;
+              institutionName: string | null;
+              graduationYear: number | null;
+              qualificationStatus: string | null;
+            }>).map((edu) => ({
+              educationLevel:      edu.educationLevel as import("@/features/employees/schemas").EducationRecordInput["educationLevel"],
+              fieldOfStudy:        edu.fieldOfStudy ?? null,
+              institutionType:     (edu.institutionType ?? null) as import("@/features/employees/schemas").EducationRecordInput["institutionType"],
+              institutionName:     edu.institutionName ?? null,
+              graduationYear:      edu.graduationYear ?? null,
+              qualificationStatus: (edu.qualificationStatus ?? null) as import("@/features/employees/schemas").EducationRecordInput["qualificationStatus"],
+            }))
+          : []),
         profileImageUrl:              employee.profileImageUrl ?? null,
       }
     : null;
@@ -370,7 +384,20 @@ export default async function EmployeeDetailPage({
         {tab === "overview" && (
           <>
             <OverviewPanel
-              employee={employee}
+              employee={{
+                ...employee,
+                educations: ("educations" in employee && Array.isArray(employee.educations)
+                  ? (employee.educations as Array<{
+                      id: string;
+                      educationLevel: string;
+                      fieldOfStudy: string | null;
+                      institutionType: string | null;
+                      institutionName: string | null;
+                      graduationYear: number | null;
+                      qualificationStatus: string | null;
+                    }>)
+                  : []),
+              }}
               formValues={formValues}
               canManage={canManage}
               departments={departments}

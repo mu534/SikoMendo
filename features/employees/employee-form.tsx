@@ -2,12 +2,14 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { User, Briefcase, GraduationCap, Phone, Search } from "lucide-react";
+import { User, Briefcase, Phone, Search } from "lucide-react";
 import { Input, Label, Select, Textarea, FieldGroup } from "@/components/ui/field";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PhotoInput } from "./photo-input";
 import { SectionHeader } from "./section-header";
+import { EducationSection } from "./education-section";
+import type { EducationRecordInput } from "./schemas";
 
 export { SectionHeader } from "./section-header";
 
@@ -57,10 +59,8 @@ export type EmployeeFormValues = {
   employmentType?: string | null;
   hireDate?: string | null;
   employmentStatus: EmploymentStatus;
-  educationLevel?: string | null;
-  fieldOfStudy?: string | null;
-  institutionName?: string | null;
-  graduationYear?: string | null;
+  /** Education qualifications — replaces the four legacy flat fields. */
+  educations?: EducationRecordInput[];
   profileImageUrl?: string | null;
 };
 
@@ -581,39 +581,7 @@ export function EmployeeForm({
 
         {/* ── Section 4: Education ─────────────────────────────────────── */}
         <Card className="p-6">
-          <SectionHeader icon={GraduationCap} title="Education" />
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <FieldGroup>
-              <Label htmlFor="educationLevel">Education Level</Label>
-              <Select id="educationLevel" name="educationLevel" defaultValue={employee?.educationLevel ?? ""}>
-                <option value="">Not specified</option>
-                <option value="PRIMARY">Primary</option>
-                <option value="SECONDARY">Secondary</option>
-                <option value="CERTIFICATE">Certificate</option>
-                <option value="DIPLOMA">Diploma</option>
-                <option value="BACHELOR">Bachelor&apos;s Degree</option>
-                <option value="MASTER">Master&apos;s Degree</option>
-                <option value="PHD">PhD</option>
-              </Select>
-            </FieldGroup>
-            <FieldGroup>
-              <Label htmlFor="fieldOfStudy">Field of Study</Label>
-              <Input id="fieldOfStudy" name="fieldOfStudy" defaultValue={employee?.fieldOfStudy ?? ""} />
-            </FieldGroup>
-            <FieldGroup>
-              <Label htmlFor="institutionName">Institution Name</Label>
-              <Input id="institutionName" name="institutionName" defaultValue={employee?.institutionName ?? ""} />
-            </FieldGroup>
-            <FieldGroup>
-              <Label htmlFor="graduationYear">Graduation Year</Label>
-              <Input
-                id="graduationYear"
-                name="graduationYear"
-                placeholder="e.g. 2018"
-                defaultValue={employee?.graduationYear ?? ""}
-              />
-            </FieldGroup>
-          </div>
+          <EducationSection initialRecords={employee?.educations ?? []} />
         </Card>
 
       </form>

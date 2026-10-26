@@ -17,6 +17,90 @@ function optionalEnum<T extends [string, ...string[]]>(values: T) {
     .transform((v) => (v ? v : null));
 }
 
+// ── Per-qualification Zod schema ───────────────────────────────────────────
+//
+// Each entry in the "educations" array is validated against this schema.
+// Rules:
+//  - educationLevel is required per record.
+//  - fieldOfStudy is optional (particularly for HIGH_SCHOOL).
+//  - institutionType is optional; drives the institution name input in the UI.
+//  - institutionName: free-text, optional.
+//  - graduationYear: integer 1950–current year; required only for COMPLETED
+//    qualifications. For IN_PROGRESS or unknown status, leave empty.
+//  - qualificationStatus: optional; when COMPLETED the year must be ≤ current year.
+
+export const EDUCATION_LEVELS = [
+  "PRIMARY",
+  "SECONDARY",
+  "HIGH_SCHOOL",
+  "CERTIFICATE",
+  "DIPLOMA",
+  "BACHELOR",
+  "MASTER",
+  "PHD",
+  "OTHER",
+] as const;
+
+export const INSTITUTION_TYPES = [
+  "HIGH_SCHOOL",
+  "UNIVERSITY",
+  "COLLEGE",
+  "TVET",
+  "OTHER",
+] as const;
+
+export const QUALIFICATION_STATUSES = ["IN_PROGRESS", "COMPLETED"] as const;
+
+const CURRENT_YEAR = new Date().getFullYear();
+const MIN_YEAR = 1950;
+
+export const educationRecordSchema = z
+  .object({
+    educationLevel: z.enum(EDUCATION_LEVELS, {
+      error: "Education level is required.",
+    }),
+    fieldOfStudy: optionalString,
+    institutionType: optionalEnum([...INSTITUTION_TYPES]),
+    institutionName: optionalString,
+    graduationYear: z
+      .union([z.string(), z.number(), z.null(), z.undefined()])
+      .optional()
+      .transform((v) => {
+        if (v === null || v === undefined) return null;
+        const s = String(v).trim();
+        if (s === "") return null;
+        const n = parseInt(s, 10);
+        return isNaN(n) ? null : n;
+      })
+      .pipe(
+        z
+          .number()
+          .int()
+          .min(MIN_YEAR, `Graduation year must be ${MIN_YEAR} or later.`)
+          .max(CURRENT_YEAR + 10, "Graduation year is too far in the future.")
+          .nullable()
+      ),
+    qualificationStatus: optionalEnum([...QUALIFICATION_STATUSES]),
+  })
+  .superRefine((data, ctx) => {
+    // When COMPLETED, year must not be in the future
+    if (
+      data.qualificationStatus === "COMPLETED" &&
+      data.graduationYear != null &&
+      data.graduationYear > CURRENT_YEAR
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["graduationYear"],
+        message: "Graduation year cannot be in the future for a completed qualification.",
+      });
+    }
+  });
+
+export type EducationRecordInput = z.infer<typeof educationRecordSchema>;
+
+// ── Main employee schema ───────────────────────────────────────────────────
+
 export const employeeSchema = z.object({
   firstName: z.preprocess((v) => (v ? String(v).trim() : ""), z.string().min(1, "First name is required")),
   // In Ethiopia, the naming convention is given name + father's name + grandfather's name.
@@ -45,10 +129,24 @@ export const employeeSchema = z.object({
     z.enum(["ONBOARDING", "ACTIVE", "ON_LEAVE", "RESIGNED", "RETIRED", "SUSPENDED", "TERMINATED", "INACTIVE"])
   ),
   employmentType: optionalEnum(["PERMANENT", "CONTRACT", "TEMPORARY", "PROBATION", "INTERNSHIP"]),
-  educationLevel: optionalEnum(["PRIMARY", "SECONDARY", "CERTIFICATE", "DIPLOMA", "BACHELOR", "MASTER", "PHD"]),
-  fieldOfStudy: optionalString,
-  institutionName: optionalString,
-  graduationYear: optionalString,
+  // educations: array of per-qualification objects submitted as a JSON string
+  // (FormData cannot natively carry nested arrays, so the form serialises to JSON).
+  educations: z
+    .union([z.string(), z.array(z.unknown()), z.null(), z.undefined()])
+    .optional()
+    .transform((v) => {
+      if (v === null || v === undefined) return [];
+      if (Array.isArray(v)) return v;
+      const s = String(v).trim();
+      if (s === "" || s === "[]") return [];
+      try {
+        const parsed = JSON.parse(s);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    })
+    .pipe(z.array(educationRecordSchema)),
   userId: optionalString,
   managerId: optionalString,
 });
@@ -95,10 +193,8 @@ export function employeeFormDataToObject(formData: FormData) {
     hireDate: s("hireDate"),
     employmentStatus: s("employmentStatus"),
     employmentType: s("employmentType"),
-    educationLevel: s("educationLevel"),
-    fieldOfStudy: s("fieldOfStudy"),
-    institutionName: s("institutionName"),
-    graduationYear: s("graduationYear"),
+    // educations is a JSON string produced by the form
+    educations: s("educations"),
     userId: s("userId"),
     managerId: s("managerId"),
   };

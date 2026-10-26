@@ -70,6 +70,7 @@ export async function getEmployeeByIdForViewer(
         user:        { select: { id: true, email: true, username: true, role: true, banned: true, mustChangePassword: true } },
         documents:   { where: { deletedAt: null }, orderBy: { createdAt: "desc" } },
         manager:     { select: { id: true, firstName: true, lastName: true, employeeId: true } },
+        educations:  { orderBy: { createdAt: "asc" } },
         employmentHistory: {
           include: {
             department: { select: { name: true } },
@@ -91,6 +92,7 @@ export async function getEmployeeByIdForViewer(
       department: { select: { id: true, name: true } },
       position:   { select: { id: true, name: true, departmentId: true } },
       manager:    { select: { id: true, firstName: true, lastName: true, employeeId: true } },
+      educations: { orderBy: { createdAt: "asc" } },
       employmentHistory: {
         include: {
           department: { select: { name: true } },

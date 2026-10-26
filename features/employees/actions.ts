@@ -16,7 +16,14 @@ import {
   assertRestoreSafe,
   assertDocumentBelongsToEmployee,
 } from "@/lib/employee-access";
-import type { Gender, MaritalStatus, EmploymentType, EducationLevel, DocumentType } from "@prisma/client";
+import type {
+  Gender,
+  MaritalStatus,
+  EmploymentType,
+  InstitutionType,
+  QualificationStatus,
+  DocumentType,
+} from "@prisma/client";
 
 // ── Allowed MIME types and extensions for document upload (P3-17) ─────────────
 
@@ -63,7 +70,6 @@ function validateDocumentFile(file: File): void {
 function validateDocumentTitle(title: string): void {
   if (!title || title.trim().length === 0) throw new Error("Give the document a title.");
   if (title.trim().length > 200) throw new Error("Document title must be 200 characters or fewer.");
-  // Reject strings that look like path traversal or injection
   if (/[<>:"/\\|?*\x00-\x1f]/.test(title)) {
     throw new Error("Document title contains invalid characters.");
   }
@@ -99,9 +105,7 @@ export async function createEmployee(
     // P2-11: Validate department/position relationship server-side
     await assertPositionInDepartment(parsed.data.positionId, parsed.data.departmentId);
 
-    // P0-3: Validate manager assignment (cycle detection, self-assign, archived)
-    // Employee doesn't have an ID yet so we can't check self-reference by ID —
-    // that check is harmless here since the employee doesn't exist yet.
+    // P0-3: Validate manager assignment
     if (parsed.data.managerId) {
       const manager = await prisma.employee.findUnique({
         where: { id: parsed.data.managerId },
@@ -115,8 +119,6 @@ export async function createEmployee(
       }
     }
 
-    // Upload photo BEFORE the transaction so we can pass the URL into the create.
-    // If the transaction fails we clean up the uploaded asset.
     const photo = getPhotoFile(formData);
     const asset = photo
       ? await uploadToCloudinary(photo, "siko-mendo/employees", { resourceType: "image" })
@@ -125,7 +127,7 @@ export async function createEmployee(
     try {
       const employeeId = await generateNextEmployeeId();
 
-      // P2-13: Wrap Employee + EmploymentHistory + OnboardingRecord in one transaction
+      // P2-13: Wrap Employee + EmploymentHistory + OnboardingRecord + Education in one transaction
       const employee = await prisma.$transaction(async (tx) => {
         const created = await tx.employee.create({
           data: {
@@ -146,17 +148,28 @@ export async function createEmployee(
             departmentId:   parsed.data.departmentId,
             positionId:     parsed.data.positionId,
             hireDate:       parsed.data.hireDate ?? null,
-            employmentStatus: "ONBOARDING", // Always start in ONBOARDING
+            employmentStatus: "ONBOARDING",
             employmentType: (parsed.data.employmentType as EmploymentType) ?? null,
-            educationLevel: (parsed.data.educationLevel as EducationLevel) ?? null,
-            fieldOfStudy:   parsed.data.fieldOfStudy ?? null,
-            institutionName: parsed.data.institutionName ?? null,
-            graduationYear:  parsed.data.graduationYear ?? null,
             profileImageUrl: asset?.url ?? null,
             profileImageKey: asset?.publicId ?? null,
             managerId:      parsed.data.managerId ?? null,
           },
         });
+
+        // Write education records
+        if (parsed.data.educations.length > 0) {
+          await tx.education.createMany({
+            data: parsed.data.educations.map((edu) => ({
+              employeeId:          created.id,
+              educationLevel:      edu.educationLevel as import("@prisma/client").EducationLevel,
+              fieldOfStudy:        edu.fieldOfStudy ?? null,
+              institutionType:     (edu.institutionType as InstitutionType) ?? null,
+              institutionName:     edu.institutionName ?? null,
+              graduationYear:      edu.graduationYear ?? null,
+              qualificationStatus: (edu.qualificationStatus as QualificationStatus) ?? null,
+            })),
+          });
+        }
 
         await tx.employmentHistory.create({
           data: {
@@ -189,7 +202,6 @@ export async function createEmployee(
       revalidatePath("/employees");
       return { id: employee.id };
     } catch (err) {
-      // If the DB transaction failed, clean up the uploaded photo
       if (asset) {
         await deleteFromCloudinary(asset.publicId, "image").catch(() => {/* non-fatal */});
       }
@@ -216,7 +228,6 @@ export async function updateEmployee(
     const existing = await prisma.employee.findUnique({ where: { id } });
     if (!existing) throw new Error("Employee not found.");
 
-    // Dept/position/employmentType must only change via recordEmploymentChange()
     if (
       parsed.data.departmentId !== existing.departmentId ||
       parsed.data.positionId !== existing.positionId ||
@@ -227,10 +238,7 @@ export async function updateEmployee(
       );
     }
 
-    // P1-8: Prevent direct lifecycle-status bypass via the general edit form
     assertStatusChangeAllowed(existing.employmentStatus, parsed.data.employmentStatus);
-
-    // P0-3: Validate manager assignment
     await validateManagerAssignment(id, parsed.data.managerId);
 
     const photo = getPhotoFile(formData);
@@ -238,31 +246,46 @@ export async function updateEmployee(
       ? await uploadToCloudinary(photo, "siko-mendo/employees", { resourceType: "image" })
       : null;
 
-    await prisma.employee.update({
-      where: { id },
-      data: {
-        firstName:    parsed.data.firstName,
-        middleName:   parsed.data.middleName ?? null,
-        lastName:     parsed.data.lastName,
-        email:        parsed.data.email ?? null,
-        phone:        parsed.data.phone ?? null,
-        gender:       (parsed.data.gender as Gender) ?? null,
-        dateOfBirth:  parsed.data.dateOfBirth ?? null,
-        maritalStatus: (parsed.data.maritalStatus as MaritalStatus) ?? null,
-        address:      parsed.data.address ?? null,
-        emergencyContactName:         parsed.data.emergencyContactName ?? null,
-        emergencyContactPhone:        parsed.data.emergencyContactPhone ?? null,
-        emergencyContactRelationship: parsed.data.emergencyContactRelationship ?? null,
-        emergencyContactAddress:      parsed.data.emergencyContactAddress ?? null,
-        hireDate:         parsed.data.hireDate ?? null,
-        employmentStatus: parsed.data.employmentStatus,
-        educationLevel:   (parsed.data.educationLevel as EducationLevel) ?? null,
-        fieldOfStudy:     parsed.data.fieldOfStudy ?? null,
-        institutionName:  parsed.data.institutionName ?? null,
-        graduationYear:   parsed.data.graduationYear ?? null,
-        managerId:        parsed.data.managerId ?? null,
-        ...(asset ? { profileImageUrl: asset.url, profileImageKey: asset.publicId } : {}),
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.employee.update({
+        where: { id },
+        data: {
+          firstName:    parsed.data.firstName,
+          middleName:   parsed.data.middleName ?? null,
+          lastName:     parsed.data.lastName,
+          email:        parsed.data.email ?? null,
+          phone:        parsed.data.phone ?? null,
+          gender:       (parsed.data.gender as Gender) ?? null,
+          dateOfBirth:  parsed.data.dateOfBirth ?? null,
+          maritalStatus: (parsed.data.maritalStatus as MaritalStatus) ?? null,
+          address:      parsed.data.address ?? null,
+          emergencyContactName:         parsed.data.emergencyContactName ?? null,
+          emergencyContactPhone:        parsed.data.emergencyContactPhone ?? null,
+          emergencyContactRelationship: parsed.data.emergencyContactRelationship ?? null,
+          emergencyContactAddress:      parsed.data.emergencyContactAddress ?? null,
+          hireDate:         parsed.data.hireDate ?? null,
+          employmentStatus: parsed.data.employmentStatus,
+          managerId:        parsed.data.managerId ?? null,
+          ...(asset ? { profileImageUrl: asset.url, profileImageKey: asset.publicId } : {}),
+        },
+      });
+
+      // Replace all education records atomically: delete existing, insert new.
+      // This is simpler and safer than diffing — UI always sends the full set.
+      await tx.education.deleteMany({ where: { employeeId: id } });
+      if (parsed.data.educations.length > 0) {
+        await tx.education.createMany({
+          data: parsed.data.educations.map((edu) => ({
+            employeeId:          id,
+            educationLevel:      edu.educationLevel as import("@prisma/client").EducationLevel,
+            fieldOfStudy:        edu.fieldOfStudy ?? null,
+            institutionType:     (edu.institutionType as InstitutionType) ?? null,
+            institutionName:     edu.institutionName ?? null,
+            graduationYear:      edu.graduationYear ?? null,
+            qualificationStatus: (edu.qualificationStatus as QualificationStatus) ?? null,
+          })),
+        });
+      }
     });
 
     if (asset && existing.profileImageKey) {
@@ -279,21 +302,10 @@ export async function updateEmployee(
 
 // ── Archive / Restore ─────────────────────────────────────────────────────────
 
-/**
- * Archives (soft-deletes) an employee.
- *
- * P1-9: Active/onboarding employees cannot be archived directly.
- * They must complete the offboarding workflow first.
- *
- * Terminal-status employees (RESIGNED, RETIRED, TERMINATED, etc.) can be
- * archived directly since they have already passed through offboarding.
- */
 export async function archiveEmployee(id: string): Promise<ActionResult<{ id: string }>> {
   const session = await getServerSession();
   return withPermission(session, "MANAGE_EMPLOYEES", async () => {
-    // P1-9: Enforce archiving guard
     await assertArchiveSafe(id, session!.user.role);
-
     await prisma.employee.update({ where: { id }, data: { deletedAt: new Date() } });
     await logAudit("ARCHIVE", id, { archivedBy: session?.user.name }, session?.user.id);
     revalidatePath("/employees");
@@ -301,20 +313,10 @@ export async function archiveEmployee(id: string): Promise<ActionResult<{ id: st
   });
 }
 
-/**
- * Restores an archived employee.
- *
- * P1-10: Restoring != rehiring. The employee's historical employment status
- * is preserved exactly. deletedAt is cleared; employmentStatus is NOT changed.
- * If rehire is needed, it requires a dedicated workflow.
- */
 export async function restoreEmployee(id: string): Promise<ActionResult<{ id: string }>> {
   const session = await getServerSession();
   return withPermission(session, "MANAGE_EMPLOYEES", async () => {
-    // P1-10: Validate restore and confirm status is preserved (not auto-promoted)
     await assertRestoreSafe(id);
-
-    // Only clear deletedAt — do NOT touch employmentStatus
     await prisma.employee.update({ where: { id }, data: { deletedAt: null } });
     await logAudit("RESTORE", id, { restoredBy: session?.user.name }, session?.user.id);
     revalidatePath("/employees");
@@ -337,11 +339,9 @@ export async function uploadEmployeeDocument(
 
     if (!(file instanceof File) || file.size === 0) throw new Error("Choose a file to upload.");
 
-    // P3-17: Server-side file validation
     validateDocumentFile(file);
     validateDocumentTitle(title);
 
-    // Verify the employee exists
     const employeeExists = await prisma.employee.findUnique({
       where: { id: employeeId },
       select: { id: true },
@@ -386,12 +386,10 @@ export async function deleteEmployeeDocument(
 ): Promise<ActionResult<{ id: string }>> {
   const session = await getServerSession();
   return withPermission(session, "MANAGE_DOCUMENTS", async () => {
-    // P0-5: Verify document belongs to this employee (prevents cross-employee attacks)
     const document = await assertDocumentBelongsToEmployee(documentId, employeeId);
 
     await prisma.document.update({ where: { id: documentId }, data: { deletedAt: new Date() } });
 
-    // P3-18: Use stored Cloudinary resource type instead of inferring from mimeType
     const resourceType: "image" | "raw" =
       document.fileResourceType === "image" ? "image" : "raw";
     await deleteFromCloudinary(document.fileKey, resourceType);

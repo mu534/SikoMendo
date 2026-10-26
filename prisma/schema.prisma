@@ -252,10 +252,6 @@ model Employee {
   emergencyContactPhone        String?
   emergencyContactRelationship String?
   emergencyContactAddress      String?
-  educationLevel               EducationLevel?
-  fieldOfStudy                 String?
-  institutionName              String?
-  graduationYear               String?
 
   // Relations
   departmentId  String?

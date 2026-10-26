@@ -1,10 +1,11 @@
 import "server-only";
 import Papa from "papaparse";
-import { type EmploymentType, type EducationLevel, type MaritalStatus, type Gender } from "@prisma/client";
+import { type EmploymentType, type MaritalStatus, type Gender, type InstitutionType, type QualificationStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { employeeSchema } from "./schemas";
+import { employeeSchema, EDUCATION_LEVELS } from "./schemas";
 import { generateNextEmployeeId } from "./queries";
 import { assertPositionInDepartment } from "@/lib/employee-access";
+import type { EducationLevel } from "@prisma/client";
 
 /** Column headers the import template/CSV must use. */
 export const IMPORT_COLUMNS = [
@@ -25,6 +26,7 @@ export const IMPORT_COLUMNS = [
   "position",
   "hireDate",
   "employmentType",
+  // Single education record for CSV import (the inline columns map to one Education row)
   "educationLevel",
   "fieldOfStudy",
   "institutionName",
@@ -32,8 +34,7 @@ export const IMPORT_COLUMNS = [
 ] as const;
 
 // P2-12: employmentStatus is intentionally NOT in the import columns.
-// All imported employees start in ONBOARDING state. Arbitrary status import
-// is not permitted — it would bypass the lifecycle workflow.
+// All imported employees start in ONBOARDING state.
 
 export type ImportRowResult =
   | { row: number; status: "created"; employeeId: string; name: string }
@@ -58,15 +59,15 @@ export function parseEmployeeCsv(text: string): {
 /**
  * Creates one employee per valid row.
  *
- * P2-12: Each successful row creates Employee + EmploymentHistory + OnboardingRecord
- * in a single Prisma transaction so no partially-created state is left on failure.
+ * P2-12: Each successful row creates Employee + Education (if provided) +
+ * EmploymentHistory + OnboardingRecord in a single Prisma transaction.
  * All imported employees start in ONBOARDING — the CSV cannot override this.
  *
  * P2-11: Position must belong to the selected department (verified server-side).
- * P0-3: Manager assignment validation is applied when managerId is provided.
  *
- * Rows are processed sequentially (not in parallel) because generateNextEmployeeId
- * uses a sequence that must advance one step at a time.
+ * CSV education columns map to a single Education row per import row.
+ * Rows are processed sequentially because generateNextEmployeeId uses
+ * a sequence that must advance one step at a time.
  */
 export async function importEmployeeRows(
   rows: Record<string, string>[],
@@ -120,13 +121,28 @@ export async function importEmployeeRows(
         continue;
       }
 
-      // ── 3. Parse and validate with Zod schema ──────────────────────────────
+      // ── 3. Build educations array from flat CSV columns ────────────────────
+      // CSV carries at most one education record per row (flat columns).
+      // Build a JSON string for the Zod schema's educations field.
+      const csvLevel = row.educationLevel?.trim();
+      const hasEducation = csvLevel && EDUCATION_LEVELS.includes(csvLevel as typeof EDUCATION_LEVELS[number]);
+      const educationsJson = hasEducation
+        ? JSON.stringify([{
+            educationLevel:  csvLevel,
+            fieldOfStudy:    row.fieldOfStudy?.trim() || null,
+            institutionName: row.institutionName?.trim() || null,
+            graduationYear:  row.graduationYear?.trim() || null,
+          }])
+        : "[]";
+
+      // ── 4. Parse and validate with Zod schema ──────────────────────────────
       const parsed = employeeSchema.safeParse({
         ...row,
         departmentId: department.id,
         positionId:   position.id,
         userId: "",
-        // P2-12: Force ONBOARDING — ignore any employmentStatus in the CSV
+        educations: educationsJson,
+        // P2-12: Force ONBOARDING
         employmentStatus: "ONBOARDING",
       });
       if (!parsed.success) {
@@ -140,7 +156,7 @@ export async function importEmployeeRows(
       // P2-11: Belt-and-suspenders position/department check
       await assertPositionInDepartment(position.id, department.id);
 
-      // ── 4. Duplicate email check ───────────────────────────────────────────
+      // ── 5. Duplicate email check ───────────────────────────────────────────
       if (parsed.data.email) {
         const duplicate = await prisma.employee.findFirst({
           where: { email: parsed.data.email, deletedAt: null },
@@ -156,7 +172,7 @@ export async function importEmployeeRows(
         }
       }
 
-      // ── 5. Create Employee + EmploymentHistory + OnboardingRecord atomically
+      // ── 6. Create Employee + Education + EmploymentHistory + OnboardingRecord
       const employeeId = await generateNextEmployeeId();
 
       await prisma.$transaction(async (tx) => {
@@ -179,15 +195,24 @@ export async function importEmployeeRows(
             departmentId:   department.id,
             positionId:     position.id,
             hireDate:       parsed.data.hireDate ?? null,
-            // P2-12: Always ONBOARDING for imports
             employmentStatus: "ONBOARDING",
             employmentType: parsed.data.employmentType as EmploymentType | null ?? null,
-            educationLevel: parsed.data.educationLevel as EducationLevel | null ?? null,
-            fieldOfStudy:   parsed.data.fieldOfStudy ?? null,
-            institutionName: parsed.data.institutionName ?? null,
-            graduationYear:  parsed.data.graduationYear ?? null,
           },
         });
+
+        if (parsed.data.educations.length > 0) {
+          await tx.education.createMany({
+            data: parsed.data.educations.map((edu) => ({
+              employeeId:          created.id,
+              educationLevel:      edu.educationLevel as EducationLevel,
+              fieldOfStudy:        edu.fieldOfStudy ?? null,
+              institutionType:     (edu.institutionType as InstitutionType) ?? null,
+              institutionName:     edu.institutionName ?? null,
+              graduationYear:      edu.graduationYear ?? null,
+              qualificationStatus: (edu.qualificationStatus as QualificationStatus) ?? null,
+            })),
+          });
+        }
 
         await tx.employmentHistory.create({
           data: {
@@ -200,7 +225,6 @@ export async function importEmployeeRows(
           },
         });
 
-        // P2-12: Every imported employee gets an OnboardingRecord
         await tx.onboardingRecord.create({
           data: {
             employeeId:     created.id,

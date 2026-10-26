@@ -23,6 +23,16 @@ function ReadField({ label, value, className }: ReadFieldProps) {
   );
 }
 
+type EducationRecord = {
+  id?: string;
+  educationLevel: string;
+  fieldOfStudy?: string | null;
+  institutionType?: string | null;
+  institutionName?: string | null;
+  graduationYear?: number | null;
+  qualificationStatus?: string | null;
+};
+
 type OverviewEmployee = {
   id: string;
   firstName: string;
@@ -38,10 +48,7 @@ type OverviewEmployee = {
   emergencyContactPhone?: string | null;
   emergencyContactRelationship?: string | null;
   emergencyContactAddress?: string | null;
-  educationLevel?: string | null;
-  fieldOfStudy?: string | null;
-  institutionName?: string | null;
-  graduationYear?: string | null;
+  educations?: EducationRecord[];
 };
 
 const GENDER_LABEL: Record<string, string> = { MALE: "Male", FEMALE: "Female" };
@@ -49,8 +56,19 @@ const MARITAL_LABEL: Record<string, string> = {
   SINGLE: "Single", MARRIED: "Married", DIVORCED: "Divorced", WIDOWED: "Widowed",
 };
 const EDUCATION_LABEL: Record<string, string> = {
-  PRIMARY: "Primary", SECONDARY: "Secondary", CERTIFICATE: "Certificate",
-  DIPLOMA: "Diploma", BACHELOR: "Bachelor's Degree", MASTER: "Master's Degree", PHD: "PhD",
+  PRIMARY:     "Primary",
+  SECONDARY:   "Secondary",
+  HIGH_SCHOOL: "High School",
+  CERTIFICATE: "Certificate",
+  DIPLOMA:     "Diploma",
+  BACHELOR:    "Bachelor's Degree",
+  MASTER:      "Master's Degree",
+  PHD:         "Doctoral Degree (PhD)",
+  OTHER:       "Other",
+};
+const QUALIFICATION_STATUS_LABEL: Record<string, string> = {
+  IN_PROGRESS: "In Progress",
+  COMPLETED:   "Completed",
 };
 
 export function OverviewPanel({
@@ -108,6 +126,8 @@ export function OverviewPanel({
     );
   }
 
+  const educations = employee.educations ?? [];
+
   return (
     <div className="space-y-6">
       {/* Edit button for Admin/HR */}
@@ -153,21 +173,36 @@ export function OverviewPanel({
           )}
         </Card>
 
-        {/* Education */}
+        {/* Education — one card per qualification, full width */}
         <Card className="p-5 lg:col-span-2">
           <SectionHeader icon={GraduationCap} title="Education" />
-          {employee.educationLevel || employee.institutionName ? (
-            <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <ReadField
-                label="Education Level"
-                value={EDUCATION_LABEL[employee.educationLevel ?? ""] ?? employee.educationLevel}
-              />
-              <ReadField label="Field of Study" value={employee.fieldOfStudy} />
-              <ReadField label="Institution" value={employee.institutionName} />
-              <ReadField label="Graduation Year" value={employee.graduationYear} />
-            </dl>
-          ) : (
+          {educations.length === 0 ? (
             <p className="text-sm text-ink-900/40">No education details recorded.</p>
+          ) : (
+            <div className="space-y-4">
+              {educations.map((edu, idx) => (
+                <div key={edu.id ?? idx} className={idx > 0 ? "border-t border-ink-900/8 pt-4" : ""}>
+                  <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <ReadField
+                      label="Education Level"
+                      value={EDUCATION_LABEL[edu.educationLevel] ?? edu.educationLevel}
+                    />
+                    <ReadField label="Field of Study" value={edu.fieldOfStudy} />
+                    <ReadField label="Institution" value={edu.institutionName} />
+                    <ReadField
+                      label="Graduation Year (G.C.)"
+                      value={edu.graduationYear != null ? String(edu.graduationYear) : null}
+                    />
+                    {edu.qualificationStatus && (
+                      <ReadField
+                        label="Status"
+                        value={QUALIFICATION_STATUS_LABEL[edu.qualificationStatus] ?? edu.qualificationStatus}
+                      />
+                    )}
+                  </dl>
+                </div>
+              ))}
+            </div>
           )}
         </Card>
       </div>

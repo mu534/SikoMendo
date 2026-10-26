@@ -98,6 +98,7 @@ export default async function ProfilePage() {
       department: { select: { name: true } },
       position: { select: { name: true } },
       manager: { select: { firstName: true, lastName: true } },
+      educations: { orderBy: { createdAt: "asc" } },
     },
   });
 
@@ -357,17 +358,34 @@ export default async function ProfilePage() {
                     value={formatDateWithEthiopian(employee.dateOfBirth)}
                   />
                 )}
-                {employee.educationLevel && (
-                  <ReadField label="Education Level" value={employee.educationLevel.replace(/_/g, " ")} />
-                )}
-                {employee.fieldOfStudy && (
-                  <ReadField label="Field of Study" value={employee.fieldOfStudy} />
-                )}
-                {employee.institutionName && (
-                  <ReadField label="Institution" value={employee.institutionName} />
-                )}
-                {employee.graduationYear && (
-                  <ReadField label="Graduation Year" value={employee.graduationYear} />
+                {employee.educations && employee.educations.length > 0 && (
+                  <>
+                    {employee.educations.map((edu, idx) => {
+                      const EDUCATION_LABEL: Record<string, string> = {
+                        PRIMARY: "Primary", SECONDARY: "Secondary", HIGH_SCHOOL: "High School",
+                        CERTIFICATE: "Certificate", DIPLOMA: "Diploma",
+                        BACHELOR: "Bachelor's Degree", MASTER: "Master's Degree",
+                        PHD: "Doctoral Degree (PhD)", OTHER: "Other",
+                      };
+                      return (
+                        <div key={edu.id} className={idx > 0 ? "mt-2 border-t border-ink-900/8 pt-2" : ""}>
+                          <ReadField
+                            label="Education Level"
+                            value={EDUCATION_LABEL[edu.educationLevel] ?? edu.educationLevel}
+                          />
+                          {edu.fieldOfStudy && (
+                            <ReadField label="Field of Study" value={edu.fieldOfStudy} />
+                          )}
+                          {edu.institutionName && (
+                            <ReadField label="Institution" value={edu.institutionName} />
+                          )}
+                          {edu.graduationYear != null && (
+                            <ReadField label="Graduation Year (G.C.)" value={String(edu.graduationYear)} />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </>
                 )}
               </dl>
             </Card>
