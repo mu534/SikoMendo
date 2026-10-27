@@ -73,6 +73,11 @@ const QUALIFICATION_STATUS_LABELS: Record<string, string> = {
   COMPLETED:   "Completed",
 };
 
+// ─── High-school field-of-study options ──────────────────────────────────────
+
+const HIGH_SCHOOL_FIELDS = ["Natural Science", "Social Science"] as const;
+type HighSchoolField = (typeof HIGH_SCHOOL_FIELDS)[number];
+
 // Computed once at module load — stable within a single SSR + hydration cycle.
 const CURRENT_YEAR = new Date().getFullYear();
 
@@ -279,7 +284,26 @@ function EducationRecordForm({
     if (instType && !compat2.includes(instType)) newType = suggestInstType(lvl);
     else if (!instType) newType = suggestInstType(lvl);
     const typeChanged = newType !== instType;
-    onChange({ ...record, educationLevel: lvl, institutionType: newType, institutionName: typeChanged ? null : record.institutionName });
+
+    // Clear fieldOfStudy when switching between High School (dropdown values)
+    // and any other level (free-text) — the values are incompatible.
+    const newIsSchool = lvl === "HIGH_SCHOOL" || lvl === "PRIMARY" || lvl === "SECONDARY";
+    const oldIsSchool = level === "HIGH_SCHOOL" || level === "PRIMARY" || level === "SECONDARY";
+    const currentFieldIsHsValue = HIGH_SCHOOL_FIELDS.includes(
+      (record.fieldOfStudy ?? "") as HighSchoolField
+    );
+    // Clear if: was HS (dropdown value) and now non-HS, OR was non-HS free text and now HS.
+    const clearField =
+      (!newIsSchool && currentFieldIsHsValue) ||
+      (newIsSchool && !oldIsSchool && record.fieldOfStudy !== null && !currentFieldIsHsValue);
+
+    onChange({
+      ...record,
+      educationLevel:  lvl,
+      institutionType: newType,
+      institutionName: typeChanged ? null : record.institutionName,
+      fieldOfStudy:    clearField ? null : record.fieldOfStudy,
+    });
   }
 
   function onType(v: string) {
@@ -330,10 +354,30 @@ function EducationRecordForm({
         </FieldGroup>
 
         <FieldGroup>
-          <FL id={f("field")} text="Field of Study" opt={isSchool} />
-          <Input id={f("field")} placeholder={isSchool ? "e.g. General Education" : "e.g. Computer Science"}
-            value={record.fieldOfStudy ?? ""}
-            onChange={(e) => onChange({ ...record, fieldOfStudy: e.target.value || null })} />
+          <FL id={f("field")} text="Field of Study" req={isSchool} opt={!isSchool} />
+          {isSchool ? (
+            /* High School: real dropdown with exactly two options */
+            <div className="relative">
+              <Select
+                id={f("field")}
+                value={record.fieldOfStudy ?? ""}
+                onChange={(e) => onChange({ ...record, fieldOfStudy: e.target.value || null })}
+              >
+                <option value="">Select stream…</option>
+                {HIGH_SCHOOL_FIELDS.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </Select>
+            </div>
+          ) : (
+            /* All other levels: free-text input */
+            <Input
+              id={f("field")}
+              placeholder="e.g. Computer Science, Accounting, Business Management"
+              value={record.fieldOfStudy ?? ""}
+              onChange={(e) => onChange({ ...record, fieldOfStudy: e.target.value || null })}
+            />
+          )}
           {errors.fieldOfStudy ? <FieldError>{errors.fieldOfStudy}</FieldError> : null}
         </FieldGroup>
       </div>

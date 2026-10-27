@@ -75,6 +75,10 @@ export const COMPATIBLE_INSTITUTION_TYPES: Record<
 const CURRENT_YEAR = new Date().getFullYear();
 const MIN_YEAR = 1950;
 
+/** Valid Field of Study values when Education Level is High School. */
+export const HIGH_SCHOOL_FIELDS_OF_STUDY = ["Natural Science", "Social Science"] as const;
+export type HighSchoolFieldOfStudy = (typeof HIGH_SCHOOL_FIELDS_OF_STUDY)[number];
+
 // ── Per-qualification Zod schema ───────────────────────────────────────────
 
 export const educationRecordSchema = z
@@ -107,6 +111,27 @@ export const educationRecordSchema = z
   })
   .superRefine((data, ctx) => {
     const lvl = data.educationLevel as (typeof ALL_EDUCATION_LEVELS)[number];
+    const isHsLevel =
+      lvl === "HIGH_SCHOOL" || lvl === "PRIMARY" || lvl === "SECONDARY";
+
+    // ── High School: fieldOfStudy must be one of the two valid streams ──────
+    if (isHsLevel) {
+      if (!data.fieldOfStudy) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["fieldOfStudy"],
+          message: "Select a stream (Natural Science or Social Science) for High School.",
+        });
+      } else if (
+        !(HIGH_SCHOOL_FIELDS_OF_STUDY as readonly string[]).includes(data.fieldOfStudy)
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["fieldOfStudy"],
+          message: `"${data.fieldOfStudy}" is not a valid stream. Choose Natural Science or Social Science.`,
+        });
+      }
+    }
 
     // Institution type must be compatible with education level (when provided)
     if (data.institutionType) {
