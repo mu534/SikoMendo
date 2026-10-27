@@ -17,19 +17,23 @@ function optionalEnum<T extends [string, ...string[]]>(values: T) {
     .transform((v) => (v ? v : null));
 }
 
-// ── Per-qualification Zod schema ───────────────────────────────────────────
+// ── Education constants ────────────────────────────────────────────────────
 //
-// Each entry in the "educations" array is validated against this schema.
-// Rules:
-//  - educationLevel is required per record.
-//  - fieldOfStudy is optional (particularly for HIGH_SCHOOL).
-//  - institutionType is optional; drives the institution name input in the UI.
-//  - institutionName: free-text, optional.
-//  - graduationYear: integer 1950–current year; required only for COMPLETED
-//    qualifications. For IN_PROGRESS or unknown status, leave empty.
-//  - qualificationStatus: optional; when COMPLETED the year must be ≤ current year.
+// PRIMARY and SECONDARY are retained in the DB enum for legacy data but are
+// not offered as new choices in the form — HIGH_SCHOOL covers both.
 
 export const EDUCATION_LEVELS = [
+  "HIGH_SCHOOL",
+  "CERTIFICATE",
+  "DIPLOMA",
+  "BACHELOR",
+  "MASTER",
+  "PHD",
+  "OTHER",
+] as const;
+
+// All values the DB enum can store (superset of form-offered values).
+export const ALL_EDUCATION_LEVELS = [
   "PRIMARY",
   "SECONDARY",
   "HIGH_SCHOOL",
@@ -51,13 +55,32 @@ export const INSTITUTION_TYPES = [
 
 export const QUALIFICATION_STATUSES = ["IN_PROGRESS", "COMPLETED"] as const;
 
+// Which institution types are compatible with each education level.
+// Used by the form for conditional rendering AND by server-side validation.
+export const COMPATIBLE_INSTITUTION_TYPES: Record<
+  (typeof ALL_EDUCATION_LEVELS)[number],
+  (typeof INSTITUTION_TYPES)[number][]
+> = {
+  PRIMARY:     ["HIGH_SCHOOL", "OTHER"],
+  SECONDARY:   ["HIGH_SCHOOL", "OTHER"],
+  HIGH_SCHOOL: ["HIGH_SCHOOL", "OTHER"],
+  CERTIFICATE: ["TVET", "COLLEGE", "OTHER"],
+  DIPLOMA:     ["TVET", "COLLEGE", "UNIVERSITY", "OTHER"],
+  BACHELOR:    ["UNIVERSITY", "COLLEGE", "OTHER"],
+  MASTER:      ["UNIVERSITY", "OTHER"],
+  PHD:         ["UNIVERSITY", "OTHER"],
+  OTHER:       ["HIGH_SCHOOL", "UNIVERSITY", "COLLEGE", "TVET", "OTHER"],
+};
+
 const CURRENT_YEAR = new Date().getFullYear();
 const MIN_YEAR = 1950;
 
+// ── Per-qualification Zod schema ───────────────────────────────────────────
+
 export const educationRecordSchema = z
   .object({
-    educationLevel: z.enum(EDUCATION_LEVELS, {
-      error: "Education level is required.",
+    educationLevel: z.enum(ALL_EDUCATION_LEVELS, {
+      error: "Select a valid education level.",
     }),
     fieldOfStudy: optionalString,
     institutionType: optionalEnum([...INSTITUTION_TYPES]),
@@ -75,7 +98,7 @@ export const educationRecordSchema = z
       .pipe(
         z
           .number()
-          .int()
+          .int("Graduation year must be a whole number.")
           .min(MIN_YEAR, `Graduation year must be ${MIN_YEAR} or later.`)
           .max(CURRENT_YEAR + 10, "Graduation year is too far in the future.")
           .nullable()
@@ -83,7 +106,21 @@ export const educationRecordSchema = z
     qualificationStatus: optionalEnum([...QUALIFICATION_STATUSES]),
   })
   .superRefine((data, ctx) => {
-    // When COMPLETED, year must not be in the future
+    const lvl = data.educationLevel as (typeof ALL_EDUCATION_LEVELS)[number];
+
+    // Institution type must be compatible with education level (when provided)
+    if (data.institutionType) {
+      const compatible = COMPATIBLE_INSTITUTION_TYPES[lvl] ?? [];
+      if (!compatible.includes(data.institutionType as (typeof INSTITUTION_TYPES)[number])) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["institutionType"],
+          message: `"${data.institutionType}" is not a valid institution type for ${lvl.replace(/_/g, " ").toLowerCase()}.`,
+        });
+      }
+    }
+
+    // Completed qualifications: year must not be in the future
     if (
       data.qualificationStatus === "COMPLETED" &&
       data.graduationYear != null &&
@@ -93,6 +130,19 @@ export const educationRecordSchema = z
         code: z.ZodIssueCode.custom,
         path: ["graduationYear"],
         message: "Graduation year cannot be in the future for a completed qualification.",
+      });
+    }
+
+    // Completed qualifications with a known institution type: institution name required
+    if (
+      data.qualificationStatus === "COMPLETED" &&
+      data.institutionType &&
+      !data.institutionName
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["institutionName"],
+        message: "Institution name is required for a completed qualification.",
       });
     }
   });
@@ -129,8 +179,7 @@ export const employeeSchema = z.object({
     z.enum(["ONBOARDING", "ACTIVE", "ON_LEAVE", "RESIGNED", "RETIRED", "SUSPENDED", "TERMINATED", "INACTIVE"])
   ),
   employmentType: optionalEnum(["PERMANENT", "CONTRACT", "TEMPORARY", "PROBATION", "INTERNSHIP"]),
-  // educations: array of per-qualification objects submitted as a JSON string
-  // (FormData cannot natively carry nested arrays, so the form serialises to JSON).
+  // educations is a JSON string produced by the form (FormData cannot carry nested arrays natively)
   educations: z
     .union([z.string(), z.array(z.unknown()), z.null(), z.undefined()])
     .optional()
