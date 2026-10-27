@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useId, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { GraduationCap, Plus, Trash2, Search, ChevronDown } from "lucide-react";
 import { Input, Select, FieldGroup, FieldError } from "@/components/ui/field";
 import { SectionHeader } from "./section-header";
@@ -261,8 +261,9 @@ function EducationRecordForm({
   errors: RecordErrors;
   canRemove: boolean;
 }) {
-  const uid  = useId();
-  const f    = (field: string) => `edu-${uid}-${field}`;
+  // Use index-based IDs instead of useId() to avoid SSR/client prefix mismatch
+  // (React 19 SSR generates "_R_nnn" but client hydration generates "_r_nnn").
+  const f = (field: string) => `edu-${index}-${field}`;
 
   const level        = record.educationLevel as EduLevel;
   const compat       = COMPATIBLE_INSTITUTION_TYPES[level] ?? [...INSTITUTION_TYPES];
