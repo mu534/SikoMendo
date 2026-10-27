@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { GraduationCap, Plus, Trash2, Search, ChevronDown } from "lucide-react";
+import { Plus, Trash2, Search, ChevronDown } from "lucide-react";
 import { Input, Select, FieldGroup, FieldError } from "@/components/ui/field";
-import { SectionHeader } from "./section-header";
 import {
   EDUCATION_LEVELS,
   ALL_EDUCATION_LEVELS,
@@ -452,7 +451,6 @@ export function EducationSection({ initialRecords, hiddenInputName = "educations
 
   return (
     <div>
-      <SectionHeader icon={GraduationCap} title="Education" />
       <div className="space-y-3">
         {records.map((rec, idx) => (
           <EducationRecordForm
