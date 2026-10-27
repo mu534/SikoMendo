@@ -2,14 +2,40 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { User, Briefcase, Phone, Search } from "lucide-react";
 import { Input, Label, Select, Textarea, FieldGroup } from "@/components/ui/field";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PhotoInput } from "./photo-input";
 import { SectionHeader } from "./section-header";
-import { EducationSection } from "./education-section";
 import type { EducationRecordInput } from "./schemas";
+import { GraduationCap } from "lucide-react";
+
+// Load the interactive education section client-only so the server never
+// renders a version of it. This eliminates the SSR/hydration mismatch caused
+// by useId() generating different prefixes on server vs client in React 19
+// (server: _R_nnn, client: _r_nnn), and by the Turbopack module cache serving
+// stale compiled bundles for "use client" components during hot reload.
+// The education section has no server-side rendering value: it manages local
+// state entirely and submits via server action through a hidden JSON input.
+const EducationSection = dynamic(
+  () => import("./education-section").then((m) => ({ default: m.EducationSection })),
+  {
+    ssr: false,
+    loading: () => (
+      <div>
+        <div className="mb-5 flex items-center gap-2.5 border-b border-ink-900/8 pb-4">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
+            <GraduationCap className="h-4 w-4" />
+          </div>
+          <h3 className="font-display text-base font-semibold text-ink-900">Education</h3>
+        </div>
+        <div className="h-40 animate-pulse rounded-lg bg-sand-100" />
+      </div>
+    ),
+  }
+);
 
 export { SectionHeader } from "./section-header";
 
