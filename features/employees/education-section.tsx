@@ -23,7 +23,7 @@
 
 import { useState, useId, useRef, useEffect, useCallback } from "react";
 import { GraduationCap, Plus, Trash2, Search, ChevronDown } from "lucide-react";
-import { Input, Label, Select, FieldGroup, FieldError } from "@/components/ui/field";
+import { Input, Select, FieldGroup, FieldError } from "@/components/ui/field";
 import { SectionHeader } from "./section-header";
 import {
   EDUCATION_LEVELS,
@@ -38,6 +38,42 @@ import {
   getInstitutionList,
   type InstitutionEntry,
 } from "./education-institutions";
+
+// ── Stable inline helpers ─────────────────────────────────────────────────────
+
+/**
+ * Hydration-safe label for form fields. Renders text and optional
+ * markers as a flat span, avoiding mixed JSX text+element whitespace
+ * differences between SSR and client hydration in Next.js/Turbopack.
+ */
+function FieldLabel({
+  htmlFor,
+  text,
+  required,
+  optional,
+  softRequired,
+  hint,
+}: {
+  htmlFor: string;
+  text: string;
+  required?: boolean;
+  optional?: boolean;
+  softRequired?: boolean;
+  hint?: string;
+}) {
+  return (
+    <label
+      htmlFor={htmlFor}
+      className="mb-1.5 block text-sm font-medium text-ink-900"
+    >
+      <span>{text}</span>
+      {required    && <span className="ml-0.5 text-red-500"      aria-hidden="true">*</span>}
+      {softRequired && <span className="ml-0.5 text-red-400 text-xs" aria-hidden="true">*</span>}
+      {optional    && <span className="ml-1 text-xs font-normal text-ink-900/40">(optional)</span>}
+      {hint        && <span className="ml-1 text-xs font-normal text-ink-900/40">{hint}</span>}
+    </label>
+  );
+}
 
 // ── Labels ────────────────────────────────────────────────────────────────────
 
@@ -430,36 +466,37 @@ function EducationRecordForm({
     onChange({ ...record, graduationYear: isNaN(n) ? null : n });
   }
 
+  // Only render the header row when there is something to show in it.
+  const showHeader = index > 0 || canRemove;
+
   return (
     <div className="relative rounded-lg border border-ink-900/10 bg-sand-50/50 p-4">
-      {/* Header row */}
-      <div className="mb-3 flex items-center justify-between">
-        {index > 0 ? (
-          <p className="text-xs font-semibold uppercase tracking-wide text-ink-900/40">
-            Qualification {index + 1}
-          </p>
-        ) : (
-          <span />
-        )}
-        {canRemove && (
-          <button
-            type="button"
-            onClick={onRemove}
-            className="flex h-7 w-7 items-center justify-center rounded-md text-ink-900/35 hover:bg-red-50 hover:text-red-500 transition-colors"
-            aria-label={`Remove qualification ${index + 1}`}
-          >
-            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-          </button>
-        )}
-      </div>
+      {showHeader && (
+        <div className="mb-3 flex items-center justify-between">
+          {index > 0 ? (
+            <p className="text-xs font-semibold uppercase tracking-wide text-ink-900/40">
+              Qualification {index + 1}
+            </p>
+          ) : (
+            <span />
+          )}
+          {canRemove && (
+            <button
+              type="button"
+              onClick={onRemove}
+              className="flex h-7 w-7 items-center justify-center rounded-md text-ink-900/35 hover:bg-red-50 hover:text-red-500 transition-colors"
+              aria-label={`Remove qualification ${index + 1}`}
+            >
+              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Row 1: Education Level + Field of Study */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <FieldGroup>
-          <Label htmlFor={idFor("level")}>
-            Education Level{" "}
-            <span className="text-red-500" aria-hidden="true">*</span>
-          </Label>
+          <FieldLabel htmlFor={idFor("level")} text="Education Level" required />
           <Select
             id={idFor("level")}
             value={record.educationLevel}
@@ -481,12 +518,7 @@ function EducationRecordForm({
         </FieldGroup>
 
         <FieldGroup>
-          <Label htmlFor={idFor("field")}>
-            Field of Study
-            {isSchoolLevel && (
-              <span className="ml-1 text-xs font-normal text-ink-900/40">(optional)</span>
-            )}
-          </Label>
+          <FieldLabel htmlFor={idFor("field")} text="Field of Study" optional={isSchoolLevel} />
           <Input
             id={idFor("field")}
             placeholder={isSchoolLevel ? "e.g. General Education" : "e.g. Computer Science"}
@@ -500,7 +532,7 @@ function EducationRecordForm({
       {/* Row 2: Institution Type + Institution Name */}
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <FieldGroup>
-          <Label htmlFor={idFor("instType")}>Institution Type</Label>
+          <FieldLabel htmlFor={idFor("instType")} text="Institution Type" />
           <Select
             id={idFor("instType")}
             value={record.institutionType ?? ""}
@@ -518,12 +550,11 @@ function EducationRecordForm({
         </FieldGroup>
 
         <FieldGroup>
-          <Label htmlFor={idFor("instName")}>
-            Institution Name
-            {isCompleted && currentInstType && (
-              <span className="ml-1 text-xs font-normal text-red-400">*</span>
-            )}
-          </Label>
+          <FieldLabel
+            htmlFor={idFor("instName")}
+            text="Institution Name"
+            softRequired={isCompleted && !!currentInstType}
+          />
 
           {/* Show combobox when there is a directory list for this type */}
           {institutionList.length > 0 ? (
@@ -556,10 +587,7 @@ function EducationRecordForm({
       {/* Row 3: Graduation Year + Qualification Status */}
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <FieldGroup>
-          <Label htmlFor={idFor("year")}>
-            Graduation Year
-            <span className="ml-1 text-xs font-normal text-ink-900/40">(G.C.)</span>
-          </Label>
+          <FieldLabel htmlFor={idFor("year")} text="Graduation Year" hint="(G.C.)" />
           <Input
             id={idFor("year")}
             type="number"
@@ -581,7 +609,7 @@ function EducationRecordForm({
         </FieldGroup>
 
         <FieldGroup>
-          <Label htmlFor={idFor("status")}>Qualification Status</Label>
+          <FieldLabel htmlFor={idFor("status")} text="Qualification Status" />
           <Select
             id={idFor("status")}
             value={record.qualificationStatus ?? ""}
