@@ -4,7 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { User, Briefcase, Phone, Search, GraduationCap } from "lucide-react";
-import { Input, Label, Select, Textarea, FieldGroup } from "@/components/ui/field";
+import { Input, Label, Select, Textarea, FieldGroup, FieldError } from "@/components/ui/field";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PhotoInput } from "./photo-input";
@@ -361,6 +361,23 @@ export function EmployeeForm({
     setSelectedPosId("");
   }
 
+  // Date of birth — client-side minimum-age validation
+  // Employee must be strictly older than 20 (i.e. turned 21 or older already).
+  const [dobError, setDobError] = useState<string | null>(null);
+  function validateDob(value: string) {
+    if (!value) { setDobError("Date of birth is required"); return; }
+    const dob = new Date(value);
+    if (isNaN(dob.getTime())) { setDobError("Enter a valid date"); return; }
+    const today = new Date();
+    if (dob > today) { setDobError("Date of birth cannot be in the future"); return; }
+    const threshold = new Date(today.getFullYear() - 21, today.getMonth(), today.getDate());
+    if (dob > threshold) {
+      setDobError("Employee must be older than 20 years to register");
+    } else {
+      setDobError(null);
+    }
+  }
+
   // On create success → navigate to new employee profile
   useEffect(() => {
     if (state && (state as { success: boolean; data?: { id: string } }).success && !employee) {
@@ -451,7 +468,15 @@ export function EmployeeForm({
               </FieldGroup>
               <FieldGroup>
                 <Label htmlFor="dateOfBirth">Date of Birth<RequiredMark /></Label>
-                <Input id="dateOfBirth" name="dateOfBirth" type="date" required defaultValue={toDateInputValue(employee?.dateOfBirth)} />
+                <Input
+                  id="dateOfBirth"
+                  name="dateOfBirth"
+                  type="date"
+                  required
+                  defaultValue={toDateInputValue(employee?.dateOfBirth)}
+                  onChange={(e) => validateDob(e.target.value)}
+                />
+                {dobError && <FieldError>{dobError}</FieldError>}
               </FieldGroup>
               <FieldGroup>
                 <Label htmlFor="maritalStatus">Marital Status<RequiredMark /></Label>
@@ -461,6 +486,7 @@ export function EmployeeForm({
                   <option value="MARRIED">Married</option>
                   <option value="DIVORCED">Divorced</option>
                   <option value="WIDOWED">Widowed</option>
+                  <option value="OTHER">Other</option>
                 </Select>
               </FieldGroup>
               <FieldGroup>

@@ -123,10 +123,38 @@ export const COMPATIBLE_INSTITUTION_TYPES: Record<
   OTHER:       ["HIGH_SCHOOL", "UNIVERSITY", "COLLEGE", "TVET", "OTHER"],
 };
 
+/**
+ * Returns true when the given birth date is at least 21 full years before
+ * today — i.e. the employee is strictly older than 20.
+ *
+ * Age is calculated by comparing calendar year/month/day, not milliseconds,
+ * to avoid leap-year and UTC-offset edge cases.
+ *
+ * Examples (today = 2026-10-28):
+ *   Born 2005-10-28 → exactly 21 today → Accept
+ *   Born 2005-10-29 → turns 21 tomorrow → Reject
+ *   Born 2005-10-27 → turned 21 yesterday → Accept
+ *   Born 2006-01-01 → only 20 → Reject
+ */
+export function isOldEnoughToRegister(dob: Date): boolean {
+  const today = new Date();
+  // Threshold: same calendar date 21 years ago.
+  const threshold = new Date(
+    today.getFullYear() - 21,
+    today.getMonth(),
+    today.getDate()
+  );
+  // dob must be on or before the threshold (i.e. person has reached their
+  // 21st birthday today or already had it in the past).
+  return dob <= threshold;
+}
+
+const MIN_AGE_YEARS = 21; // "strictly older than 20"
+
 const CURRENT_YEAR = new Date().getFullYear();
 const MIN_YEAR = 1950;
 
-/** Valid Field of Study values when Education Level is High School. */
+
 export const HIGH_SCHOOL_FIELDS_OF_STUDY = ["Natural Science", "Social Science"] as const;
 export type HighSchoolFieldOfStudy = (typeof HIGH_SCHOOL_FIELDS_OF_STUDY)[number];
 
@@ -261,11 +289,26 @@ export type EducationRecordInput = z.infer<typeof educationRecordSchema>;
 // ── Main employee schema ───────────────────────────────────────────────────
 
 export const employeeSchema = z.object({
-  firstName: z.preprocess((v) => (v ? String(v).trim() : ""), z.string().min(1, "First name is required")),
+  firstName: z.preprocess(
+    (v) => (v ? String(v).trim() : ""),
+    z.string()
+      .min(1, "First name is required")
+      .max(100, "First name must be 100 characters or fewer")
+  ),
   // In Ethiopia, the naming convention is given name + father's name + grandfather's name.
   // All three parts are required on official documents.
-  middleName: z.preprocess((v) => (v ? String(v).trim() : ""), z.string().min(1, "Father's name is required")),
-  lastName: z.preprocess((v) => (v ? String(v).trim() : ""), z.string().min(1, "Grandfather's name is required")),
+  middleName: z.preprocess(
+    (v) => (v ? String(v).trim() : ""),
+    z.string()
+      .min(1, "Father's name is required")
+      .max(100, "Father's name must be 100 characters or fewer")
+  ),
+  lastName: z.preprocess(
+    (v) => (v ? String(v).trim() : ""),
+    z.string()
+      .min(1, "Grandfather's name is required")
+      .max(100, "Grandfather's name must be 100 characters or fewer")
+  ),
   email: z
     .string()
     .optional()
@@ -280,13 +323,27 @@ export const employeeSchema = z.object({
   gender: z.preprocess((v) => (v ? String(v).trim() : ""), z.enum(["MALE", "FEMALE"], { error: "Gender is required" })),
   dateOfBirth: z.preprocess(
     (v) => (v && String(v).trim() !== "" ? new Date(String(v)) : null),
-    z.date({ error: "Date of birth is required" }).nullable().refine((d) => d !== null, "Date of birth is required")
+    z.date({ error: "Date of birth is required" })
+      .nullable()
+      .refine((d) => d !== null, "Date of birth is required")
+      .refine(
+        (d) => d === null || d <= new Date(),
+        "Date of birth cannot be in the future"
+      )
+      .refine(
+        (d) => d === null || isOldEnoughToRegister(d),
+        `Employee must be older than ${MIN_AGE_YEARS - 1} years to register`
+      )
   ),
   maritalStatus: z.preprocess(
     (v) => (v ? String(v).trim() : ""),
-    z.enum(["SINGLE", "MARRIED", "DIVORCED", "WIDOWED"], { error: "Marital status is required" })
+    z.enum(["SINGLE", "MARRIED", "DIVORCED", "WIDOWED", "OTHER"], { error: "Marital status is required" })
   ),
-  address: optionalString,
+  address: z
+    .string()
+    .optional()
+    .transform((v) => (v && v.trim() !== "" ? v.trim() : null))
+    .pipe(z.string().max(300, "Address must be 300 characters or fewer").nullable()),
   emergencyContactName: z.preprocess(
     (v) => (v ? String(v).trim() : ""),
     z.string()

@@ -83,9 +83,48 @@ async function logAudit(action: string, entityId: string, changes: unknown, user
   });
 }
 
+// ── Profile photo validation ──────────────────────────────────────────────────
+
+const ALLOWED_PHOTO_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+]);
+
+const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+
 function getPhotoFile(formData: FormData): File | null {
   const file = formData.get("photo");
   return file instanceof File && file.size > 0 ? file : null;
+}
+
+/**
+ * Validates a profile photo file server-side.
+ * Checks MIME type, file extension, and size.
+ * Throws with a user-facing message on any violation.
+ */
+function validatePhotoFile(file: File): void {
+  if (file.size > MAX_PHOTO_SIZE_BYTES) {
+    throw new Error(
+      `Photo is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum size is 5 MB.`
+    );
+  }
+  const mimeType = file.type.toLowerCase().split(";")[0]?.trim() ?? "";
+  if (!ALLOWED_PHOTO_MIME_TYPES.has(mimeType)) {
+    throw new Error(
+      `Photo file type "${file.type || "unknown"}" is not supported. Use JPG, PNG, or WebP.`
+    );
+  }
+  const ext = file.name.includes(".")
+    ? `.${file.name.split(".").pop()?.toLowerCase() ?? ""}`
+    : "";
+  const ALLOWED_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
+  if (!ALLOWED_EXTS.has(ext)) {
+    throw new Error(
+      `Photo file extension "${ext || "(none)"}" is not supported. Use .jpg, .png, or .webp.`
+    );
+  }
 }
 
 // ── Create ────────────────────────────────────────────────────────────────────
@@ -120,6 +159,7 @@ export async function createEmployee(
     }
 
     const photo = getPhotoFile(formData);
+    if (photo) validatePhotoFile(photo);
     const asset = photo
       ? await uploadToCloudinary(photo, "siko-mendo/employees", { resourceType: "image" })
       : null;
@@ -242,6 +282,7 @@ export async function updateEmployee(
     await validateManagerAssignment(id, parsed.data.managerId);
 
     const photo = getPhotoFile(formData);
+    if (photo) validatePhotoFile(photo);
     const asset = photo
       ? await uploadToCloudinary(photo, "siko-mendo/employees", { resourceType: "image" })
       : null;
@@ -266,7 +307,11 @@ export async function updateEmployee(
           hireDate:         parsed.data.hireDate ?? null,
           employmentStatus: parsed.data.employmentStatus,
           managerId:        parsed.data.managerId ?? null,
-          ...(asset ? { profileImageUrl: asset.url, profileImageKey: asset.publicId } : {}),
+          ...(asset
+            ? { profileImageUrl: asset.url, profileImageKey: asset.publicId }
+            : formData.get("removePhoto") === "1"
+              ? { profileImageUrl: null, profileImageKey: null }
+              : {}),
         },
       });
 
@@ -289,6 +334,10 @@ export async function updateEmployee(
     });
 
     if (asset && existing.profileImageKey) {
+      // Replaced with a new photo — delete the old one
+      await deleteFromCloudinary(existing.profileImageKey, "image").catch(() => {/* non-fatal */});
+    } else if (formData.get("removePhoto") === "1" && existing.profileImageKey) {
+      // User explicitly removed the photo — delete from Cloudinary
       await deleteFromCloudinary(existing.profileImageKey, "image").catch(() => {/* non-fatal */});
     }
 
