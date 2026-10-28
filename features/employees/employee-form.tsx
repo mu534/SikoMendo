@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { User, Briefcase, Phone, Search, GraduationCap, ChevronDown } from "lucide-react";
+import { User, Briefcase, Phone, Search, GraduationCap } from "lucide-react";
 import { Input, Label, Select, Textarea, FieldGroup } from "@/components/ui/field";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -231,13 +231,10 @@ function RelationshipSelect({
 }: {
   defaultValue?: string | null;
 }) {
-  // Determine the initial dropdown value and custom text from the stored string.
-  const isStoredOther =
-    !!defaultValue &&
-    !EMERGENCY_CONTACT_RELATIONSHIPS.filter((r) => r !== OTHER_SENTINEL).includes(
-      defaultValue as (typeof EMERGENCY_CONTACT_RELATIONSHIPS)[number]
-    ) &&
-    defaultValue !== OTHER_SENTINEL;
+  // A stored value is "custom Other" if it is non-empty AND not one of the
+  // named options (including the sentinel itself, which is never persisted).
+  const namedOptions = new Set<string>(EMERGENCY_CONTACT_RELATIONSHIPS);
+  const isStoredOther = !!defaultValue && !namedOptions.has(defaultValue);
 
   const [selected, setSelected] = useState<string>(
     isStoredOther ? OTHER_SENTINEL : (defaultValue ?? "")
@@ -476,8 +473,8 @@ export function EmployeeForm({
               </FieldGroup>
             </div>
             <FieldGroup>
-              <Label htmlFor="address">Address<RequiredMark /></Label>
-              <Textarea id="address" name="address" required rows={2} defaultValue={employee?.address ?? ""} />
+              <Label htmlFor="address">Address</Label>
+              <Textarea id="address" name="address" rows={2} defaultValue={employee?.address ?? ""} />
             </FieldGroup>
           </div>
         </Card>

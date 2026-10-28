@@ -286,7 +286,7 @@ export const employeeSchema = z.object({
     (v) => (v ? String(v).trim() : ""),
     z.enum(["SINGLE", "MARRIED", "DIVORCED", "WIDOWED"], { error: "Marital status is required" })
   ),
-  address: z.preprocess((v) => (v ? String(v).trim() : ""), z.string().min(1, "Address is required")),
+  address: optionalString,
   emergencyContactName: z.preprocess(
     (v) => (v ? String(v).trim() : ""),
     z.string()
@@ -310,7 +310,11 @@ export const employeeSchema = z.object({
       .min(1, "Relationship is required")
       .max(100, "Relationship must be 100 characters or fewer")
   ),
-  emergencyContactAddress: optionalString,
+  emergencyContactAddress: z
+    .string()
+    .optional()
+    .transform((v) => (v && v.trim() !== "" ? v.trim() : null))
+    .pipe(z.string().max(200, "Address must be 200 characters or fewer").nullable()),
   departmentId: z.preprocess((v) => (v ? String(v).trim() : ""), z.string().min(1, "Department is required")),
   positionId: z.preprocess((v) => (v ? String(v).trim() : ""), z.string().min(1, "Position is required")),
   hireDate: z.preprocess(
