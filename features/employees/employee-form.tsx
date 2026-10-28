@@ -3,13 +3,14 @@
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { User, Briefcase, Phone, Search, GraduationCap } from "lucide-react";
+import { User, Briefcase, Phone, Search, GraduationCap, ChevronDown } from "lucide-react";
 import { Input, Label, Select, Textarea, FieldGroup } from "@/components/ui/field";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PhotoInput } from "./photo-input";
 import { SectionHeader } from "./section-header";
 import type { EducationRecordInput } from "./schemas";
+import { EMERGENCY_CONTACT_RELATIONSHIPS } from "./schemas";
 
 // Load the interactive education section client-only so the server never
 // renders a version of it. This eliminates the SSR/hydration mismatch caused
@@ -91,10 +92,12 @@ function ManagerCombobox({
   managers,
   defaultValue,
   name,
+  required = false,
 }: {
   managers: ManagerOption[];
   defaultValue?: string | null;
   name: string;
+  required?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -151,14 +154,16 @@ function ManagerCombobox({
               {selected.position?.name ? ` · ${selected.position.name}` : ""}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => { setSelected(null); setQuery(""); }}
-            className="text-xs font-medium text-ink-900/40 hover:text-ink-900"
-            aria-label="Remove manager selection"
-          >
-            Remove
-          </button>
+          {!required && (
+            <button
+              type="button"
+              onClick={() => { setSelected(null); setQuery(""); }}
+              className="text-xs font-medium text-ink-900/40 hover:text-ink-900"
+              aria-label="Remove manager selection"
+            >
+              Remove
+            </button>
+          )}
         </div>
       )}
 
@@ -169,14 +174,16 @@ function ManagerCombobox({
           aria-label="Manager options"
           className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-xl border border-ink-900/10 bg-white py-1 shadow-lg shadow-ink-900/8"
         >
-          <li
-            role="option"
-            aria-selected={!selected}
-            onMouseDown={() => { setSelected(null); setQuery(""); setOpen(false); }}
-            className="cursor-pointer px-3 py-2 text-sm text-ink-900/45 hover:bg-sand-50"
-          >
-            — No manager —
-          </li>
+          {!required && (
+            <li
+              role="option"
+              aria-selected={!selected}
+              onMouseDown={() => { setSelected(null); setQuery(""); setOpen(false); }}
+              className="cursor-pointer px-3 py-2 text-sm text-ink-900/45 hover:bg-sand-50"
+            >
+              — No manager —
+            </li>
+          )}
           {filtered.length === 0 && (
             <li className="px-3 py-2 text-sm text-ink-900/40">No employees found.</li>
           )}
@@ -207,6 +214,80 @@ function ManagerCombobox({
         </ul>
       )}
     </div>
+  );
+}
+
+// ── Emergency Contact — Relationship dropdown ─────────────────────────────
+//
+// A controlled dropdown for relationship type. When "Other" is selected it
+// reveals a free-text input. The resolved value (either the selected option or
+// the custom text) is submitted via a hidden input as "emergencyContactRelationship"
+// so the rest of the form/schema receives a single string, no new DB column needed.
+
+const OTHER_SENTINEL = "Other";
+
+function RelationshipSelect({
+  defaultValue,
+}: {
+  defaultValue?: string | null;
+}) {
+  // Determine the initial dropdown value and custom text from the stored string.
+  const isStoredOther =
+    !!defaultValue &&
+    !EMERGENCY_CONTACT_RELATIONSHIPS.filter((r) => r !== OTHER_SENTINEL).includes(
+      defaultValue as (typeof EMERGENCY_CONTACT_RELATIONSHIPS)[number]
+    ) &&
+    defaultValue !== OTHER_SENTINEL;
+
+  const [selected, setSelected] = useState<string>(
+    isStoredOther ? OTHER_SENTINEL : (defaultValue ?? "")
+  );
+  const [customText, setCustomText] = useState<string>(
+    isStoredOther ? (defaultValue ?? "") : ""
+  );
+
+  const isOther = selected === OTHER_SENTINEL;
+  // The resolved value that goes into the hidden input (and therefore the DB).
+  const resolvedValue = isOther ? customText.trim() : selected;
+
+  return (
+    <>
+      {/* Hidden input carries the resolved relationship value */}
+      <input type="hidden" name="emergencyContactRelationship" value={resolvedValue} />
+
+      {/* Visible dropdown */}
+      <div className="relative">
+        <Select
+          id="emergencyContactRelationship"
+          value={selected}
+          onChange={(e) => {
+            setSelected(e.target.value);
+            if (e.target.value !== OTHER_SENTINEL) setCustomText("");
+          }}
+        >
+          <option value="">Select relationship…</option>
+          {EMERGENCY_CONTACT_RELATIONSHIPS.map((r) => (
+            <option key={r} value={r}>{r}</option>
+          ))}
+        </Select>
+      </div>
+
+      {/* "Specify" text input — shown only when "Other" is selected */}
+      {isOther && (
+        <FieldGroup className="mt-3">
+          <Label htmlFor="emergencyContactRelationshipOther">
+            Specify Relationship<RequiredMark />
+          </Label>
+          <Input
+            id="emergencyContactRelationshipOther"
+            placeholder="Describe the relationship"
+            value={customText}
+            onChange={(e) => setCustomText(e.target.value)}
+            required
+          />
+        </FieldGroup>
+      )}
+    </>
   );
 }
 
@@ -364,21 +445,21 @@ export function EmployeeForm({
                 <Input id="lastName" name="lastName" required defaultValue={employee?.lastName ?? ""} />
               </FieldGroup>
               <FieldGroup>
-                <Label htmlFor="gender">Gender</Label>
+                <Label htmlFor="gender">Gender<RequiredMark /></Label>
                 <Select id="gender" name="gender" defaultValue={employee?.gender ?? ""}>
-                  <option value="">Not specified</option>
+                  <option value="">Select gender…</option>
                   <option value="MALE">Male</option>
                   <option value="FEMALE">Female</option>
                 </Select>
               </FieldGroup>
               <FieldGroup>
-                <Label htmlFor="dateOfBirth">Date of Birth</Label>
-                <Input id="dateOfBirth" name="dateOfBirth" type="date" defaultValue={toDateInputValue(employee?.dateOfBirth)} />
+                <Label htmlFor="dateOfBirth">Date of Birth<RequiredMark /></Label>
+                <Input id="dateOfBirth" name="dateOfBirth" type="date" required defaultValue={toDateInputValue(employee?.dateOfBirth)} />
               </FieldGroup>
               <FieldGroup>
-                <Label htmlFor="maritalStatus">Marital Status</Label>
+                <Label htmlFor="maritalStatus">Marital Status<RequiredMark /></Label>
                 <Select id="maritalStatus" name="maritalStatus" defaultValue={employee?.maritalStatus ?? ""}>
-                  <option value="">Not specified</option>
+                  <option value="">Select status…</option>
                   <option value="SINGLE">Single</option>
                   <option value="MARRIED">Married</option>
                   <option value="DIVORCED">Divorced</option>
@@ -386,8 +467,8 @@ export function EmployeeForm({
                 </Select>
               </FieldGroup>
               <FieldGroup>
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input id="phone" name="phone" placeholder="+251 9XX XXX XXX" defaultValue={employee?.phone ?? ""} />
+                <Label htmlFor="phone">Phone Number<RequiredMark /></Label>
+                <Input id="phone" name="phone" required placeholder="+251 9XX XXX XXX" defaultValue={employee?.phone ?? ""} />
               </FieldGroup>
               <FieldGroup>
                 <Label htmlFor="email">Email Address</Label>
@@ -395,8 +476,8 @@ export function EmployeeForm({
               </FieldGroup>
             </div>
             <FieldGroup>
-              <Label htmlFor="address">Address</Label>
-              <Textarea id="address" name="address" rows={2} defaultValue={employee?.address ?? ""} />
+              <Label htmlFor="address">Address<RequiredMark /></Label>
+              <Textarea id="address" name="address" required rows={2} defaultValue={employee?.address ?? ""} />
             </FieldGroup>
           </div>
         </Card>
@@ -484,9 +565,9 @@ export function EmployeeForm({
                 </FieldGroup>
 
                 <FieldGroup>
-                  <Label htmlFor="employmentType">Employment Type</Label>
+                  <Label htmlFor="employmentType">Employment Type<RequiredMark /></Label>
                   <Select id="employmentType" name="employmentType" defaultValue={currentEmploymentType}>
-                    <option value="">Not specified</option>
+                    <option value="">Select type…</option>
                     <option value="PERMANENT">Permanent</option>
                     <option value="CONTRACT">Contract</option>
                     <option value="TEMPORARY">Temporary</option>
@@ -498,11 +579,12 @@ export function EmployeeForm({
             )}
 
             <FieldGroup>
-              <Label htmlFor="hireDate">Hire Date</Label>
+              <Label htmlFor="hireDate">Hire Date<RequiredMark /></Label>
               <Input
                 id="hireDate"
                 name="hireDate"
                 type="date"
+                required
                 defaultValue={toDateInputValue(employee?.hireDate)}
               />
             </FieldGroup>
@@ -548,11 +630,12 @@ export function EmployeeForm({
 
             {/* Manager / Reports-to — searchable combobox */}
             <FieldGroup className="sm:col-span-2">
-              <Label htmlFor="managerId">Reports To (Manager)</Label>
+              <Label htmlFor="managerId">Reports To (Manager)<RequiredMark /></Label>
               <ManagerCombobox
                 managers={managers}
                 defaultValue={employee?.managerId}
                 name="managerId"
+                required
               />
             </FieldGroup>
           </div>
@@ -563,30 +646,37 @@ export function EmployeeForm({
           <SectionHeader icon={Phone} title="Emergency Contact" />
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <FieldGroup>
-              <Label htmlFor="emergencyContactName">Contact Name</Label>
-              <Input id="emergencyContactName" name="emergencyContactName" defaultValue={employee?.emergencyContactName ?? ""} />
-            </FieldGroup>
-            <FieldGroup>
-              <Label htmlFor="emergencyContactRelationship">Relationship</Label>
+              <Label htmlFor="emergencyContactName">Contact Name<RequiredMark /></Label>
               <Input
-                id="emergencyContactRelationship"
-                name="emergencyContactRelationship"
-                placeholder="e.g. Spouse, Parent, Sibling"
-                defaultValue={employee?.emergencyContactRelationship ?? ""}
+                id="emergencyContactName"
+                name="emergencyContactName"
+                required
+                maxLength={100}
+                placeholder="Full name"
+                defaultValue={employee?.emergencyContactName ?? ""}
               />
             </FieldGroup>
             <FieldGroup>
-              <Label htmlFor="emergencyContactPhone">Phone Number</Label>
+              <Label htmlFor="emergencyContactRelationship">Relationship<RequiredMark /></Label>
+              <RelationshipSelect defaultValue={employee?.emergencyContactRelationship} />
+            </FieldGroup>
+            <FieldGroup>
+              <Label htmlFor="emergencyContactPhone">Phone Number<RequiredMark /></Label>
               <Input
                 id="emergencyContactPhone"
                 name="emergencyContactPhone"
+                required
                 placeholder="+251 9XX XXX XXX"
                 defaultValue={employee?.emergencyContactPhone ?? ""}
               />
             </FieldGroup>
             <FieldGroup>
-              <Label htmlFor="emergencyContactAddress">Address (Optional)</Label>
-              <Input id="emergencyContactAddress" name="emergencyContactAddress" defaultValue={employee?.emergencyContactAddress ?? ""} />
+              <Label htmlFor="emergencyContactAddress">Address <span className="text-xs font-normal text-ink-900/40">(optional)</span></Label>
+              <Input
+                id="emergencyContactAddress"
+                name="emergencyContactAddress"
+                defaultValue={employee?.emergencyContactAddress ?? ""}
+              />
             </FieldGroup>
           </div>
         </Card>

@@ -17,6 +17,57 @@ function optionalEnum<T extends [string, ...string[]]>(values: T) {
     .transform((v) => (v ? v : null));
 }
 
+// ── Emergency Contact constants ────────────────────────────────────────────
+
+export const EMERGENCY_CONTACT_RELATIONSHIPS = [
+  "Spouse",
+  "Father",
+  "Mother",
+  "Brother",
+  "Sister",
+  "Son",
+  "Daughter",
+  "Guardian",
+  "Other Relative",
+  "Friend",
+  "Other",
+] as const;
+
+export type EmergencyContactRelationship =
+  (typeof EMERGENCY_CONTACT_RELATIONSHIPS)[number];
+
+/**
+ * Normalises an Ethiopian phone number to +251XXXXXXXXX format.
+ * Accepts:
+ *   09XXXXXXXX   → +2519XXXXXXXX
+ *   9XXXXXXXX    → +2519XXXXXXXX
+ *   2519XXXXXXXX → +2519XXXXXXXX
+ *   +2519XXXXXXXX → +2519XXXXXXXX
+ * Returns null when the input cannot be normalised.
+ */
+export function normalizeEthiopianPhone(raw: string): string | null {
+  const stripped = raw.replace(/[\s\-().]/g, "");
+  // +2519XXXXXXXX  or  2519XXXXXXXX
+  const fullMatch = stripped.match(/^\+?(251)(9\d{8})$/);
+  if (fullMatch) return `+251${fullMatch[2]}`;
+  // 09XXXXXXXX
+  const localZeroMatch = stripped.match(/^0(9\d{8})$/);
+  if (localZeroMatch) return `+251${localZeroMatch[1]}`;
+  // 9XXXXXXXX (bare)
+  const bareMatch = stripped.match(/^(9\d{8})$/);
+  if (bareMatch) return `+251${bareMatch[1]}`;
+  return null;
+}
+
+/**
+ * Zod refine helper — returns true when the value is a valid Ethiopian
+ * mobile number (normalizable). Used for both the employee's own phone
+ * and the emergency contact phone.
+ */
+function isValidEthiopianPhone(v: string): boolean {
+  return normalizeEthiopianPhone(v) !== null;
+}
+
 // ── Education constants ────────────────────────────────────────────────────
 //
 // PRIMARY and SECONDARY are retained in the DB enum for legacy data but are
@@ -133,6 +184,51 @@ export const educationRecordSchema = z
       }
     }
 
+    // ── All other levels: fieldOfStudy is mandatory ──────────────────────────
+    if (!isHsLevel && !data.fieldOfStudy) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["fieldOfStudy"],
+        message: "Field of Study is required.",
+      });
+    }
+
+    // Institution type is always required
+    if (!data.institutionType) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["institutionType"],
+        message: "Institution type is required.",
+      });
+    }
+
+    // Institution name is always required
+    if (!data.institutionName) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["institutionName"],
+        message: "Institution name is required.",
+      });
+    }
+
+    // Qualification status is always required
+    if (!data.qualificationStatus) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["qualificationStatus"],
+        message: "Qualification status is required.",
+      });
+    }
+
+    // Graduation year is always required
+    if (data.graduationYear === null || data.graduationYear === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["graduationYear"],
+        message: "Graduation year is required.",
+      });
+    }
+
     // Institution type must be compatible with education level (when provided)
     if (data.institutionType) {
       const compatible = COMPATIBLE_INSTITUTION_TYPES[lvl] ?? [];
@@ -158,18 +254,6 @@ export const educationRecordSchema = z
       });
     }
 
-    // Completed qualifications with a known institution type: institution name required
-    if (
-      data.qualificationStatus === "COMPLETED" &&
-      data.institutionType &&
-      !data.institutionName
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["institutionName"],
-        message: "Institution name is required for a completed qualification.",
-      });
-    }
   });
 
 export type EducationRecordInput = z.infer<typeof educationRecordSchema>;
@@ -187,23 +271,60 @@ export const employeeSchema = z.object({
     .optional()
     .transform((v) => (v && v.trim() !== "" ? v.trim() : null))
     .pipe(z.string().email("Enter a valid email").nullable()),
-  phone: optionalString,
-  gender: optionalEnum(["MALE", "FEMALE"]),
-  dateOfBirth: optionalDate,
-  maritalStatus: optionalEnum(["SINGLE", "MARRIED", "DIVORCED", "WIDOWED"]),
-  address: optionalString,
-  emergencyContactName: optionalString,
-  emergencyContactPhone: optionalString,
-  emergencyContactRelationship: optionalString,
+  phone: z.preprocess(
+    (v) => (v ? String(v).trim() : ""),
+    z.string()
+      .min(1, "Phone number is required")
+      .refine(isValidEthiopianPhone, "Enter a valid Ethiopian mobile number (e.g. +251 9XX XXX XXX)")
+  ).transform((v) => normalizeEthiopianPhone(String(v).trim()) ?? String(v).trim()),
+  gender: z.preprocess((v) => (v ? String(v).trim() : ""), z.enum(["MALE", "FEMALE"], { error: "Gender is required" })),
+  dateOfBirth: z.preprocess(
+    (v) => (v && String(v).trim() !== "" ? new Date(String(v)) : null),
+    z.date({ error: "Date of birth is required" }).nullable().refine((d) => d !== null, "Date of birth is required")
+  ),
+  maritalStatus: z.preprocess(
+    (v) => (v ? String(v).trim() : ""),
+    z.enum(["SINGLE", "MARRIED", "DIVORCED", "WIDOWED"], { error: "Marital status is required" })
+  ),
+  address: z.preprocess((v) => (v ? String(v).trim() : ""), z.string().min(1, "Address is required")),
+  emergencyContactName: z.preprocess(
+    (v) => (v ? String(v).trim() : ""),
+    z.string()
+      .min(1, "Emergency contact name is required")
+      .max(100, "Name must be 100 characters or fewer")
+  ),
+  emergencyContactPhone: z.preprocess(
+    (v) => (v ? String(v).trim() : ""),
+    z.string()
+      .min(1, "Emergency contact phone is required")
+      .refine(isValidEthiopianPhone, "Enter a valid Ethiopian mobile number (e.g. +251 9XX XXX XXX)")
+  ).transform((v) => normalizeEthiopianPhone(String(v).trim()) ?? String(v).trim()),
+  // emergencyContactRelationship stores the final resolved string:
+  //   - a named relationship ("Spouse", "Father", etc.) for the standard options
+  //   - the custom text the user typed when "Other" was selected
+  // The form submits the hidden field name "emergencyContactRelationship" with this
+  // resolved value — the "OTHER" sentinel is never persisted.
+  emergencyContactRelationship: z.preprocess(
+    (v) => (v ? String(v).trim() : ""),
+    z.string()
+      .min(1, "Relationship is required")
+      .max(100, "Relationship must be 100 characters or fewer")
+  ),
   emergencyContactAddress: optionalString,
   departmentId: z.preprocess((v) => (v ? String(v).trim() : ""), z.string().min(1, "Department is required")),
   positionId: z.preprocess((v) => (v ? String(v).trim() : ""), z.string().min(1, "Position is required")),
-  hireDate: optionalDate,
+  hireDate: z.preprocess(
+    (v) => (v && String(v).trim() !== "" ? new Date(String(v)) : null),
+    z.date({ error: "Hire date is required" }).nullable().refine((d) => d !== null, "Hire date is required")
+  ),
   employmentStatus: z.preprocess(
     (v) => (v && String(v).trim() !== "" ? String(v).trim() : "ONBOARDING"),
     z.enum(["ONBOARDING", "ACTIVE", "ON_LEAVE", "RESIGNED", "RETIRED", "SUSPENDED", "TERMINATED", "INACTIVE"])
   ),
-  employmentType: optionalEnum(["PERMANENT", "CONTRACT", "TEMPORARY", "PROBATION", "INTERNSHIP"]),
+  employmentType: z.preprocess(
+    (v) => (v ? String(v).trim() : ""),
+    z.enum(["PERMANENT", "CONTRACT", "TEMPORARY", "PROBATION", "INTERNSHIP"], { error: "Employment type is required" })
+  ),
   // educations is a JSON string produced by the form (FormData cannot carry nested arrays natively)
   educations: z
     .union([z.string(), z.array(z.unknown()), z.null(), z.undefined()])
@@ -220,9 +341,9 @@ export const employeeSchema = z.object({
         return [];
       }
     })
-    .pipe(z.array(educationRecordSchema)),
+    .pipe(z.array(educationRecordSchema).min(1, "At least one education record is required")),
   userId: optionalString,
-  managerId: optionalString,
+  managerId: z.preprocess((v) => (v ? String(v).trim() : ""), z.string().min(1, "Manager (Reports To) is required")),
 });
 
 export type EmployeeInput = z.infer<typeof employeeSchema>;
