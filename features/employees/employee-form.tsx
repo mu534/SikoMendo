@@ -11,6 +11,7 @@ import { PhotoInput } from "./photo-input";
 import { SectionHeader } from "./section-header";
 import type { EducationRecordInput } from "./schemas";
 import { EMERGENCY_CONTACT_RELATIONSHIPS } from "./schemas";
+import { PhoneInput } from "./phone-input";
 
 // Load the interactive education section client-only so the server never
 // renders a version of it. This eliminates the SSR/hydration mismatch caused
@@ -491,7 +492,7 @@ export function EmployeeForm({
               </FieldGroup>
               <FieldGroup>
                 <Label htmlFor="phone">Phone Number<RequiredMark /></Label>
-                <Input id="phone" name="phone" required placeholder="+251 9XX XXX XXX" defaultValue={employee?.phone ?? ""} />
+                <PhoneInput name="phone" defaultValue={employee?.phone} required />
               </FieldGroup>
               <FieldGroup>
                 <Label htmlFor="email">Email Address</Label>
@@ -685,13 +686,7 @@ export function EmployeeForm({
             </FieldGroup>
             <FieldGroup>
               <Label htmlFor="emergencyContactPhone">Phone Number<RequiredMark /></Label>
-              <Input
-                id="emergencyContactPhone"
-                name="emergencyContactPhone"
-                required
-                placeholder="+251 9XX XXX XXX"
-                defaultValue={employee?.emergencyContactPhone ?? ""}
-              />
+              <PhoneInput name="emergencyContactPhone" defaultValue={employee?.emergencyContactPhone} required />
             </FieldGroup>
             <FieldGroup>
               <Label htmlFor="emergencyContactAddress">Address <span className="text-xs font-normal text-ink-900/40">(optional)</span></Label>

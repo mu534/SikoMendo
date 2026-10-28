@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  normalizeEthiopianPhone,
+  normalizeInternationalPhone,
+} from "@/lib/phone-et";
 
 const optionalString = z
   .string()
@@ -19,6 +23,23 @@ function optionalEnum<T extends [string, ...string[]]>(values: T) {
 
 // ── Emergency Contact constants ────────────────────────────────────────────
 
+/**
+ * Accepts any phone number that can be either:
+ *   (a) normalized as an Ethiopian mobile number (+251 9X/7X XXXXXXX), or
+ *   (b) a valid international number starting with + (E.164).
+ * Returns the normalized string, or null on failure.
+ */
+export function normalizeAnyPhone(raw: string): string | null {
+  const ethNorm = normalizeEthiopianPhone(raw);
+  if (ethNorm) return ethNorm;
+  return normalizeInternationalPhone(raw);
+}
+
+/** Zod refine helper — accepts Ethiopian mobile or valid international format. */
+function isValidPhoneInput(v: string): boolean {
+  return normalizeAnyPhone(v) !== null;
+}
+
 export const EMERGENCY_CONTACT_RELATIONSHIPS = [
   "Spouse",
   "Father",
@@ -35,38 +56,6 @@ export const EMERGENCY_CONTACT_RELATIONSHIPS = [
 
 export type EmergencyContactRelationship =
   (typeof EMERGENCY_CONTACT_RELATIONSHIPS)[number];
-
-/**
- * Normalises an Ethiopian phone number to +251XXXXXXXXX format.
- * Accepts:
- *   09XXXXXXXX   → +2519XXXXXXXX
- *   9XXXXXXXX    → +2519XXXXXXXX
- *   2519XXXXXXXX → +2519XXXXXXXX
- *   +2519XXXXXXXX → +2519XXXXXXXX
- * Returns null when the input cannot be normalised.
- */
-export function normalizeEthiopianPhone(raw: string): string | null {
-  const stripped = raw.replace(/[\s\-().]/g, "");
-  // +2519XXXXXXXX  or  2519XXXXXXXX
-  const fullMatch = stripped.match(/^\+?(251)(9\d{8})$/);
-  if (fullMatch) return `+251${fullMatch[2]}`;
-  // 09XXXXXXXX
-  const localZeroMatch = stripped.match(/^0(9\d{8})$/);
-  if (localZeroMatch) return `+251${localZeroMatch[1]}`;
-  // 9XXXXXXXX (bare)
-  const bareMatch = stripped.match(/^(9\d{8})$/);
-  if (bareMatch) return `+251${bareMatch[1]}`;
-  return null;
-}
-
-/**
- * Zod refine helper — returns true when the value is a valid Ethiopian
- * mobile number (normalizable). Used for both the employee's own phone
- * and the emergency contact phone.
- */
-function isValidEthiopianPhone(v: string): boolean {
-  return normalizeEthiopianPhone(v) !== null;
-}
 
 // ── Education constants ────────────────────────────────────────────────────
 //
@@ -318,8 +307,8 @@ export const employeeSchema = z.object({
     (v) => (v ? String(v).trim() : ""),
     z.string()
       .min(1, "Phone number is required")
-      .refine(isValidEthiopianPhone, "Enter a valid Ethiopian mobile number (e.g. +251 9XX XXX XXX)")
-  ).transform((v) => normalizeEthiopianPhone(String(v).trim()) ?? String(v).trim()),
+      .refine(isValidPhoneInput, "Enter a valid phone number (e.g. +251 911 234567 or +44 7911 123456)")
+  ).transform((v) => normalizeAnyPhone(String(v).trim()) ?? String(v).trim()),
   gender: z.preprocess((v) => (v ? String(v).trim() : ""), z.enum(["MALE", "FEMALE"], { error: "Gender is required" })),
   dateOfBirth: z.preprocess(
     (v) => (v && String(v).trim() !== "" ? new Date(String(v)) : null),
@@ -354,8 +343,8 @@ export const employeeSchema = z.object({
     (v) => (v ? String(v).trim() : ""),
     z.string()
       .min(1, "Emergency contact phone is required")
-      .refine(isValidEthiopianPhone, "Enter a valid Ethiopian mobile number (e.g. +251 9XX XXX XXX)")
-  ).transform((v) => normalizeEthiopianPhone(String(v).trim()) ?? String(v).trim()),
+      .refine(isValidPhoneInput, "Enter a valid phone number (e.g. +251 911 234567 or +44 7911 123456)")
+  ).transform((v) => normalizeAnyPhone(String(v).trim()) ?? String(v).trim()),
   // emergencyContactRelationship stores the final resolved string:
   //   - a named relationship ("Spouse", "Father", etc.) for the standard options
   //   - the custom text the user typed when "Other" was selected
