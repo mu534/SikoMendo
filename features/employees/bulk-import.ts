@@ -9,12 +9,12 @@ import { assertPositionInDepartment } from "@/lib/employee-access";
 import type { EducationLevel } from "@prisma/client";
 
 // ── Local schema for CSV import ────────────────────────────────────────────
-// Extends employeeSchema with managerId as optional (CSV rows may omit it;
-// empty value resolves to null which is valid in the DB).
+// Same as employeeSchema but managerId is optional — CSV rows may omit it.
+// Empty value → null (DB allows null for managerId; onDelete: SetNull).
 const importEmployeeSchema = employeeSchema.extend({
   managerId: z.preprocess(
     (v) => (v ? String(v).trim() : ""),
-    z.string().optional().transform((v) => (v && v.length > 0 ? v : undefined))
+    z.string().optional().transform((v) => (v && v.length > 0 ? v : null))
   ),
 });
 
@@ -82,6 +82,8 @@ export type ValidatedRow = {
 export type ParsedEmployeeRow = {
   rowIndex: number;
   firstName: string;
+  /** Father's name (Ethiopian convention) */
+  middleName: string;
   lastName: string;
   email: string;
   department: string;
@@ -118,6 +120,50 @@ export function parseEmployeeCsv(text: string): {
     rows: result.data,
     parseErrors: result.errors.map((e) => `Row ${e.row != null ? e.row + 2 : "?"}: ${e.message}`),
   };
+}
+
+/**
+ * Builds the educations JSON string from flat CSV columns, or returns an error
+ * list when required education fields are missing or invalid.
+ *
+ * Education is always required — every imported employee must have at least one
+ * record, matching the same rule enforced by the registration form.
+ *
+ * Accepted educationLevel values are the same as the registration form offers:
+ * HIGH_SCHOOL | CERTIFICATE | DIPLOMA | BACHELOR | MASTER | PHD | OTHER.
+ * (PRIMARY and SECONDARY are legacy DB values, not accepted in new registrations.)
+ *
+ * For HIGH_SCHOOL, fieldOfStudy must be exactly "Natural Science" or "Social Science".
+ */
+function buildEducationsJson(row: Record<string, string>): { json: string } | { errors: string[] } {
+  const errors: string[] = [];
+
+  const rawLevel = row.educationLevel?.trim() ?? "";
+
+  if (!rawLevel) {
+    errors.push("educationLevel: Education level is required.");
+  } else if (!EDUCATION_LEVELS.includes(rawLevel as (typeof EDUCATION_LEVELS)[number])) {
+    errors.push(
+      `educationLevel: "${rawLevel}" is not a valid education level. ` +
+      `Accepted values: ${EDUCATION_LEVELS.join(", ")}.`
+    );
+  }
+
+  if (errors.length > 0) return { errors };
+
+  // educationLevel is valid — build the record and let educationRecordSchema
+  // run its full superRefine checks (fieldOfStudy streams, institutionType
+  // compatibility, required fields, graduation year range, etc.)
+  const educationRecord = {
+    educationLevel: rawLevel,
+    fieldOfStudy:        row.fieldOfStudy?.trim()        || null,
+    institutionType:     row.institutionType?.trim()     || null,
+    institutionName:     row.institutionName?.trim()     || null,
+    graduationYear:      row.graduationYear?.trim()      || null,
+    qualificationStatus: row.qualificationStatus?.trim() || null,
+  };
+
+  return { json: JSON.stringify([educationRecord]) };
 }
 
 /**
@@ -261,43 +307,71 @@ export async function validateEmployeeCsvRows(
   const validRows: ParsedEmployeeRow[] = [];
   const invalidRows: { rowIndex: number; name: string; errors: string[] }[] = [];
 
+  // Track emails seen within this CSV batch to catch intra-batch duplicates.
+  const seenEmails = new Set<string>();
+
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const rowIndex = i + 2; // +1 for 0-index, +1 for header row
     const displayName =
       `${row.firstName ?? ""} ${row.lastName ?? ""}`.trim() || `Row ${rowIndex}`;
 
-    // Resolve references
+    const rowErrors: string[] = [];
+
+    // ── Resolve department / position / manager ─────────────────────────
     const resolved = await resolveRowReferences(row, rowIndex, displayName);
     if (!resolved.ok) {
       invalidRows.push({ rowIndex, name: displayName, errors: resolved.errors });
       continue;
     }
 
-    // Build educations JSON
-    const csvLevel = row.educationLevel?.trim();
-    const hasEducation =
-      csvLevel && EDUCATION_LEVELS.includes(csvLevel as (typeof EDUCATION_LEVELS)[number]);
-    const educationsJson = hasEducation
-      ? JSON.stringify([
-          {
-            educationLevel: csvLevel,
-            fieldOfStudy: row.fieldOfStudy?.trim() || null,
-            institutionType: row.institutionType?.trim() || null,
-            institutionName: row.institutionName?.trim() || null,
-            graduationYear: row.graduationYear?.trim() || null,
-            qualificationStatus: row.qualificationStatus?.trim() || null,
-          },
-        ])
-      : "[]";
+    // ── Build and pre-validate education columns ────────────────────────
+    const eduResult = buildEducationsJson(row);
+    if ("errors" in eduResult) {
+      rowErrors.push(...eduResult.errors);
+    }
 
-    // Zod parse
+    if (rowErrors.length > 0) {
+      invalidRows.push({ rowIndex, name: displayName, errors: rowErrors });
+      continue;
+    }
+
+    // ── Duplicate email check (DB + intra-batch) ────────────────────────
+    const rawEmail = row.email?.trim() ?? "";
+    if (rawEmail) {
+      const normalizedEmail = rawEmail.toLowerCase();
+      if (seenEmails.has(normalizedEmail)) {
+        invalidRows.push({
+          rowIndex,
+          name: displayName,
+          errors: [`email: Duplicate email "${rawEmail}" — appears more than once in this CSV.`],
+        });
+        continue;
+      }
+      const existingEmployee = await prisma.employee.findFirst({
+        where: { email: { equals: rawEmail, mode: "insensitive" }, deletedAt: null },
+        select: { firstName: true, lastName: true, employeeId: true },
+      });
+      if (existingEmployee) {
+        invalidRows.push({
+          rowIndex,
+          name: displayName,
+          errors: [
+            `email: "${rawEmail}" is already used by ${existingEmployee.firstName} ${existingEmployee.lastName} (${existingEmployee.employeeId}).`,
+          ],
+        });
+        continue;
+      }
+      seenEmails.add(normalizedEmail);
+    }
+
+    // ── Zod parse ───────────────────────────────────────────────────────
     const parsed = importEmployeeSchema.safeParse({
       ...row,
       departmentId: resolved.departmentId,
       positionId: resolved.positionId,
       userId: "",
-      educations: educationsJson,
+      educations: ("json" in eduResult) ? eduResult.json : "[]",
       employmentStatus: "ONBOARDING",
       managerId: resolved.managerId ?? "",
     });
@@ -322,6 +396,7 @@ export async function validateEmployeeCsvRows(
     validRows.push({
       rowIndex,
       firstName: parsed.data.firstName,
+      middleName: parsed.data.middleName ?? "",
       lastName: parsed.data.lastName,
       email: parsed.data.email ?? "",
       department: resolved.departmentName,
@@ -373,21 +448,11 @@ export async function importEmployeeRows(
       }
 
       // ── 4. Build educations array from flat CSV columns ─────────────────
-      const csvLevel = row.educationLevel?.trim();
-      const hasEducation =
-        csvLevel && EDUCATION_LEVELS.includes(csvLevel as (typeof EDUCATION_LEVELS)[number]);
-      const educationsJson = hasEducation
-        ? JSON.stringify([
-            {
-              educationLevel: csvLevel,
-              fieldOfStudy: row.fieldOfStudy?.trim() || null,
-              institutionType: row.institutionType?.trim() || null,
-              institutionName: row.institutionName?.trim() || null,
-              graduationYear: row.graduationYear?.trim() || null,
-              qualificationStatus: row.qualificationStatus?.trim() || null,
-            },
-          ])
-        : "[]";
+      const eduResult = buildEducationsJson(row);
+      if ("errors" in eduResult) {
+        results.push({ row: rowNumber, status: "error", name: displayName, errors: eduResult.errors });
+        continue;
+      }
 
       // ── 5. Parse and validate with Zod schema ───────────────────────────
       const parsed = importEmployeeSchema.safeParse({
@@ -395,7 +460,7 @@ export async function importEmployeeRows(
         departmentId: resolved.departmentId,
         positionId: resolved.positionId,
         userId: "",
-        educations: educationsJson,
+        educations: eduResult.json,
         // P2-12: Force ONBOARDING
         employmentStatus: "ONBOARDING",
         managerId: resolved.managerId ?? "",

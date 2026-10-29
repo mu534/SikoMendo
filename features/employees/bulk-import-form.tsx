@@ -184,6 +184,29 @@ function UploadStep({
         </div>
       )}
 
+      {/* Field reference */}
+      <details className="rounded-lg border border-ink-900/10 bg-sand-100/40 text-xs">
+        <summary className="cursor-pointer select-none px-4 py-2.5 font-medium text-ink-900/60 hover:text-ink-900">
+          CSV field reference
+        </summary>
+        <div className="border-t border-ink-900/8 px-4 pb-4 pt-3 text-ink-900/65">
+          <dl className="grid grid-cols-1 gap-x-8 gap-y-1.5 sm:grid-cols-2">
+            <div><dt className="inline font-medium">middleName</dt><dd className="inline"> — Father&apos;s name (required, Ethiopian convention)</dd></div>
+            <div><dt className="inline font-medium">gender</dt><dd className="inline"> — MALE or FEMALE</dd></div>
+            <div><dt className="inline font-medium">maritalStatus</dt><dd className="inline"> — SINGLE · MARRIED · DIVORCED · WIDOWED · OTHER</dd></div>
+            <div><dt className="inline font-medium">employmentType</dt><dd className="inline"> — PERMANENT · CONTRACT · TEMPORARY · PROBATION · INTERNSHIP</dd></div>
+            <div><dt className="inline font-medium">educationLevel</dt><dd className="inline"> — HIGH_SCHOOL · CERTIFICATE · DIPLOMA · BACHELOR · MASTER · PHD · OTHER</dd></div>
+            <div><dt className="inline font-medium">fieldOfStudy</dt><dd className="inline"> — For HIGH_SCHOOL: must be &quot;Natural Science&quot; or &quot;Social Science&quot;</dd></div>
+            <div><dt className="inline font-medium">institutionType</dt><dd className="inline"> — HIGH_SCHOOL · UNIVERSITY · COLLEGE · TVET · OTHER</dd></div>
+            <div><dt className="inline font-medium">qualificationStatus</dt><dd className="inline"> — COMPLETED or IN_PROGRESS</dd></div>
+            <div><dt className="inline font-medium">dateOfBirth</dt><dd className="inline"> — ISO date (YYYY-MM-DD), employee must be ≥21 years old</dd></div>
+            <div><dt className="inline font-medium">manager</dt><dd className="inline"> — Employee ID (e.g. EMP-0001) or full name, or leave blank</dd></div>
+            <div><dt className="inline font-medium">department / position</dt><dd className="inline"> — Must match active records (case-insensitive)</dd></div>
+          </dl>
+          <p className="mt-3 text-ink-900/45">All imported employees start with status <strong>ONBOARDING</strong>.</p>
+        </div>
+      </details>
+
       {/* Actions */}
       <div className="flex flex-wrap items-center gap-3 pt-1">
         <Button
@@ -289,11 +312,12 @@ function PreviewStep({
             Preview — valid rows
           </p>
           <div className="overflow-x-auto rounded-xl border border-ink-900/8">
-            <table className="w-full min-w-[720px] text-left text-sm">
+            <table className="w-full min-w-[800px] text-left text-sm">
               <thead>
                 <tr className="border-b border-ink-900/8 bg-sand-100/50 text-xs font-medium uppercase tracking-wide text-ink-900/50">
                   <th className="px-4 py-3 font-medium">#</th>
                   <th className="px-4 py-3 font-medium">First Name</th>
+                  <th className="px-4 py-3 font-medium">Father's Name</th>
                   <th className="px-4 py-3 font-medium">Last Name</th>
                   <th className="px-4 py-3 font-medium">Email</th>
                   <th className="px-4 py-3 font-medium">Department</th>
@@ -307,6 +331,7 @@ function PreviewStep({
                   <tr key={row.rowIndex} className="hover:bg-sand-100/70">
                     <td className="px-4 py-3 text-ink-900/50">{row.rowIndex}</td>
                     <td className="px-4 py-3 text-ink-900">{row.firstName}</td>
+                    <td className="px-4 py-3 text-ink-900">{row.middleName}</td>
                     <td className="px-4 py-3 text-ink-900">{row.lastName}</td>
                     <td className="px-4 py-3 text-ink-900/70">{row.email}</td>
                     <td className="px-4 py-3 text-ink-900/80">{row.department}</td>
