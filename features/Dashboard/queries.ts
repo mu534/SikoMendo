@@ -1,20 +1,22 @@
 import "server-only";
 import prisma from "@/lib/prisma";
 import { LEAVE_STATUS_LABELS, type LeaveStatusValue } from "@/features/leave/schemas";
+import { getOrgLocalDateString, parseDateOnly } from "@/lib/attendance-date";
 
 export async function getOrganizationStats() {
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
+  // Use org-local date (UTC+3) so "today" matches what selfCheckIn stores via parseDateOnly.
+  const todayStr = getOrgLocalDateString();
+  const startOfDay = parseDateOnly(todayStr);
   const endOfDay = new Date(startOfDay);
-  endOfDay.setDate(endOfDay.getDate() + 1);
+  endOfDay.setUTCDate(endOfDay.getUTCDate() + 1);
 
   const [totalEmployees, activeEmployees, totalCooperatives, presentToday, absentToday, onLeaveToday, pendingReports] =
     await Promise.all([
       prisma.employee.count({ where: { deletedAt: null } }),
       prisma.employee.count({ where: { employmentStatus: "ACTIVE", deletedAt: null } }),
       prisma.cooperative.count({ where: { deletedAt: null } }),
-      prisma.attendance.count({ where: { date: { gte: startOfDay, lt: endOfDay }, status: "PRESENT" } }),
-      prisma.attendance.count({ where: { date: { gte: startOfDay, lt: endOfDay }, status: "ABSENT" } }),
+      prisma.attendance.count({ where: { date: { gte: startOfDay, lt: endOfDay }, status: { in: ["PRESENT", "LATE", "HALF_DAY"] } } }),
+      prisma.attendance.count({ where: { date: { gte: startOfDay, lt: endOfDay }, status: { in: ["ABSENT", "EXCUSED"] } } }),
       prisma.attendance.count({ where: { date: { gte: startOfDay, lt: endOfDay }, status: "ON_LEAVE" } }),
       prisma.report.count(),
     ]);
@@ -102,9 +104,13 @@ export async function getOwnAttendanceSummary(employeeId: string) {
 
 /** Daily present/absent counts for the last N days (default 30), including days with zero records. */
 export async function getAttendanceTrend(days = 30) {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  start.setDate(start.getDate() - (days - 1));
+  // Derive start from org-local today (UTC+3), same convention as selfCheckIn.
+  // parseDateOnly produces midnight-UTC, matching the @db.Date storage format.
+  const todayStr = getOrgLocalDateString();
+  const todayDate = parseDateOnly(todayStr);
+
+  const start = new Date(todayDate);
+  start.setUTCDate(start.getUTCDate() - (days - 1));
 
   const records = await prisma.attendance.findMany({
     where: { date: { gte: start } },
@@ -114,7 +120,8 @@ export async function getAttendanceTrend(days = 30) {
   const byDate = new Map<string, { present: number; absent: number; onLeave: number }>();
   for (let i = 0; i < days; i++) {
     const d = new Date(start);
-    d.setDate(d.getDate() + i);
+    // Use UTC arithmetic so the ISO string always matches the org-local date key.
+    d.setUTCDate(d.getUTCDate() + i);
     byDate.set(d.toISOString().slice(0, 10), { present: 0, absent: 0, onLeave: 0 });
   }
 
@@ -122,9 +129,14 @@ export async function getAttendanceTrend(days = 30) {
     const key = record.date.toISOString().slice(0, 10);
     const bucket = byDate.get(key);
     if (!bucket) continue;
-    if (record.status === "PRESENT") bucket.present += 1;
-    else if (record.status === "ABSENT") bucket.absent += 1;
-    else if (record.status === "ON_LEAVE") bucket.onLeave += 1;
+    // PRESENT, LATE, and HALF_DAY all represent days the employee showed up.
+    if (record.status === "PRESENT" || record.status === "LATE" || record.status === "HALF_DAY") {
+      bucket.present += 1;
+    } else if (record.status === "ABSENT" || record.status === "EXCUSED") {
+      bucket.absent += 1;
+    } else if (record.status === "ON_LEAVE") {
+      bucket.onLeave += 1;
+    }
   }
 
   return Array.from(byDate.entries()).map(([date, counts]) => ({

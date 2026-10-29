@@ -70,7 +70,7 @@ export function AttendanceTrendChart({ data }: { data: TrendPoint[] }) {
         />
         <YAxis tick={{ fontSize: 11, fill: "#161a17", opacity: 0.5 }} axisLine={false} tickLine={false} allowDecimals={false} width={28} />
         <Tooltip content={<CustomTooltip />} />
-        <Area type="monotone" dataKey="present" name="Present" stroke="#2f8350" strokeWidth={2} fill="url(#presentGradient)" />
+        <Area type="monotone" dataKey="present" name="Present / Late" stroke="#2f8350" strokeWidth={2} fill="url(#presentGradient)" />
         <Area type="monotone" dataKey="onLeave" name="On Leave" stroke="#c8902a" strokeWidth={2} fill="url(#onLeaveGradient)" />
         <Area type="monotone" dataKey="absent" name="Absent" stroke="#dc2626" strokeWidth={2} fill="url(#absentGradient)" />
       </AreaChart>
