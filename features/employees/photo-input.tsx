@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Camera, X } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/field";
+import { validatePhotoFile, PHOTO_MAX_BYTES, formatBytes } from "@/lib/file-limits";
 
 export function PhotoInput({
   name,
@@ -21,13 +22,20 @@ export function PhotoInput({
 
   const displayUrl = removed ? null : (preview ?? currentUrl ?? null);
   const hasPhoto = displayUrl !== null;
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (file) {
-      setPreview(URL.createObjectURL(file));
-      setRemoved(false);
+    if (!file) return;
+    const err = validatePhotoFile(file);
+    if (err) {
+      setPhotoError(err);
+      e.target.value = "";
+      return;
     }
+    setPhotoError(null);
+    setPreview(URL.createObjectURL(file));
+    setRemoved(false);
   }
 
   function handleRemove() {
@@ -74,8 +82,11 @@ export function PhotoInput({
       </div>
 
       <p className="mt-1.5 text-xs text-ink-900/45">
-        JPG, PNG or WebP · max 5 MB · stored on Cloudinary
+        JPG, PNG or WebP · max {formatBytes(PHOTO_MAX_BYTES)}
       </p>
+      {photoError && (
+        <p role="alert" className="mt-1 text-xs font-medium text-red-600">{photoError}</p>
+      )}
 
       {/* When the user removes the photo, signal the server via a hidden field.
           The server action checks for this flag and clears profileImageUrl/Key. */}

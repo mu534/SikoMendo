@@ -6,6 +6,7 @@ import { getServerSession } from "@/lib/session";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 import { createNotification } from "@/lib/notifications";
+import { validateLeaveDocumentFile } from "@/lib/file-limits";
 import {
   leaveRequestSchema,
   leaveRequestFormDataToObject,
@@ -161,6 +162,10 @@ export async function submitLeaveRequest(
     }
 
     const document = getDocumentFile(formData);
+    if (document) {
+      const docErr = validateLeaveDocumentFile(document);
+      if (docErr) throw new Error(docErr);
+    }
     const asset = document
       ? await uploadToCloudinary(document, "siko-mendo/leave", { resourceType: "auto", access: "authenticated" })
       : null;

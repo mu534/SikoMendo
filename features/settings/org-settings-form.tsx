@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { updateOrgSettings, removeOrgLogo } from "./actions";
 import type { OrgSettings } from "./queries";
 import type { ActionResult } from "@/lib/action-utils";
+import { validateOrgLogoFile, ORG_LOGO_MAX_BYTES, formatBytes } from "@/lib/file-limits";
 
 export function OrgSettingsForm({ settings }: { settings: OrgSettings }) {
   const formRef = useRef<HTMLFormElement>(null);
@@ -20,6 +21,7 @@ export function OrgSettingsForm({ settings }: { settings: OrgSettings }) {
   const [preview, setPreview] = useState<string | null>(null);
   const [removePending, startRemoveTransition] = useTransition();
   const [removeError, setRemoveError] = useState<string | null>(null);
+  const [logoError, setLogoError] = useState<string | null>(null);
 
   useEffect(() => {
     if (state?.success) {
@@ -86,7 +88,15 @@ export function OrgSettingsForm({ settings }: { settings: OrgSettings }) {
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  setPreview(file ? URL.createObjectURL(file) : null);
+                  if (!file) return;
+                  const err = validateOrgLogoFile(file);
+                  if (err) {
+                    setLogoError(err);
+                    e.target.value = "";
+                    return;
+                  }
+                  setLogoError(null);
+                  setPreview(URL.createObjectURL(file));
                 }}
               />
             </label>
@@ -107,9 +117,11 @@ export function OrgSettingsForm({ settings }: { settings: OrgSettings }) {
           </div>
         </div>
         <p className="mt-1.5 text-xs text-ink-900/45">
-          PNG, JPG, WEBP, or SVG. Recommended: square, min 64×64 px.
-          Stored on Cloudinary.
+          PNG, JPG, WEBP, or SVG · max {formatBytes(ORG_LOGO_MAX_BYTES)} · Recommended: square, min 64×64 px.
         </p>
+        {logoError && (
+          <p role="alert" className="mt-1 text-xs font-medium text-red-600">{logoError}</p>
+        )}
       </div>
 
       {/* Fields */}

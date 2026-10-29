@@ -7,6 +7,7 @@ import { withPermission, type ActionResult } from "@/lib/action-utils";
 import { uploadToCloudinary, deleteFromCloudinary } from "@/lib/cloudinary";
 import { z } from "zod";
 import { getOrgSettings } from "./queries";
+import { validateOrgLogoFile } from "@/lib/file-limits";
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
 
@@ -51,6 +52,9 @@ export async function updateOrgSettings(
     let logoKey: string | null = null;
 
     if (logoFile) {
+      const logoErr = validateOrgLogoFile(logoFile);
+      if (logoErr) throw new Error(logoErr);
+
       // Delete old logo from Cloudinary if one exists
       const existing = await getOrgSettings();
       if (existing.logoKey) {

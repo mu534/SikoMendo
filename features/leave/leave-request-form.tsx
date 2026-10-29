@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { submitLeaveRequest } from "./actions";
 import { LEAVE_TYPES, LEAVE_TYPE_LABELS } from "./schemas";
 import type { LeaveBalanceEntry } from "./queries";
+import { validateLeaveDocumentFile, LEAVE_DOCUMENT_MAX_BYTES, formatBytes } from "@/lib/file-limits";
 
 type ActionState = { success: true; data: { id: string } } | { success: false; error: { message: string } } | null;
 
@@ -28,6 +29,7 @@ export function LeaveRequestForm({ balances = [] }: { balances?: LeaveBalanceEnt
   const [leaveType, setLeaveType] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [docError, setDocError] = useState<string | null>(null);
 
   const totalDays = useMemo(() => calculateTotalDays(startDate, endDate), [startDate, endDate]);
   const selectedBalance = useMemo(
@@ -120,11 +122,30 @@ export function LeaveRequestForm({ balances = [] }: { balances?: LeaveBalanceEnt
 
         <FieldGroup>
           <Label htmlFor="document">Supporting Document (optional)</Label>
-          <input id="document" name="document" type="file" className="block text-sm" />
+          <input
+            id="document"
+            name="document"
+            type="file"
+            className="block text-sm"
+            accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) { setDocError(null); return; }
+              const err = validateLeaveDocumentFile(file);
+              setDocError(err);
+              if (err) e.target.value = "";
+            }}
+          />
+          <p className="mt-1 text-xs text-ink-900/45">
+            PDF, JPG, PNG, WebP, DOC, DOCX · max {formatBytes(LEAVE_DOCUMENT_MAX_BYTES)}
+          </p>
+          {docError && (
+            <p role="alert" className="mt-1 text-xs font-medium text-red-600">{docError}</p>
+          )}
         </FieldGroup>
 
         <div className="flex items-center gap-3 border-t border-ink-900/8 pt-5">
-          <Button type="submit" disabled={isPending}>
+          <Button type="submit" disabled={isPending || !!docError}>
             {isPending ? "Submitting…" : "Submit Request"}
           </Button>
           <ButtonLink href="/leave" variant="ghost">

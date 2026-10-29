@@ -8,6 +8,7 @@ import { uploadToCloudinary, deleteFromCloudinary } from "@/lib/cloudinary";
 import { employeeSchema, employeeFormDataToObject } from "./schemas";
 import { generateNextEmployeeId } from "./queries";
 import { parseEmployeeCsv, importEmployeeRows, validateEmployeeCsvRows, type ImportRowResult, type ParsedEmployeeRow } from "./bulk-import";
+import { validateCsvImportFile, validateEmployeeDocumentFile, validatePhotoFile } from "@/lib/file-limits";
 import {
   validateManagerAssignment,
   assertPositionInDepartment,
@@ -26,45 +27,11 @@ import type {
 } from "@prisma/client";
 
 // ── Allowed MIME types and extensions for document upload (P3-17) ─────────────
-
-const ALLOWED_MIME_TYPES = new Set([
-  "application/pdf",
-  "image/jpeg",
-  "image/jpg",
-  "image/png",
-  "image/webp",
-  "application/msword",                                                    // .doc
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
-]);
-
-const ALLOWED_EXTENSIONS = new Set([
-  ".pdf", ".jpg", ".jpeg", ".png", ".webp", ".doc", ".docx",
-]);
-
-const MAX_DOCUMENT_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+// Limits are defined in lib/file-limits.ts and enforced via validateEmployeeDocumentFile.
 
 function validateDocumentFile(file: File): void {
-  if (file.size > MAX_DOCUMENT_SIZE_BYTES) {
-    throw new Error(
-      `File is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum allowed size is 10 MB.`
-    );
-  }
-
-  const mimeType = file.type.toLowerCase().split(";")[0]?.trim() ?? "";
-  if (!ALLOWED_MIME_TYPES.has(mimeType)) {
-    throw new Error(
-      `File type "${file.type || "unknown"}" is not allowed. Accepted types: PDF, JPEG, PNG, WebP, DOC, DOCX.`
-    );
-  }
-
-  const ext = file.name.includes(".")
-    ? `.${file.name.split(".").pop()?.toLowerCase() ?? ""}`
-    : "";
-  if (!ALLOWED_EXTENSIONS.has(ext)) {
-    throw new Error(
-      `File extension "${ext || "(none)"}" is not allowed. Accepted extensions: ${Array.from(ALLOWED_EXTENSIONS).join(", ")}.`
-    );
-  }
+  const err = validateEmployeeDocumentFile(file);
+  if (err) throw new Error(err);
 }
 
 function validateDocumentTitle(title: string): void {
@@ -84,47 +51,16 @@ async function logAudit(action: string, entityId: string, changes: unknown, user
 }
 
 // ── Profile photo validation ──────────────────────────────────────────────────
-
-const ALLOWED_PHOTO_MIME_TYPES = new Set([
-  "image/jpeg",
-  "image/jpg",
-  "image/png",
-  "image/webp",
-]);
-
-const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+// Limit defined in lib/file-limits.ts — validatePhotoFile is imported directly.
 
 function getPhotoFile(formData: FormData): File | null {
   const file = formData.get("photo");
   return file instanceof File && file.size > 0 ? file : null;
 }
 
-/**
- * Validates a profile photo file server-side.
- * Checks MIME type, file extension, and size.
- * Throws with a user-facing message on any violation.
- */
-function validatePhotoFile(file: File): void {
-  if (file.size > MAX_PHOTO_SIZE_BYTES) {
-    throw new Error(
-      `Photo is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum size is 5 MB.`
-    );
-  }
-  const mimeType = file.type.toLowerCase().split(";")[0]?.trim() ?? "";
-  if (!ALLOWED_PHOTO_MIME_TYPES.has(mimeType)) {
-    throw new Error(
-      `Photo file type "${file.type || "unknown"}" is not supported. Use JPG, PNG, or WebP.`
-    );
-  }
-  const ext = file.name.includes(".")
-    ? `.${file.name.split(".").pop()?.toLowerCase() ?? ""}`
-    : "";
-  const ALLOWED_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
-  if (!ALLOWED_EXTS.has(ext)) {
-    throw new Error(
-      `Photo file extension "${ext || "(none)"}" is not supported. Use .jpg, .png, or .webp.`
-    );
-  }
+function validatePhotoFileThrow(file: File): void {
+  const err = validatePhotoFile(file);
+  if (err) throw new Error(err);
 }
 
 // ── Create ────────────────────────────────────────────────────────────────────
@@ -159,7 +95,7 @@ export async function createEmployee(
     }
 
     const photo = getPhotoFile(formData);
-    if (photo) validatePhotoFile(photo);
+    if (photo) validatePhotoFileThrow(photo);
     const asset = photo
       ? await uploadToCloudinary(photo, "siko-mendo/employees", { resourceType: "image" })
       : null;
@@ -282,7 +218,7 @@ export async function updateEmployee(
     await validateManagerAssignment(id, parsed.data.managerId);
 
     const photo = getPhotoFile(formData);
-    if (photo) validatePhotoFile(photo);
+    if (photo) validatePhotoFileThrow(photo);
     const asset = photo
       ? await uploadToCloudinary(photo, "siko-mendo/employees", { resourceType: "image" })
       : null;
@@ -468,6 +404,9 @@ export async function validateImportCsv(
       throw new Error("Upload a CSV file to validate.");
     }
 
+    const sizeErr = validateCsvImportFile(file);
+    if (sizeErr) throw new Error(sizeErr);
+
     const text = await file.text();
     const { rows, parseErrors } = parseEmployeeCsv(text);
 
@@ -506,6 +445,9 @@ export async function bulkImportEmployees(
   return withPermission(session, "MANAGE_EMPLOYEES", async () => {
     const file = formData.get("file");
     if (!(file instanceof File) || file.size === 0) throw new Error("Upload a CSV file.");
+
+    const sizeErr = validateCsvImportFile(file);
+    if (sizeErr) throw new Error(sizeErr);
 
     const text = await file.text();
     const { rows, parseErrors } = parseEmployeeCsv(text);

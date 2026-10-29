@@ -18,6 +18,7 @@ import { Table, THead, TH, TBody, TR, TD } from "@/components/ui/table";
 import { validateImportCsv, bulkImportEmployees } from "./actions";
 import type { ParsedEmployeeRow } from "./bulk-import";
 import type { ImportRowResult } from "./bulk-import";
+import { validateCsvImportFile, CSV_IMPORT_MAX_BYTES, formatBytes } from "@/lib/file-limits";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -38,9 +39,7 @@ type Step = "upload" | "preview" | "results";
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return formatBytes(bytes);
 }
 
 function isCsvFile(file: File): boolean {
@@ -59,12 +58,14 @@ function UploadStep({
   onFileRemove,
   onValidate,
   isValidating,
+  onFileError,
 }: {
   selectedFile: File | null;
   onFileSelect: (file: File) => void;
   onFileRemove: () => void;
   onValidate: () => void;
   isValidating: boolean;
+  onFileError: (msg: string) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -85,22 +86,30 @@ function UploadStep({
       setIsDragOver(false);
       const file = e.dataTransfer.files?.[0];
       if (file && isCsvFile(file)) {
+        const err = validateCsvImportFile(file);
+        if (err) { onFileError(err); return; }
         onFileSelect(file);
       }
     },
-    [onFileSelect]
+    [onFileSelect, onFileError]
   );
 
   const handleFileChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (file && isCsvFile(file)) {
-        onFileSelect(file);
+        const err = validateCsvImportFile(file);
+        if (err) {
+          onFileError(err);
+          e.target.value = "";
+        } else {
+          onFileSelect(file);
+        }
       }
       // Reset input so selecting the same file again fires change
       e.target.value = "";
     },
-    [onFileSelect]
+    [onFileSelect, onFileError]
   );
 
   const handleZoneClick = useCallback(() => {
@@ -162,7 +171,7 @@ function UploadStep({
               Drag a CSV file here or{" "}
               <span className="text-brand-700 underline underline-offset-2">browse files</span>
             </p>
-            <p className="mt-1 text-xs text-ink-900/45">Accepts .csv files only</p>
+            <p className="mt-1 text-xs text-ink-900/45">Accepts .csv files only · max {formatBytes(CSV_IMPORT_MAX_BYTES)}</p>
           </div>
         </div>
       ) : (
@@ -649,6 +658,7 @@ export function BulkImportForm() {
             onFileRemove={handleFileRemove}
             onValidate={handleValidate}
             isValidating={isValidating}
+            onFileError={setErrorMessage}
           />
         )}
 
