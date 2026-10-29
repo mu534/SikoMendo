@@ -7,7 +7,7 @@ import { withPermission, type ActionResult } from "@/lib/action-utils";
 import { uploadToCloudinary, deleteFromCloudinary } from "@/lib/cloudinary";
 import { employeeSchema, employeeFormDataToObject } from "./schemas";
 import { generateNextEmployeeId } from "./queries";
-import { parseEmployeeCsv, importEmployeeRows, type ImportRowResult } from "./bulk-import";
+import { parseEmployeeCsv, importEmployeeRows, validateEmployeeCsvRows, type ImportRowResult, type ParsedEmployeeRow } from "./bulk-import";
 import {
   validateManagerAssignment,
   assertPositionInDepartment,
@@ -448,7 +448,54 @@ export async function deleteEmployeeDocument(
   });
 }
 
-// ── Bulk Import ───────────────────────────────────────────────────────────────
+// ── Validate Import CSV (preview step — no DB writes) ────────────────────────
+
+export async function validateImportCsv(
+  _prevState: unknown,
+  formData: FormData
+): Promise<
+  ActionResult<{
+    summary: { total: number; valid: number; invalid: number };
+    validRows: ParsedEmployeeRow[];
+    invalidRows: { rowIndex: number; name: string; errors: string[] }[];
+  }>
+> {
+  const session = await getServerSession();
+
+  return withPermission(session, "MANAGE_EMPLOYEES", async () => {
+    const file = formData.get("file");
+    if (!(file instanceof File) || file.size === 0) {
+      throw new Error("Upload a CSV file to validate.");
+    }
+
+    const text = await file.text();
+    const { rows, parseErrors } = parseEmployeeCsv(text);
+
+    if (parseErrors.length > 0) {
+      throw new Error(`CSV parse errors: ${parseErrors.join("; ")}`);
+    }
+
+    if (rows.length === 0) {
+      throw new Error("The CSV file is empty or contains no data rows.");
+    }
+
+    // Extract header names from the first parsed row's keys (PapaParse header mode)
+    const headers = rows.length > 0 ? Object.keys(rows[0]!) : [];
+
+    const { validRows, invalidRows } = await validateEmployeeCsvRows(rows, headers);
+
+    return {
+      summary: {
+        total: rows.length,
+        valid: validRows.length,
+        invalid: invalidRows.length,
+      },
+      validRows,
+      invalidRows,
+    };
+  });
+}
+
 
 export async function bulkImportEmployees(
   _prevState: unknown,
