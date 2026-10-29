@@ -78,8 +78,10 @@ const QUALIFICATION_STATUS_LABELS: Record<string, string> = {
 const HIGH_SCHOOL_FIELDS = ["Natural Science", "Social Science"] as const;
 type HighSchoolField = (typeof HIGH_SCHOOL_FIELDS)[number];
 
-// Computed once at module load — stable within a single SSR + hydration cycle.
-const CURRENT_YEAR = new Date().getFullYear();
+// NOTE: CURRENT_YEAR is intentionally NOT computed at module load here.
+// Turbopack's dynamic-import bundle evaluation can run before module-level
+// initialisers from other chunks are ready, causing "not defined" errors.
+// Each component that needs it reads it inline via a local const instead.
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -276,6 +278,7 @@ function EducationRecordForm({
   const isSchool     = level === "HIGH_SCHOOL" || level === "PRIMARY" || level === "SECONDARY";
   const isCompleted  = record.qualificationStatus === "COMPLETED";
   const isInProgress = record.qualificationStatus === "IN_PROGRESS";
+  const CURRENT_YEAR = new Date().getFullYear(); // local — avoids dynamic-bundle scope issues
 
   function onLevel(v: string) {
     const lvl    = v as EduLevel;
@@ -354,7 +357,7 @@ function EducationRecordForm({
         </FieldGroup>
 
         <FieldGroup>
-          <FL id={f("field")} text="Field of Study" req={isSchool} opt={!isSchool} />
+          <FL id={f("field")} text="Field of Study" req />
           {isSchool ? (
             /* High School: real dropdown with exactly two options */
             <div className="relative">
@@ -385,9 +388,9 @@ function EducationRecordForm({
       {/* Row 2 */}
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <FieldGroup>
-          <FL id={f("instType")} text="Institution Type" />
+          <FL id={f("instType")} text="Institution Type" req />
           <Select id={f("instType")} value={record.institutionType ?? ""} onChange={(e) => onType(e.target.value)}>
-            <option value="">Not specified</option>
+            <option value="">Select type…</option>
             {INSTITUTION_TYPES.filter((t) => compat.includes(t)).map((t) => (
               <option key={t} value={t}>{INSTITUTION_TYPE_LABELS[t]}</option>
             ))}
@@ -396,7 +399,7 @@ function EducationRecordForm({
         </FieldGroup>
 
         <FieldGroup>
-          <FL id={f("instName")} text="Institution Name" soft={isCompleted && instType !== null} />
+          <FL id={f("instName")} text="Institution Name" req />
           {instList.length > 0 ? (
             <InstitutionCombobox id={f("instName")} institutions={instList}
               value={record.institutionName ?? null}
@@ -415,7 +418,7 @@ function EducationRecordForm({
       {/* Row 3 */}
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <FieldGroup>
-          <FL id={f("year")} text="Graduation Year" hint="(G.C.)" />
+          <FL id={f("year")} text="Graduation Year" req hint="(G.C.)" />
           <Input id={f("year")} type="number" inputMode="numeric"
             min={1950} max={isCompleted ? CURRENT_YEAR : CURRENT_YEAR + 10} step={1}
             placeholder={`e.g. ${CURRENT_YEAR - 3}`}
@@ -423,20 +426,21 @@ function EducationRecordForm({
             onChange={(e) => onYear(e.target.value)}
             aria-describedby={f("year-hint")} />
           <p id={f("year-hint")} className="mt-1 text-xs text-ink-900/40">
-            {isInProgress ? "Not required for in-progress qualifications." : "Leave empty if year is unknown."}
+            {isInProgress ? "Enter expected graduation year." : "Enter the year of graduation."}
           </p>
           {errors.graduationYear ? <FieldError>{errors.graduationYear}</FieldError> : null}
         </FieldGroup>
 
         <FieldGroup>
-          <FL id={f("status")} text="Qualification Status" />
+          <FL id={f("status")} text="Qualification Status" req />
           <Select id={f("status")} value={record.qualificationStatus ?? ""}
             onChange={(e) => onChange({ ...record, qualificationStatus: (e.target.value || null) as EducationRecordInput["qualificationStatus"] })}>
-            <option value="">Not specified</option>
+            <option value="">Select status…</option>
             {QUALIFICATION_STATUSES.map((s) => (
               <option key={s} value={s}>{QUALIFICATION_STATUS_LABELS[s]}</option>
             ))}
           </Select>
+          {errors.qualificationStatus ? <FieldError>{errors.qualificationStatus}</FieldError> : null}
         </FieldGroup>
       </div>
     </div>
