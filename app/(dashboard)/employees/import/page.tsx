@@ -15,10 +15,10 @@ export default async function ImportEmployeesPage() {
         </Link>
         <h2 className="font-display text-xl font-semibold text-ink-900">Import Employees</h2>
         <p className="mt-1 text-sm text-ink-900/60">
-          Upload a CSV file to create multiple employee records at once. Download the template below
-          to see the exact columns expected — rows with errors are skipped and reported individually,
-          the rest still get created. The <code>department</code> and <code>position</code> columns must
-          match an existing active department/position name exactly (case-insensitive).
+          Upload a CSV file to validate and preview employee data before importing. Download the
+          template to see the expected columns — the <code>department</code> and{" "}
+          <code>position</code> values must match an existing active department and position name
+          (case-insensitive). All validation errors are shown before anything is saved.
         </p>
       </div>
       <BulkImportForm />
