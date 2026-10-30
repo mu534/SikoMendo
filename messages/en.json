@@ -1,0 +1,1101 @@
+{
+  "_meta": { "version": 1 },
+
+  "common": {
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "view": "View",
+    "restore": "Restore",
+    "archive": "Archive",
+    "archiving": "Archiving…",
+    "add": "Add",
+    "create": "Create",
+    "update": "Update",
+    "submit": "Submit",
+    "submitting": "Submitting…",
+    "apply": "Apply",
+    "clear": "Clear",
+    "search": "Search",
+    "filter": "Filter",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "loading": "Loading…",
+    "noResults": "No results found",
+    "optional": "Optional",
+    "required": "Required",
+    "yes": "Yes",
+    "no": "No",
+    "confirm": "Confirm",
+    "all": "All",
+    "active": "Active",
+    "inactive": "Inactive",
+    "status": "Status",
+    "actions": "Actions",
+    "name": "Name",
+    "description": "Description",
+    "date": "Date",
+    "from": "From",
+    "to": "To",
+    "type": "Type",
+    "total": "Total",
+    "notes": "Notes",
+    "remarks": "Remarks",
+    "unknown": "Unknown",
+    "none": "None",
+    "notSet": "Not set",
+    "na": "—",
+    "copyright": "© {year} {orgName}",
+    "copyrightFull": "© {year} {orgName}\n{location}",
+    "myProfile": "My profile",
+    "signOut": "Sign out",
+    "signingOut": "Signing out…",
+    "openNavigation": "Open navigation",
+    "closeNavigation": "Close navigation",
+    "closeMenu": "Close menu",
+    "closeNotifications": "Close notifications",
+    "noPosition": "No position",
+    "noDepartment": "No department",
+    "viewAll": "View all",
+    "clearFilters": "Clear filters",
+    "matchingFilters": "matching filters",
+    "softDeletedRecords": "Soft-deleted records",
+    "roles": {
+      "ADMIN": "Administrator",
+      "HR_OFFICER": "HR Officer",
+      "MANAGER": "Manager",
+      "EMPLOYEE": "Employee"
+    }
+  },
+
+  "nav": {
+    "dashboard": "Dashboard",
+    "users": "Users",
+    "allAccounts": "All Accounts",
+    "suspendedAccounts": "Suspended Accounts",
+    "employees": "Employees",
+    "employeeList": "Employee List",
+    "lifecycle": "Lifecycle",
+    "newEmployee": "New Employee",
+    "archived": "Archived",
+    "bulkImport": "Bulk Import",
+    "cooperatives": "Cooperatives",
+    "cooperativeList": "Cooperative List",
+    "newCooperative": "New Cooperative",
+    "departments": "Departments",
+    "attendance": "Attendance",
+    "myAttendance": "My Attendance",
+    "attendanceManagement": "Attendance Management",
+    "attendanceMonitoring": "Attendance Monitoring",
+    "attendancePolicy": "Attendance Policy",
+    "leave": "Leave",
+    "leaveRequests": "Leave Requests",
+    "leavePolicy": "Leave Policy",
+    "myDocuments": "My Documents",
+    "reports": "Reports",
+    "generateReport": "Generate Report",
+    "reportHistory": "Report History",
+    "auditLog": "Audit Log",
+    "settings": "Settings",
+    "organisation": "Organisation",
+    "backupRestore": "Backup & Restore",
+    "security": "Security",
+    "myProfile": "My Profile"
+  },
+
+  "notifications": {
+    "title": "Notifications",
+    "markAllRead": "Mark all read",
+    "empty": "No notifications yet.",
+    "types": {
+      "ACCOUNT_CREATED": "Account Created",
+      "PASSWORD_RESET": "Password Reset",
+      "LEAVE_SUBMITTED": "Leave Request Submitted",
+      "LEAVE_APPROVED": "Leave Approved",
+      "LEAVE_REJECTED": "Leave Rejected",
+      "PROFILE_UPDATED": "Profile Updated",
+      "ONBOARDING_STARTED": "Onboarding Started",
+      "ONBOARDING_COMPLETED": "Onboarding Completed",
+      "OFFBOARDING_STARTED": "Offboarding Started",
+      "OFFBOARDING_COMPLETED": "Offboarding Completed",
+      "CONTRACT_EXPIRING": "Contract Expiring",
+      "DOCUMENT_MISSING": "Document Missing"
+    }
+  },
+
+  "auth": {
+    "orgBadge": "Siko Mendo Union",
+    "heroTitle": "Human Resource Information Management System",
+    "heroSubtitle": "One place to manage members, cooperatives, attendance, and reports across Siko Mendo Union — Bale Robe, Ethiopia.",
+    "copyright": "© {year} Siko Mendo Union",
+    "signIn": {
+      "title": "Welcome back",
+      "subtitle": "Sign in with the username and password your Administrator created for you.",
+      "usernameLabel": "Username",
+      "usernamePlaceholder": "e.g. emp-0001",
+      "passwordLabel": "Password",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "submit": "Sign in",
+      "submitting": "Signing in…",
+      "forgotPassword": "Forgot your password? Contact your HR Officer or Administrator.",
+      "errors": {
+        "usernameRequired": "Enter your username",
+        "passwordRequired": "Enter your password",
+        "invalidCredentials": "Invalid username or password.",
+        "accountBanned": "Your account has been suspended. Contact your Administrator.",
+        "tooManyRequests": "Too many sign-in attempts. Please wait a moment and try again."
+      }
+    },
+    "forcePasswordChange": {
+      "title": "Set your new password",
+      "subtitle": "Your account requires a password change before you can access the system.",
+      "currentPasswordLabel": "Temporary password",
+      "newPasswordLabel": "New password",
+      "confirmPasswordLabel": "Confirm new password",
+      "submit": "Change password",
+      "submitting": "Changing password…",
+      "success": "Password changed. Redirecting…",
+      "helpText": "Your new password must be at least 8 characters and different from the temporary one."
+    }
+  },
+
+  "dashboard": {
+    "welcomeBack": "Welcome back, {name}",
+    "orgSubtitle": "Here is what is happening across Siko Mendo Union today.",
+    "empSubtitle": "Here's a quick look at your workspace.",
+    "stats": {
+      "totalEmployees": "Total employees",
+      "cooperatives": "Cooperatives",
+      "presentToday": "Present today",
+      "absentToday": "Absent today",
+      "activeEmployees": "{count, plural, one {# active} other {# active}}",
+      "attendanceRate": "{rate} attendance rate",
+      "presentMonth": "Present (month)",
+      "absentMonth": "Absent (month)",
+      "lateMonth": "Late (month)",
+      "pendingLeave": "Pending leave"
+    },
+    "needsAttention": {
+      "title": "Needs Attention",
+      "pendingLeave": "{count, plural, one {# pending leave request} other {# pending leave requests}}",
+      "onboarding": "{count, plural, one {# employee onboarding} other {# employees onboarding}}",
+      "offboarding": "{count, plural, one {# active offboarding} other {# active offboardings}}",
+      "expiringContracts": "{count, plural, one {# contract expiring soon} other {# contracts expiring soon}}",
+      "missingDocuments": "{count, plural, one {# employee missing ID document} other {# employees missing ID document}}"
+    },
+    "charts": {
+      "attendanceTrend": "Attendance trend",
+      "attendanceTrendDesc": "Present vs. absent over the last 30 days.",
+      "leaveRequests": "Leave requests",
+      "leaveRequestsDesc": "Breakdown by current status.",
+      "headcountByDept": "Headcount by department",
+      "headcountByDeptDesc": "Active employees, grouped by department."
+    },
+    "recentActivity": {
+      "title": "Recent activity",
+      "description": "The latest changes recorded across the system.",
+      "empty": "No activity yet",
+      "emptyDesc": "Actions like creating employees or users will show up here."
+    },
+    "noEmployeeRecord": {
+      "title": "No employee record linked yet",
+      "description": "Ask your HR Officer to link your account to your employee record to unlock the rest of your dashboard."
+    },
+    "leaveBalance": {
+      "title": "Leave balance",
+      "description": "{year} — remaining / entitled days per leave type.",
+      "noEntitlements": "No entitlements configured."
+    },
+    "quickLinks": {
+      "newLeaveRequest": "New Leave Request",
+      "myAttendance": "My Attendance",
+      "myDocuments": "My Documents",
+      "myProfile": "My Profile"
+    },
+    "audit": {
+      "CREATE": "created a {entity}",
+      "UPDATE": "updated a {entity}",
+      "UPDATE_PROFILE": "updated their profile",
+      "UPDATE_OWN_INFO": "updated their contact info",
+      "ARCHIVE": "archived a {entity}",
+      "RESTORE": "restored a {entity}",
+      "DELETE": "deleted a {entity}",
+      "SUSPEND": "suspended a user account",
+      "REACTIVATE": "reactivated a user account",
+      "PASSWORD_RESET": "reset a user password",
+      "FORCE_PASSWORD_CHANGE": "forced a password change",
+      "PASSWORD_CHANGED": "changed their password",
+      "APPROVE": "approved a leave request",
+      "REJECT": "rejected a leave request",
+      "CANCEL": "cancelled a leave request",
+      "UPSERT": "recorded {entity}",
+      "BULK_MARK_PRESENT": "bulk-marked employees present",
+      "TERMINATE": "terminated a {entity}",
+      "ACTIVATE": "activated a {entity}",
+      "DEACTIVATE": "deactivated a {entity}",
+      "unknown": "performed \"{action}\" on a {entity}",
+      "system": "System"
+    }
+  },
+
+  "entities": {
+    "employee": "employee",
+    "cooperative": "cooperative",
+    "department": "department",
+    "position": "position",
+    "user": "user",
+    "leave_request": "leave request",
+    "attendance": "attendance",
+    "contract": "contract",
+    "document": "document",
+    "report": "report",
+    "work_shift": "work shift",
+    "leave_entitlement": "leave entitlement",
+    "org_settings": "organisation settings",
+    "onboarding_record": "onboarding record",
+    "offboarding_record": "offboarding record",
+    "employment_history": "employment history"
+  },
+
+  "employees": {
+    "title": "Employees",
+    "titleArchived": "Archived Employees",
+    "description": "Manage employee records and employment lifecycle.",
+    "descriptionArchived": "Archived employee records. Restore to make them active again.",
+    "newEmployee": "New Employee",
+    "viewArchived": "View archived",
+    "activeEmployees": "← Active employees",
+    "addFirstEmployee": "Add first employee",
+    "count": "{count, plural, one {# employee} other {# employees}}",
+    "countMatchingFilters": "{count, plural, one {# employee} other {# employees}} matching filters",
+    "noEmployees": "No employees yet.",
+    "noEmployeesFiltered": "No employees match your filters.",
+    "noArchivedEmployees": "No archived employees.",
+    "inPreboardingChecklist": "In pre-boarding checklist",
+    "statuses": {
+      "ACTIVE": "Active",
+      "ON_LEAVE": "On Leave",
+      "ONBOARDING": "Onboarding",
+      "RESIGNED": "Resigned",
+      "RETIRED": "Retired",
+      "INACTIVE": "Inactive",
+      "SUSPENDED": "Suspended",
+      "TERMINATED": "Terminated"
+    },
+    "types": {
+      "PERMANENT": "Permanent",
+      "CONTRACT": "Contract",
+      "TEMPORARY": "Temporary",
+      "PROBATION": "Probation",
+      "INTERNSHIP": "Internship"
+    },
+    "columns": {
+      "employee": "Employee",
+      "departmentPosition": "Department · Position",
+      "manager": "Manager",
+      "type": "Type",
+      "status": "Status",
+      "hired": "Hired",
+      "actions": "Actions"
+    },
+    "filters": {
+      "searchPlaceholder": "Search by name, ID, department…",
+      "allDepartments": "All departments",
+      "allStatuses": "All statuses",
+      "allTypes": "All types"
+    },
+    "confirmArchive": "Archive {name}? You can restore this record later.",
+    "confirmRestore": "Restore {name}? They will return to their previous employment status.",
+    "stats": {
+      "total": "Total Employees",
+      "active": "Active",
+      "onboarding": "Onboarding",
+      "onLeave": "On Leave"
+    },
+    "form": {
+      "newTitle": "New Employee",
+      "editTitle": "Edit Employee",
+      "personalInfo": "Personal Information",
+      "employmentDetails": "Employment Details",
+      "emergencyContact": "Emergency Contact",
+      "workShiftAssignment": "Work Shift Assignment",
+      "firstName": "First name",
+      "middleName": "Middle name",
+      "lastName": "Last name",
+      "gender": "Gender",
+      "dateOfBirth": "Date of birth",
+      "phone": "Phone number",
+      "address": "Address",
+      "maritalStatus": "Marital status",
+      "employmentType": "Employment type",
+      "department": "Department",
+      "position": "Position",
+      "manager": "Manager",
+      "hireDate": "Hire date",
+      "workShift": "Work shift",
+      "noShiftHint": "No shift assigned — uses global attendance policy defaults.",
+      "selectDepartmentFirst": "Select a department first",
+      "noPositionsInDept": "No positions in this department",
+      "selectGender": "Select gender",
+      "genderMale": "Male",
+      "genderFemale": "Female",
+      "selectMaritalStatus": "Select marital status",
+      "maritalSingle": "Single",
+      "maritalMarried": "Married",
+      "maritalDivorced": "Divorced",
+      "maritalWidowed": "Widowed",
+      "maritalOther": "Other",
+      "selectEmploymentType": "Select employment type",
+      "selectDepartment": "Select department",
+      "selectPosition": "Select position",
+      "selectManager": "Select manager",
+      "selectShift": "No shift (use policy defaults)",
+      "emergencyContactName": "Contact name",
+      "emergencyContactPhone": "Contact phone",
+      "emergencyContactRelationship": "Relationship",
+      "emergencyContactAddress": "Contact address",
+      "selectRelationship": "Select relationship"
+    },
+    "relationships": {
+      "Spouse": "Spouse",
+      "Father": "Father",
+      "Mother": "Mother",
+      "Brother": "Brother",
+      "Sister": "Sister",
+      "Son": "Son",
+      "Daughter": "Daughter",
+      "Guardian": "Guardian",
+      "Other Relative": "Other Relative",
+      "Friend": "Friend",
+      "Other": "Other"
+    },
+    "education": {
+      "title": "Education",
+      "addQualification": "Add qualification",
+      "removeQualification": "Remove",
+      "educationLevel": "Education level",
+      "fieldOfStudy": "Field of study",
+      "institutionType": "Institution type",
+      "institutionName": "Institution name",
+      "graduationYear": "Graduation year",
+      "qualificationStatus": "Qualification status",
+      "selectLevel": "Select level",
+      "selectInstitutionType": "Select institution type",
+      "selectStatus": "Select status",
+      "levels": {
+        "HIGH_SCHOOL": "High School",
+        "CERTIFICATE": "Certificate",
+        "DIPLOMA": "Diploma",
+        "BACHELOR": "Bachelor's Degree",
+        "MASTER": "Master's Degree",
+        "PHD": "PhD",
+        "OTHER": "Other"
+      },
+      "institutionTypes": {
+        "HIGH_SCHOOL": "High School",
+        "UNIVERSITY": "University",
+        "COLLEGE": "College",
+        "TVET": "TVET",
+        "OTHER": "Other"
+      },
+      "qualificationStatuses": {
+        "IN_PROGRESS": "In Progress",
+        "COMPLETED": "Completed"
+      }
+    },
+    "overview": {
+      "title": "Overview",
+      "employeeId": "Employee ID",
+      "email": "Email",
+      "phone": "Phone",
+      "address": "Address",
+      "gender": "Gender",
+      "dateOfBirth": "Date of birth",
+      "maritalStatus": "Marital status",
+      "department": "Department",
+      "position": "Position",
+      "manager": "Manager",
+      "hireDate": "Hire date",
+      "employmentType": "Employment type",
+      "status": "Status",
+      "noLinkedAccount": "No linked user account",
+      "workShift": "Work shift"
+    },
+    "documents": {
+      "title": "Documents",
+      "uploadDocument": "Upload document",
+      "documentTitle": "Document title",
+      "documentType": "Document type",
+      "fileName": "File name",
+      "fileSize": "File size",
+      "uploadedBy": "Uploaded by",
+      "uploadedOn": "Uploaded on",
+      "noDocuments": "No documents uploaded yet.",
+      "confirmDelete": "Delete this document? This action cannot be undone.",
+      "selectType": "Select type",
+      "types": {
+        "CONTRACT": "Contract",
+        "ID_DOCUMENT": "ID Document",
+        "CERTIFICATE": "Certificate",
+        "RESUME": "Resume / CV",
+        "OTHER": "Other"
+      }
+    },
+    "import": {
+      "title": "Bulk Import",
+      "description": "Import multiple employees from a CSV file.",
+      "downloadTemplate": "Download template",
+      "uploadStep": "Upload",
+      "previewStep": "Preview",
+      "resultsStep": "Results",
+      "selectFile": "Select CSV file",
+      "dragDrop": "Drag and drop a CSV file, or click to browse",
+      "processing": "Processing…",
+      "importButton": "Import employees",
+      "importing": "Importing…",
+      "successCount": "{count, plural, one {# employee imported} other {# employees imported}}",
+      "errorCount": "{count, plural, one {# error} other {# errors}}",
+      "done": "Done"
+    }
+  },
+
+  "attendance": {
+    "title": "Attendance",
+    "myAttendanceTitle": "My Attendance",
+    "managementTitle": "Attendance Management",
+    "monitoringTitle": "Attendance Monitoring",
+    "policyTitle": "Attendance Policy",
+    "teamTitle": "Team Attendance",
+    "description": "Track and manage employee attendance.",
+    "date": "Date",
+    "employee": "Employee",
+    "checkIn": "Check-in",
+    "checkOut": "Check-out",
+    "status": "Status",
+    "notes": "Notes",
+    "recordedBy": "Recorded by",
+    "noAttendance": "No attendance records found.",
+    "markPresent": "Mark Present",
+    "markAllPresent": "Mark All Present",
+    "markingAllPresent": "Marking all present…",
+    "bulkMarkConfirm": "Mark all listed employees as present for today?",
+    "statuses": {
+      "PRESENT": "Present",
+      "ABSENT": "Absent",
+      "LATE": "Late",
+      "HALF_DAY": "Half Day",
+      "EXCUSED": "Excused",
+      "ON_LEAVE": "On Leave"
+    },
+    "policy": {
+      "title": "Attendance Policy",
+      "workStartTime": "Work start time",
+      "workEndTime": "Work end time",
+      "gracePeriodMinutes": "Grace period (minutes)",
+      "halfDayThresholdMinutes": "Half-day threshold (minutes)",
+      "workingDays": "Working days",
+      "savePolicy": "Save policy",
+      "noHalfDay": "No half-day threshold",
+      "monday": "Monday",
+      "tuesday": "Tuesday",
+      "wednesday": "Wednesday",
+      "thursday": "Thursday",
+      "friday": "Friday",
+      "saturday": "Saturday",
+      "sunday": "Sunday"
+    },
+    "shifts": {
+      "title": "Work Shifts",
+      "addShift": "Add shift",
+      "shiftName": "Shift name",
+      "startTime": "Start time",
+      "endTime": "End time",
+      "noShifts": "No shifts configured.",
+      "confirmDelete": "Delete this shift? Employees assigned to it will revert to policy defaults."
+    }
+  },
+
+  "leave": {
+    "title": "Leave Requests",
+    "myTitle": "My Leave Requests",
+    "description": "Review and approve leave requests across the organisation.",
+    "managerDescription": "Review and approve leave requests across the organisation.",
+    "hrDescription": "Review leave requests across the union.",
+    "myDescription": "Submit and track your leave requests.",
+    "newRequest": "New Request",
+    "newLeaveRequest": "New Leave Request",
+    "balance": "Balance",
+    "balanceTitle": "{year} Balance",
+    "noBalance": "No entitlements configured.",
+    "noLinkedEmployee": "No employee record linked yet",
+    "noLinkedEmployeeDesc": "Ask your HR Officer to link your account to your employee record before requesting leave.",
+    "noRequests": "No leave requests yet",
+    "noRequestsDesc": "Submit a new request using the button above.",
+    "noRequestsFiltered": "No leave requests found",
+    "noRequestsFilteredDesc": "No requests match your current filters.",
+    "noLinkedForManager": "No employee record linked",
+    "noLinkedForManagerDesc": "Ask HR to link your account to your employee profile and assign direct reports.",
+    "columns": {
+      "employee": "Employee",
+      "leaveType": "Leave Type",
+      "period": "Period",
+      "days": "Days",
+      "status": "Status",
+      "applied": "Applied",
+      "action": "Action",
+      "details": "Details"
+    },
+    "filters": {
+      "allEmployees": "All employees",
+      "allTypes": "All types",
+      "allStatuses": "All statuses",
+      "newestFirst": "Newest first",
+      "oldestFirst": "Oldest first",
+      "startDate": "Start date",
+      "searchPlaceholder": "Search employee, leave ID, or reason…"
+    },
+    "actions": {
+      "review": "Review",
+      "view": "View",
+      "approve": "Approve",
+      "reject": "Reject",
+      "cancel": "Cancel request"
+    },
+    "types": {
+      "ANNUAL": "Annual Leave",
+      "SICK": "Sick Leave",
+      "EMERGENCY": "Emergency Leave",
+      "MATERNITY": "Maternity Leave",
+      "PATERNITY": "Paternity Leave",
+      "UNPAID": "Unpaid Leave"
+    },
+    "statuses": {
+      "PENDING": "Pending",
+      "APPROVED": "Approved",
+      "REJECTED": "Rejected",
+      "CANCELLED": "Cancelled"
+    },
+    "form": {
+      "leaveType": "Leave type",
+      "startDate": "Start date",
+      "endDate": "End date",
+      "reason": "Reason",
+      "selectLeaveType": "Select leave type",
+      "reasonPlaceholder": "Briefly describe the reason for your leave…",
+      "calculatedDays": "Calculated days: {days}",
+      "submitRequest": "Submit request",
+      "submitting": "Submitting…"
+    },
+    "decision": {
+      "title": "Leave Decision",
+      "approve": "Approve",
+      "reject": "Reject",
+      "rejectionReason": "Rejection reason",
+      "rejectionReasonPlaceholder": "Provide a reason for rejecting this request…",
+      "submit": "Submit decision",
+      "submitting": "Submitting…"
+    },
+    "policy": {
+      "title": "Leave Policy",
+      "entitlementsTitle": "Leave Entitlements",
+      "daysPerYear": "Days per year",
+      "unlimited": "Unlimited",
+      "save": "Save policy",
+      "saving": "Saving…"
+    }
+  },
+
+  "cooperatives": {
+    "title": "Cooperatives",
+    "titleArchived": "Archived Cooperatives",
+    "description": "Manage and maintain the union's registered primary cooperatives.",
+    "descriptionArchived": "Archived cooperative branches. Use Restore to reactivate.",
+    "addCooperative": "Add Cooperative",
+    "viewArchived": "View archived",
+    "activeCooperatives": "← Active cooperatives",
+    "noCooperatives": "No cooperatives match your filters.",
+    "stats": {
+      "total": "Total Cooperatives",
+      "active": "Active",
+      "inactive": "Inactive",
+      "archived": "Archived"
+    },
+    "columns": {
+      "cooperative": "Cooperative",
+      "coopId": "COOP ID",
+      "districtLocation": "District / Location",
+      "members": "Members",
+      "capital": "Capital (ETB)",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "filters": {
+      "searchPlaceholder": "Search cooperatives…",
+      "allStatuses": "All statuses",
+      "districtPlaceholder": "District…",
+      "allTypes": "All types",
+      "typeAgricultural": "Agricultural",
+      "typeSavingsCredit": "Savings & Credit",
+      "typeConsumer": "Consumer",
+      "typeMarketing": "Marketing",
+      "typeService": "Service",
+      "typeMultiPurpose": "Multi-Purpose"
+    },
+    "confirmArchive": "Archive \"{name}\"? It will be hidden from the active list but all data is preserved.",
+    "confirmRestore": "Restore \"{name}\"? It will return to the active list.",
+    "form": {
+      "newTitle": "New Cooperative",
+      "editTitle": "Edit Cooperative",
+      "basicInfo": "Basic Information",
+      "registrationDetails": "Registration Details",
+      "addressInfo": "Address Information",
+      "contactInfo": "Contact Information",
+      "membershipInfo": "Membership",
+      "capitalInfo": "Capital",
+      "legalCertificate": "Legal Certificate",
+      "cooperativeId": "Cooperative ID",
+      "cooperativeName": "Cooperative name",
+      "cooperativeType": "Cooperative type",
+      "registrationNumber": "Registration number",
+      "registrationDate": "Registration date",
+      "dateJoinedUnion": "Date joined union",
+      "businessType": "Business type",
+      "registrationFee": "Registration fee (ETB)",
+      "numberOfShares": "Number of shares",
+      "pricePerShare": "Price per share (ETB)",
+      "district": "District (Aana)",
+      "kebele": "Kebele (Ganda)",
+      "location": "Location",
+      "contactPerson": "Contact person",
+      "contactEmail": "Contact email",
+      "contactPhone": "Contact phone",
+      "totalMembers": "Total members",
+      "maleMembers": "Male members",
+      "femaleMembers": "Female members",
+      "fixedAssets": "Fixed assets (ETB)",
+      "currentAssets": "Current assets (ETB)",
+      "isActive": "Active",
+      "uploadCertificate": "Upload certificate",
+      "certificateHint": "Upload the cooperative's legal registration certificate (PDF or image).",
+      "save": "Save cooperative",
+      "saving": "Saving…"
+    }
+  },
+
+  "departments": {
+    "title": "Departments",
+    "description": "Manage departments and their positions.",
+    "addDepartment": "Add Department",
+    "editDepartment": "Edit Department",
+    "noDepartments": "No departments yet.",
+    "columns": {
+      "department": "Department",
+      "positions": "Positions",
+      "employees": "Employees",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "form": {
+      "name": "Department name",
+      "description": "Description",
+      "isActive": "Active",
+      "save": "Save department",
+      "saving": "Saving…"
+    },
+    "positions": {
+      "title": "Positions",
+      "addPosition": "Add Position",
+      "editPosition": "Edit Position",
+      "positionName": "Position name",
+      "description": "Description",
+      "noPositions": "No positions in this department.",
+      "confirmDelete": "Delete this position? This cannot be undone if employees are assigned.",
+      "save": "Save position",
+      "saving": "Saving…"
+    }
+  },
+
+  "users": {
+    "title": "User Accounts",
+    "titleSuspended": "Suspended Accounts",
+    "description": "Manage system user accounts and access.",
+    "descriptionSuspended": "Accounts that have been suspended and cannot sign in.",
+    "newUser": "New User",
+    "noUsers": "No users found.",
+    "noSuspendedUsers": "No suspended accounts.",
+    "columns": {
+      "user": "User",
+      "username": "Username",
+      "role": "Role",
+      "status": "Status",
+      "linkedEmployee": "Linked Employee",
+      "created": "Created",
+      "actions": "Actions"
+    },
+    "filters": {
+      "searchPlaceholder": "Search name or username…",
+      "allRoles": "All roles"
+    },
+    "form": {
+      "name": "Full name",
+      "username": "Username",
+      "password": "Password",
+      "role": "Role",
+      "selectRole": "Select role",
+      "linkEmployee": "Link to employee",
+      "selectEmployee": "No employee linked",
+      "createAccount": "Create account",
+      "creating": "Creating…",
+      "saveChanges": "Save changes",
+      "saving": "Saving…"
+    },
+    "actions": {
+      "edit": "Edit",
+      "suspend": "Suspend",
+      "reactivate": "Reactivate",
+      "resetPassword": "Reset password",
+      "view": "View"
+    },
+    "confirmSuspend": "Suspend this account? The user will not be able to sign in.",
+    "confirmReactivate": "Reactivate this account? The user will be able to sign in again.",
+    "confirmResetPassword": "Reset this user's password? A temporary password will be generated."
+  },
+
+  "reports": {
+    "title": "Generate Report",
+    "historyTitle": "Report History",
+    "description": "Generate and export HR reports.",
+    "historyDescription": "Previously generated reports.",
+    "noReports": "No reports generated yet.",
+    "types": {
+      "EMPLOYEE_DIRECTORY": "Employee Directory",
+      "ATTENDANCE_SUMMARY": "Attendance Summary",
+      "COOPERATIVE_LISTING": "Cooperative Listing",
+      "HEADCOUNT": "Headcount",
+      "AUDIT_LOG": "Audit Log",
+      "LEAVE_SUMMARY": "Leave Summary"
+    },
+    "formats": {
+      "PDF": "PDF",
+      "CSV": "CSV"
+    },
+    "form": {
+      "reportType": "Report type",
+      "format": "Format",
+      "dateRange": "Date range",
+      "startDate": "Start date",
+      "endDate": "End date",
+      "department": "Department",
+      "allDepartments": "All departments",
+      "status": "Status",
+      "allStatuses": "All statuses",
+      "generate": "Generate report",
+      "generating": "Generating…",
+      "selectType": "Select report type",
+      "selectFormat": "Select format"
+    },
+    "columns": {
+      "title": "Title",
+      "type": "Type",
+      "format": "Format",
+      "generatedBy": "Generated by",
+      "generatedAt": "Generated at",
+      "actions": "Actions"
+    },
+    "download": "Download",
+    "downloadError": "Failed to generate download link."
+  },
+
+  "settings": {
+    "title": "Settings",
+    "organisationTitle": "Organisation Settings",
+    "organisationDescription": "Update your organisation's name, tagline, and logo.",
+    "backupTitle": "Backup & Restore",
+    "backupDescription": "Download a backup of your data.",
+    "securityTitle": "Security",
+    "securityDescription": "Security settings and audit information.",
+    "preferencesTitle": "Preferences",
+    "preferencesDescription": "System preferences and display options.",
+    "form": {
+      "orgName": "Organisation name",
+      "tagline": "Tagline",
+      "location": "Location",
+      "logo": "Logo",
+      "save": "Save settings",
+      "saving": "Saving…"
+    },
+    "backup": {
+      "createBackup": "Create backup",
+      "creatingBackup": "Creating backup…",
+      "description": "Download a full backup of all your HR data."
+    }
+  },
+
+  "audit": {
+    "title": "Audit Log",
+    "description": "A record of all actions performed in the system.",
+    "noLogs": "No audit logs found.",
+    "columns": {
+      "user": "User",
+      "action": "Action",
+      "entity": "Entity",
+      "entityId": "Entity ID",
+      "ipAddress": "IP Address",
+      "timestamp": "Timestamp",
+      "changes": "Changes"
+    },
+    "filters": {
+      "searchPlaceholder": "Search action or entity…",
+      "allActions": "All actions",
+      "allEntities": "All entities"
+    },
+    "system": "System",
+    "noChanges": "No changes recorded",
+    "before": "Before",
+    "after": "After"
+  },
+
+  "documents": {
+    "title": "My Documents",
+    "description": "Documents attached to your employee record.",
+    "noDocuments": "No documents found.",
+    "columns": {
+      "title": "Title",
+      "type": "Type",
+      "fileName": "File",
+      "fileSize": "Size",
+      "uploadedBy": "Uploaded by",
+      "uploadedOn": "Date",
+      "actions": "Actions"
+    },
+    "download": "Download",
+    "types": {
+      "CONTRACT": "Contract",
+      "ID_DOCUMENT": "ID Document",
+      "CERTIFICATE": "Certificate",
+      "RESUME": "Resume / CV",
+      "OTHER": "Other"
+    }
+  },
+
+  "profile": {
+    "title": "My Profile",
+    "description": "View and update your personal information.",
+    "personalInfo": "Personal Information",
+    "contactInfo": "Contact Information",
+    "employmentInfo": "Employment Information",
+    "accountInfo": "Account Information",
+    "changePassword": "Change Password",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "saveProfile": "Save profile",
+    "saving": "Saving…",
+    "changePasswordBtn": "Change password",
+    "changingPassword": "Changing password…"
+  },
+
+  "lifecycle": {
+    "title": "Employee Lifecycle",
+    "description": "Manage employee onboarding and offboarding processes.",
+    "onboarding": {
+      "title": "Onboarding",
+      "inProgress": "In Progress",
+      "completed": "Completed",
+      "startOnboarding": "Start Onboarding",
+      "completeOnboarding": "Complete Onboarding",
+      "completing": "Completing…",
+      "noOnboarding": "No active onboarding processes.",
+      "checklistTitle": "Onboarding Checklist",
+      "responsibleHr": "Responsible HR",
+      "startedAt": "Started",
+      "completedAt": "Completed",
+      "notes": "Notes"
+    },
+    "offboarding": {
+      "title": "Offboarding",
+      "inProgress": "In Progress",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "startOffboarding": "Start Offboarding",
+      "completeOffboarding": "Complete Offboarding",
+      "cancelOffboarding": "Cancel Offboarding",
+      "completing": "Completing…",
+      "cancelling": "Cancelling…",
+      "noOffboarding": "No active offboarding processes.",
+      "reason": "Reason",
+      "lastWorkingDate": "Last working date",
+      "startedAt": "Started",
+      "completedAt": "Completed",
+      "notes": "Notes",
+      "selectReason": "Select reason"
+    },
+    "offboardingReasons": {
+      "RESIGNATION": "Resignation",
+      "RETIREMENT": "Retirement",
+      "CONTRACT_END": "Contract End",
+      "TERMINATION": "Termination",
+      "OTHER": "Other"
+    }
+  },
+
+  "contracts": {
+    "title": "Contracts",
+    "addContract": "Add Contract",
+    "noContracts": "No contracts on record.",
+    "columns": {
+      "type": "Type",
+      "startDate": "Start Date",
+      "endDate": "End Date",
+      "status": "Status",
+      "remarks": "Remarks",
+      "actions": "Actions"
+    },
+    "statuses": {
+      "ACTIVE": "Active",
+      "EXPIRED": "Expired",
+      "TERMINATED": "Terminated",
+      "RENEWED": "Renewed"
+    },
+    "form": {
+      "contractType": "Contract type",
+      "startDate": "Start date",
+      "endDate": "End date",
+      "remarks": "Remarks",
+      "save": "Save contract",
+      "saving": "Saving…",
+      "selectType": "Select type"
+    },
+    "confirmTerminate": "Terminate this contract? This action cannot be undone."
+  },
+
+  "employmentHistory": {
+    "title": "Employment History",
+    "noHistory": "No employment history recorded.",
+    "recordChange": "Record Employment Change",
+    "columns": {
+      "effectiveDate": "Effective Date",
+      "department": "Department",
+      "position": "Position",
+      "type": "Type",
+      "reason": "Reason",
+      "endDate": "End Date"
+    },
+    "form": {
+      "department": "Department",
+      "position": "Position",
+      "employmentType": "Employment type",
+      "effectiveDate": "Effective date",
+      "changeReason": "Change reason",
+      "remarks": "Remarks",
+      "save": "Save change",
+      "saving": "Saving…",
+      "selectDepartment": "Select department",
+      "selectPosition": "Select position",
+      "selectType": "Select type",
+      "reasonPlaceholder": "Describe the reason for this change…"
+    },
+    "current": "Current",
+    "previous": "Previous"
+  },
+
+  "offline": {
+    "title": "You're offline",
+    "description": "Please check your internet connection and try again.",
+    "reload": "Reload"
+  },
+
+  "pagination": {
+    "showing": "Showing {from}–{to} of {total}",
+    "page": "Page {page} of {total}",
+    "previous": "Previous",
+    "next": "Next"
+  },
+
+  "errors": {
+    "generic": "Something went wrong. Please try again.",
+    "unauthorized": "You must be signed in.",
+    "forbidden": "You don't have permission to do that.",
+    "notFound": "The requested record was not found.",
+    "employees": {
+      "notFound": "Employee not found.",
+      "managerNotFound": "The selected manager does not exist.",
+      "managerArchived": "This manager is archived and cannot be assigned.",
+      "documentTitleRequired": "Give the document a title.",
+      "documentTitleTooLong": "Document title must be 200 characters or fewer.",
+      "cannotArchiveWithActiveOnboarding": "Cannot archive an employee with an active onboarding process.",
+      "cannotChangeFromThisForm": "Department, position, and employment type can't be changed from this form. Use \"Record employment change\"."
+    },
+    "users": {
+      "usernameTaken": "A user with this username already exists.",
+      "employeeAlreadyLinked": "This employee already has a login account.",
+      "cannotSuspendSelf": "You can't suspend your own account.",
+      "userNotFound": "User not found."
+    },
+    "leave": {
+      "notLinkedToEmployee": "Your account isn't linked to an employee record yet. Contact HR to have your account linked before requesting leave.",
+      "requestNotFound": "Leave request not found.",
+      "alreadyDecided": "This leave request has already been decided."
+    },
+    "cooperatives": {
+      "notFound": "Cooperative not found.",
+      "idTaken": "A cooperative with this ID already exists."
+    },
+    "departments": {
+      "notFound": "Department not found.",
+      "hasEmployees": "Cannot delete a department with active employees."
+    },
+    "attendance": {
+      "recordNotFound": "Attendance record not found.",
+      "duplicateRecord": "An attendance record already exists for this employee on this date."
+    },
+    "contracts": {
+      "notFound": "Contract not found."
+    },
+    "lifecycle": {
+      "onboardingNotFound": "Onboarding record not found.",
+      "offboardingNotFound": "Offboarding record not found.",
+      "alreadyOnboarding": "This employee already has an active onboarding process.",
+      "alreadyOffboarding": "This employee already has an active offboarding process."
+    },
+    "auth": {
+      "incorrectTempPassword": "The temporary password you entered is incorrect. Check it carefully, or sign out and ask your administrator to reset your password."
+    },
+    "settings": {
+      "saveFailed": "Failed to save settings."
+    },
+    "reports": {
+      "generationFailed": "Report generation failed. Please try again."
+    }
+  },
+
+  "validation": {
+    "required": "This field is required.",
+    "tooShort": "Must be at least {min} characters.",
+    "tooLong": "Must be at most {max} characters.",
+    "invalidFormat": "Invalid format.",
+    "invalidDate": "Invalid date.",
+    "invalidEmail": "Invalid email address.",
+    "invalidPhone": "Invalid phone number.",
+    "dateRangeInvalid": "Start date cannot be after end date.",
+    "passwordMismatch": "Passwords do not match.",
+    "passwordSameAsTemp": "Your new password must be different from the temporary one.",
+    "passwordTooWeak": "Password must be at least 8 characters.",
+    "usernameFormat": "Username may only contain letters, numbers, dots, hyphens, and underscores.",
+    "memberCountMismatch": "Male + female members must equal total members.",
+    "graduationYearFuture": "Graduation year cannot be in the future for a completed qualification.",
+    "selectValidOption": "Select a valid option."
+  },
+
+  "languageSwitcher": {
+    "label": "Language",
+    "english": "English",
+    "afaanOromoo": "Afaan Oromoo",
+    "switchTo": "Switch to {language}"
+  }
+}

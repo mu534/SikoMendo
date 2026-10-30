@@ -1,6 +1,7 @@
 import "server-only";
 import type { AuthSession } from "@/lib/auth";
 import { can, type Action } from "@/lib/permissions";
+import { LocalizedError } from "@/lib/errors";
 
 export type ActionResult<T> =
   | { success: true; data: T }
@@ -28,8 +29,10 @@ export async function withPermission<T>(
     return { success: true, data };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Something went wrong. Please try again.";
+    // Surface the LocalizedError code so client forms can translate it
+    const code = err instanceof LocalizedError ? err.code : "INTERNAL_ERROR";
     // Log the full error server-side so it appears in the terminal
     console.error("[withPermission] action failed:", err);
-    return { success: false, error: { message, code: "INTERNAL_ERROR" } };
+    return { success: false, error: { message, code } };
   }
 }

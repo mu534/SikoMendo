@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Sprout, X, ChevronDown } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { NAV_ITEMS, type NavGroup, type AnyNavItem } from "@/components/dashboard/nav-config";
 import { can } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
@@ -22,10 +23,9 @@ function CollapsibleGroup({
   pathname: string;
   onLinkClick: () => void;
 }) {
-  const groupActive = pathname.startsWith(group.activePrefix);
+  const t = useTranslations();
+  const groupActive = pathname.includes(group.activePrefix);
   const [open, setOpen] = useState(false);
-  // Always show the group expanded when the user is inside it; otherwise
-  // respect the manually toggled state. Derived here (no effect needed).
   const isOpen = groupActive || open;
 
   const visibleChildren = group.children.filter(
@@ -36,7 +36,6 @@ function CollapsibleGroup({
 
   return (
     <div>
-      {/* ── Parent toggle — same weight as top-level items ── */}
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -49,7 +48,7 @@ function CollapsibleGroup({
         aria-expanded={isOpen}
       >
         <group.icon className="h-[18px] w-[18px] shrink-0" />
-        <span className="flex-1 text-left">{group.label}</span>
+        <span className="flex-1 text-left">{t(group.labelKey)}</span>
         <ChevronDown
           className={cn(
             "h-3.5 w-3.5 shrink-0 text-brand-200/50 transition-transform duration-200",
@@ -58,13 +57,12 @@ function CollapsibleGroup({
         />
       </button>
 
-      {/* ── Children — visually subordinate ── */}
       {isOpen && (
         <div className="ml-3 mt-0.5 border-l border-brand-700/50 pl-3 space-y-0.5">
           {visibleChildren.map((child) => {
+            const hrefBase = child.href.split("?")[0];
             const active =
-              pathname === child.href.split("?")[0] &&
-              !child.href.includes("?");
+              pathname === hrefBase && !child.href.includes("?");
 
             return (
               <Link
@@ -79,7 +77,7 @@ function CollapsibleGroup({
                 )}
               >
                 <child.icon className="h-3.5 w-3.5 shrink-0 opacity-70" />
-                {child.label}
+                {t(child.labelKey)}
               </Link>
             );
           })}
@@ -102,13 +100,14 @@ export function Sidebar({
   onClose: () => void;
   org: OrgBranding;
 }) {
+  const t = useTranslations();
   const pathname = usePathname();
 
   return (
     <>
       {mobileOpen && (
         <button
-          aria-label="Close navigation"
+          aria-label={t("common.closeNavigation")}
           onClick={onClose}
           className="fixed inset-0 z-30 bg-ink-900/40 lg:hidden"
         />
@@ -145,7 +144,7 @@ export function Sidebar({
           <button
             onClick={onClose}
             className="text-brand-200/70 hover:text-white lg:hidden"
-            aria-label="Close menu"
+            aria-label={t("common.closeMenu")}
           >
             <X className="h-5 w-5" />
           </button>
@@ -154,12 +153,11 @@ export function Sidebar({
         {/* Navigation */}
         <nav className="flex-1 space-y-1 overflow-y-auto px-4 py-2">
           {NAV_ITEMS.map((item: AnyNavItem) => {
-            // ── Group ──────────────────────────────────────────────────────
             if (item.kind === "group") {
               if (item.requires && !can(role, item.requires)) return null;
               return (
                 <CollapsibleGroup
-                  key={item.label}
+                  key={item.labelKey}
                   group={item}
                   role={role}
                   pathname={pathname}
@@ -168,10 +166,9 @@ export function Sidebar({
               );
             }
 
-            // ── Flat item ──────────────────────────────────────────────────
             if (item.requires && !can(role, item.requires)) return null;
             const active =
-              pathname === item.href || pathname.startsWith(`${item.href}/`);
+              pathname === item.href || pathname.includes(`${item.href}/`);
             const Icon = item.icon;
             return (
               <Link
@@ -186,7 +183,7 @@ export function Sidebar({
                 )}
               >
                 <Icon className="h-[18px] w-[18px]" />
-                {item.label}
+                {t(item.labelKey)}
               </Link>
             );
           })}

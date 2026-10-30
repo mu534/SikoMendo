@@ -3,9 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Menu, LogOut, ChevronDown, Bell } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { authClient } from "@/lib/auth-client";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { roleLabel } from "@/lib/permissions";
 import { markNotificationRead, markAllNotificationsRead } from "@/features/notifications/actions";
 import { formatDateTime } from "@/lib/utils";
@@ -30,6 +32,7 @@ export function Header({
   notifications: { items: NotificationItem[]; unreadCount: number };
   onMenuClick: () => void;
 }) {
+  const t = useTranslations();
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -65,7 +68,7 @@ export function Header({
         <button
           onClick={onMenuClick}
           className="rounded-lg p-2 text-ink-900/60 hover:bg-sand-100 lg:hidden"
-          aria-label="Open navigation"
+          aria-label={t("common.openNavigation")}
         >
           <Menu className="h-5 w-5" />
         </button>
@@ -73,11 +76,12 @@ export function Header({
       </div>
 
       <div className="flex items-center gap-1.5">
+        {/* ── Notifications ─────────────────────────────────────── */}
         <div className="relative">
           <button
             onClick={() => setNotifOpen((open) => !open)}
             className="relative rounded-lg p-2 text-ink-900/60 hover:bg-sand-100"
-            aria-label="Notifications"
+            aria-label={t("notifications.title")}
           >
             <Bell className="h-5 w-5" />
             {notifications.unreadCount > 0 && (
@@ -89,23 +93,31 @@ export function Header({
 
           {notifOpen && (
             <>
-              <button aria-label="Close notifications" className="fixed inset-0 z-10" onClick={() => setNotifOpen(false)} />
+              <button
+                aria-label={t("common.closeNotifications")}
+                className="fixed inset-0 z-10"
+                onClick={() => setNotifOpen(false)}
+              />
               <div className="absolute right-0 z-20 mt-2 w-80 rounded-xl border border-ink-900/8 bg-white py-2 shadow-lg shadow-ink-900/5">
                 <div className="flex items-center justify-between border-b border-ink-900/8 px-3.5 pb-2.5">
-                  <p className="text-sm font-medium text-ink-900">Notifications</p>
+                  <p className="text-sm font-medium text-ink-900">
+                    {t("notifications.title")}
+                  </p>
                   {notifications.unreadCount > 0 && (
                     <button
                       onClick={handleMarkAllRead}
                       disabled={isPending}
                       className="text-xs font-medium text-brand-700 hover:underline"
                     >
-                      Mark all read
+                      {t("notifications.markAllRead")}
                     </button>
                   )}
                 </div>
                 <div className="max-h-80 overflow-y-auto">
                   {notifications.items.length === 0 ? (
-                    <p className="px-3.5 py-6 text-center text-sm text-ink-900/40">No notifications yet.</p>
+                    <p className="px-3.5 py-6 text-center text-sm text-ink-900/40">
+                      {t("notifications.empty")}
+                    </p>
                   ) : (
                     notifications.items.map((n) => (
                       <button
@@ -125,49 +137,53 @@ export function Header({
           )}
         </div>
 
-        <div className="relative">
-        <button
-          onClick={() => setMenuOpen((open) => !open)}
-          className="flex items-center gap-2.5 rounded-lg py-1.5 pl-1.5 pr-2.5 hover:bg-sand-100"
-        >
-          <Avatar name={user.name} imageUrl={user.image} size="sm" />
-          <span className="hidden text-left sm:block">
-            <span className="block text-sm font-medium text-ink-900">{user.name}</span>
-            <span className="block text-xs text-ink-900/50">{roleLabel(user.role)}</span>
-          </span>
-          <ChevronDown className="h-4 w-4 text-ink-900/40" />
-        </button>
+        {/* ── Language switcher ──────────────────────────────────── */}
+        <LanguageSwitcher compact={true} />
 
-        {menuOpen && (
-          <>
-            <button
-              aria-label="Close menu"
-              className="fixed inset-0 z-10"
-              onClick={() => setMenuOpen(false)}
-            />
-            <div className="absolute right-0 z-20 mt-2 w-56 rounded-xl border border-ink-900/8 bg-white py-2 shadow-lg shadow-ink-900/5">
-              <div className="border-b border-ink-900/8 px-3.5 pb-2.5">
-                <p className="truncate text-sm font-medium text-ink-900">{user.name}</p>
-                <p className="truncate text-xs text-ink-900/50">{user.email}</p>
-                <Badge tone="brand" className="mt-2">
-                  {roleLabel(user.role)}
-                </Badge>
-              </div>
-              <a href="/profile" className="block px-3.5 py-2 text-sm text-ink-900/80 hover:bg-sand-100">
-                My profile
-              </a>
+        {/* ── User menu ─────────────────────────────────────────── */}
+        <div className="relative">
+          <button
+            onClick={() => setMenuOpen((open) => !open)}
+            className="flex items-center gap-2.5 rounded-lg py-1.5 pl-1.5 pr-2.5 hover:bg-sand-100"
+          >
+            <Avatar name={user.name} imageUrl={user.image} size="sm" />
+            <span className="hidden text-left sm:block">
+              <span className="block text-sm font-medium text-ink-900">{user.name}</span>
+              <span className="block text-xs text-ink-900/50">{roleLabel(user.role)}</span>
+            </span>
+            <ChevronDown className="h-4 w-4 text-ink-900/40" />
+          </button>
+
+          {menuOpen && (
+            <>
               <button
-                onClick={handleSignOut}
-                disabled={isPending}
-                className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-sm text-red-600 hover:bg-red-50"
-              >
-                <LogOut className="h-4 w-4" />
-                {isPending ? "Signing out…" : "Sign out"}
-              </button>
-            </div>
-          </>
-        )}
-      </div>
+                aria-label={t("common.closeMenu")}
+                className="fixed inset-0 z-10"
+                onClick={() => setMenuOpen(false)}
+              />
+              <div className="absolute right-0 z-20 mt-2 w-56 rounded-xl border border-ink-900/8 bg-white py-2 shadow-lg shadow-ink-900/5">
+                <div className="border-b border-ink-900/8 px-3.5 pb-2.5">
+                  <p className="truncate text-sm font-medium text-ink-900">{user.name}</p>
+                  <p className="truncate text-xs text-ink-900/50">{user.email}</p>
+                  <Badge tone="brand" className="mt-2">
+                    {roleLabel(user.role)}
+                  </Badge>
+                </div>
+                <a href="/profile" className="block px-3.5 py-2 text-sm text-ink-900/80 hover:bg-sand-100">
+                  {t("common.myProfile")}
+                </a>
+                <button
+                  onClick={handleSignOut}
+                  disabled={isPending}
+                  className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                >
+                  <LogOut className="h-4 w-4" />
+                  {isPending ? t("common.signingOut") : t("common.signOut")}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </header>
   );

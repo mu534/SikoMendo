@@ -2,33 +2,76 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 
-// Public routes that never require a session. Everything else under the
-// matcher below is treated as protected by default — safer than maintaining
-// a deny-list that someone forgets to update when a new page is added.
+// ── Locale configuration ──────────────────────────────────────────────────────
+
+const LOCALES = ["en", "om"] as const;
+type Locale = (typeof LOCALES)[number];
+const DEFAULT_LOCALE: Locale = "en";
+const LOCALE_COOKIE = "NEXT_LOCALE";
+
+function isValidLocale(val: string | undefined): val is Locale {
+  return LOCALES.includes(val as Locale);
+}
+
+/** Detect locale from cookie, falling back to the default. */
+function getLocaleFromRequest(request: NextRequest): Locale {
+  const cookieVal = request.cookies.get(LOCALE_COOKIE)?.value;
+  return isValidLocale(cookieVal) ? cookieVal : DEFAULT_LOCALE;
+}
+
+// ── Public routes (without locale prefix) ─────────────────────────────────────
+// These paths never require a session. Everything else is protected.
 //
-// /force-password-change is included here so the proxy never redirects it
-// to /sign-in with a redirectTo param. The page itself has a server-side
-// session guard that handles unauthenticated visitors (→ /sign-in) and
-// users whose flag is already cleared (→ /dashboard).
-const PUBLIC_PATHS = new Set(["/", "/sign-in", "/offline", "/force-password-change"]);
+// /force-password-change is here so the proxy never redirect-loops it to
+// /sign-in — the page itself has a session guard.
+const PUBLIC_PATHS = new Set([
+  "/",
+  "/sign-in",
+  "/offline",
+  "/force-password-change",
+]);
+
+// ── Proxy ─────────────────────────────────────────────────────────────────────
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (PUBLIC_PATHS.has(pathname)) {
+  // ── Step 1: Detect whether the path already has a valid locale prefix ──────
+  const pathnameLocale = LOCALES.find(
+    (l) => pathname.startsWith(`/${l}/`) || pathname === `/${l}`
+  );
+
+  if (!pathnameLocale) {
+    // No locale prefix — redirect to the locale-prefixed equivalent.
+    // Detect locale from cookie, defaulting to "en".
+    const locale = getLocaleFromRequest(request);
+    const newUrl = request.nextUrl.clone();
+    newUrl.pathname = `/${locale}${pathname}`;
+    return NextResponse.redirect(newUrl);
+  }
+
+  // ── Step 2: Strip the locale prefix to get the bare path ──────────────────
+  const pathWithoutLocale =
+    pathname === `/${pathnameLocale}`
+      ? "/"
+      : pathname.slice(`/${pathnameLocale}`.length);
+
+  // ── Step 3: Allow public paths through without session check ──────────────
+  if (PUBLIC_PATHS.has(pathWithoutLocale)) {
     return NextResponse.next();
   }
 
-  // Optimistic check only: confirms a session cookie exists, not that it's
-  // still valid or what role it belongs to. Real authentication and
-  // role-based authorization happen server-side in lib/session.ts, inside
-  // each layout/page/Server Action — see the Data Security guidance this
-  // mirrors: https://nextjs.org/docs/app/guides/data-security
+  // ── Step 4: Session check ─────────────────────────────────────────────────
+  // Optimistic cookie check only — real auth happens server-side in each
+  // layout/page/Server Action (see lib/session.ts).
   const sessionCookie = getSessionCookie(request);
 
   if (!sessionCookie) {
-    const signInUrl = new URL("/sign-in", request.url);
-    signInUrl.searchParams.set("redirectTo", pathname);
+    const signInUrl = new URL(
+      `/${pathnameLocale}/sign-in`,
+      request.url
+    );
+    signInUrl.searchParams.set("redirectTo", pathWithoutLocale);
     return NextResponse.redirect(signInUrl);
   }
 
