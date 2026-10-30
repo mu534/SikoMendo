@@ -34,8 +34,8 @@ describe("resolveViewerCapability", () => {
     expect(resolveViewerCapability("HR_OFFICER")).toBe("FULL");
   });
 
-  it("MANAGER returns SCOPED", () => {
-    expect(resolveViewerCapability("MANAGER")).toBe("SCOPED");
+  it("MANAGER returns FULL (General Manager has org-wide access)", () => {
+    expect(resolveViewerCapability("MANAGER")).toBe("FULL");
   });
 
   it("EMPLOYEE returns NONE", () => {
