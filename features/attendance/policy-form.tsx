@@ -19,6 +19,7 @@ const WEEKDAYS = [
 type PolicyRow = {
   workStartTime: string;
   workEndTime: string;
+  absenceDetectionTime: string;
   gracePeriodMinutes: number;
   halfDayThresholdMinutes: number | null;
   workingDays: string; // JSON array string e.g. "[1,2,3,4,5]"
@@ -93,6 +94,24 @@ export function AttendancePolicyForm({ policy }: { policy: PolicyRow }) {
           </p>
         </FieldGroup>
       </div>
+
+      {/* Absence detection time */}
+      <FieldGroup>
+        <Label htmlFor="absenceDetectionTime">Absence detection time</Label>
+        <Input
+          id="absenceDetectionTime"
+          name="absenceDetectionTime"
+          type="time"
+          defaultValue={policy?.absenceDetectionTime ?? "10:00"}
+          required
+          className="w-36"
+        />
+        <p className="mt-1 text-xs text-ink-900/45">
+          Time (EAT) at which the system automatically marks employees with no
+          check-in as <strong>Absent</strong>. Must be after the work start time.
+          A final confirmation runs at the end of shift.
+        </p>
+      </FieldGroup>
 
       {/* Grace period */}
       <FieldGroup>

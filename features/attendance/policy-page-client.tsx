@@ -32,6 +32,7 @@ function fmtTime(hhmm: string): string {
 type PolicyRow = {
   workStartTime: string;
   workEndTime: string;
+  absenceDetectionTime: string;
   gracePeriodMinutes: number;
   halfDayThresholdMinutes: number | null;
   workingDays: string;

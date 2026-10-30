@@ -18,6 +18,10 @@ const policySchema = z.object({
     .string()
     .regex(/^\d{2}:\d{2}$/, "Work end time must be in HH:MM format (e.g. 17:00)"),
 
+  absenceDetectionTime: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/, "Absence detection time must be in HH:MM format (e.g. 10:00)"),
+
   gracePeriodMinutes: z
     .number({ error: "Grace period must be a number" })
     .int("Grace period must be a whole number")
@@ -47,12 +51,24 @@ const policySchema = z.object({
       message: "Work end time must be after work start time",
     });
   }
+
+  // Absence detection time must be after work start time
+  const detectionMins = parseTimeToMinutes(data.absenceDetectionTime);
+  if (detectionMins <= startMins) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["absenceDetectionTime"],
+      message: "Absence detection time must be after work start time",
+    });
+  }
 });
 
 function extractPolicyFromFormData(formData: FormData) {
   const raw = {
     workStartTime: String(formData.get("workStartTime") ?? "").trim(),
     workEndTime:   String(formData.get("workEndTime") ?? "").trim(),
+    absenceDetectionTime:
+      String(formData.get("absenceDetectionTime") ?? "").trim() || "10:00",
     gracePeriodMinutes: Number(formData.get("gracePeriodMinutes")),
     halfDayThresholdMinutes:
       formData.get("halfDayThresholdMinutes") &&
@@ -87,7 +103,7 @@ export async function upsertAttendancePolicy(
       throw new Error(parsed.error.issues[0]?.message ?? "Invalid policy values.");
     }
 
-    const { workStartTime, workEndTime, gracePeriodMinutes, halfDayThresholdMinutes, workingDays } =
+    const { workStartTime, workEndTime, absenceDetectionTime, gracePeriodMinutes, halfDayThresholdMinutes, workingDays } =
       parsed.data;
 
     const row = await prisma.attendancePolicy.upsert({
@@ -96,6 +112,7 @@ export async function upsertAttendancePolicy(
         id: "singleton",
         workStartTime,
         workEndTime,
+        absenceDetectionTime,
         gracePeriodMinutes,
         halfDayThresholdMinutes,
         workingDays: JSON.stringify(workingDays),
@@ -104,6 +121,7 @@ export async function upsertAttendancePolicy(
       update: {
         workStartTime,
         workEndTime,
+        absenceDetectionTime,
         gracePeriodMinutes,
         halfDayThresholdMinutes,
         workingDays: JSON.stringify(workingDays),
@@ -120,6 +138,7 @@ export async function upsertAttendancePolicy(
         changes: {
           workStartTime,
           workEndTime,
+          absenceDetectionTime,
           gracePeriodMinutes,
           halfDayThresholdMinutes,
           workingDays,

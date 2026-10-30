@@ -19,6 +19,7 @@ const WEEKDAYS = [
 type PolicyRow = {
   workStartTime: string;
   workEndTime: string;
+  absenceDetectionTime: string;
   gracePeriodMinutes: number;
   halfDayThresholdMinutes: number | null;
   workingDays: string;
@@ -99,6 +100,24 @@ export function AttendanceRulesForm({
       {/* Hidden: keep workStartTime/workEndTime so the existing action still works */}
       <input type="hidden" name="workStartTime" value={policy?.workStartTime ?? "08:00"} />
       <input type="hidden" name="workEndTime"   value={policy?.workEndTime   ?? "17:00"} />
+
+      {/* Absence detection time */}
+      <FieldGroup>
+        <Label htmlFor="absenceDetectionTime">Absence detection time</Label>
+        <Input
+          id="absenceDetectionTime"
+          name="absenceDetectionTime"
+          type="time"
+          defaultValue={policy?.absenceDetectionTime ?? "10:00"}
+          required
+          className="w-36"
+        />
+        <p className="mt-1 text-xs text-ink-900/45">
+          Time (EAT) at which the system automatically marks employees with no
+          check-in as <strong>Absent</strong>. Must be after the work start time.
+          A final confirmation runs at the end of shift.
+        </p>
+      </FieldGroup>
 
       {/* Grace period */}
       <FieldGroup>
