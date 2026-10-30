@@ -176,6 +176,7 @@ model User {
   offboardingsCancelled   OffboardingRecord[] @relation("OffboardingCancelledBy")
   attendancePolicyUpdates AttendancePolicy[]  @relation("PolicyUpdatedBy")
   shiftsCreated           WorkShift[]         @relation("ShiftCreatedBy")
+  attendanceCorrections   Attendance[]        @relation("AttendanceCorrectedBy")
 
   @@map("user")
 }
@@ -461,6 +462,12 @@ model Attendance {
   status   AttendanceStatus @default(PRESENT)
   notes    String?
 
+  // Absence automation fields
+  autoRecorded   Boolean @default(false)
+  correctedById  String?
+  correctedBy    User?   @relation("AttendanceCorrectedBy", fields: [correctedById], references: [id], onDelete: SetNull)
+  correctionNote String?
+
   // Relations
   employeeId   String
   employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
@@ -476,6 +483,7 @@ model Attendance {
   @@index([date])
   @@index([employeeId])
   @@index([recordedById])
+  @@index([correctedById])
   @@map("attendance")
 }
 
@@ -625,6 +633,8 @@ enum NotificationType {
   OFFBOARDING_COMPLETED
   CONTRACT_EXPIRING
   DOCUMENT_MISSING
+  // Absence automation
+  ABSENCE_DETECTED
 }
 
 model Notification {
@@ -691,6 +701,10 @@ model AttendancePolicy {
   /// Working days as a JSON array of ISO weekday numbers 1=Mon…7=Sun.
   /// Stored as a plain string to avoid a Json column. Default: Mon–Fri.
   workingDays String @default("[1,2,3,4,5]")
+
+  /// Time (HH:MM, org-local EAT) at which the absence-detection job fires.
+  /// Employees with no check-in by this time are flagged as potentially absent.
+  absenceDetectionTime String @default("10:00")
 
   isActive Boolean @default(true)
 
