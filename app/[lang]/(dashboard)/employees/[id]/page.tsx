@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
+import { getTranslations } from "next-intl/server";
 import {
   ArrowLeft,
   Pencil,
@@ -60,24 +61,7 @@ const STATUS_TONE = {
   TERMINATED:  "danger",
 } as const;
 
-const STATUS_LABEL: Record<string, string> = {
-  ACTIVE:      "Active",
-  ON_LEAVE:    "On Leave",
-  ONBOARDING:  "Onboarding",
-  RESIGNED:    "Resigned",
-  RETIRED:     "Retired",
-  INACTIVE:    "Inactive",
-  SUSPENDED:   "Suspended",
-  TERMINATED:  "Terminated",
-};
 
-const EMPLOYMENT_TYPE_LABEL: Record<string, string> = {
-  PERMANENT:  "Permanent",
-  CONTRACT:   "Contract",
-  TEMPORARY:  "Temporary",
-  PROBATION:  "Probation",
-  INTERNSHIP: "Internship",
-};
 
 function yearsOfService(hireDate: Date | null): string | null {
   if (!hireDate) return null;
@@ -106,6 +90,8 @@ export default async function EmployeeDetailPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const session = await requirePermission("VIEW_EMPLOYEES");
+  const t = await getTranslations("employees");
+  const tC = await getTranslations("common");
   const { id } = await params;
   const sp = await searchParams;
   const rawTab = typeof sp.tab === "string" ? sp.tab : "overview";
@@ -263,7 +249,7 @@ export default async function EmployeeDetailPage({
           className="flex items-center gap-1.5 text-sm text-ink-900/50 hover:text-ink-900 transition-colors"
         >
           <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-          Employees
+          {t("title")}
         </Link>
         <span className="text-ink-900/25">/</span>
         <span className="text-sm text-ink-900/70 truncate max-w-[200px]">{fullName}</span>
@@ -292,7 +278,7 @@ export default async function EmployeeDetailPage({
                     {fullName}
                   </h1>
                   <Badge tone={statusTone}>
-                    {STATUS_LABEL[employee.employmentStatus] ?? employee.employmentStatus}
+                    {t(`statuses.${employee.employmentStatus}`)}
                   </Badge>
                   {employee.deletedAt && (
                     <Badge tone="danger">Archived</Badge>
@@ -304,14 +290,14 @@ export default async function EmployeeDetailPage({
 
                 {/* Position · Department */}
                 <p className="mt-1 text-sm text-ink-900/60">
-                  {employee.position?.name ?? "No position"}
+                  {employee.position?.name ?? tC("noPosition")}
                   {employee.department?.name ? ` · ${employee.department.name}` : ""}
                 </p>
 
                 {/* Manager */}
                 {employee.manager && (
                   <p className="mt-0.5 text-sm text-ink-900/50">
-                    Reports to{" "}
+                    {t("overview.manager")}{" "}
                     <Link
                       href={`/employees/${employee.manager.id}`}
                       className="font-medium text-brand-700 hover:underline"
@@ -332,7 +318,7 @@ export default async function EmployeeDetailPage({
                   {employee.employmentType && (
                     <span className="flex items-center gap-1 text-xs text-ink-900/45">
                       <UserCircle2 className="h-3 w-3" aria-hidden="true" />
-                      {EMPLOYMENT_TYPE_LABEL[employee.employmentType] ?? employee.employmentType}
+                      {t(`types.${employee.employmentType}`)}
                     </span>
                   )}
                   {tenure && (
@@ -354,7 +340,7 @@ export default async function EmployeeDetailPage({
                   size="sm"
                 >
                   <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-                  Edit
+                  {tC("edit")}
                 </ButtonLink>
                 {canManageHistory && (
                   <ButtonLink

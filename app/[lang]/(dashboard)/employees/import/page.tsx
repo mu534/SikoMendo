@@ -2,9 +2,12 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { requirePermission } from "@/lib/session";
 import { BulkImportForm } from "@/features/employees/bulk-import-form";
+import { getTranslations } from "next-intl/server";
 
 export default async function ImportEmployeesPage() {
   await requirePermission("MANAGE_EMPLOYEES");
+
+  const t = await getTranslations("employees");
 
   return (
     <div className="space-y-6">
@@ -13,7 +16,7 @@ export default async function ImportEmployeesPage() {
           <ArrowLeft className="h-4 w-4" />
           Back to employees
         </Link>
-        <h2 className="font-display text-xl font-semibold text-ink-900">Import Employees</h2>
+        <h2 className="font-display text-xl font-semibold text-ink-900">{t("import.title")}</h2>
         <p className="mt-1 text-sm text-ink-900/60">
           Upload a CSV file to validate and preview employee data before importing. Download the
           template to see the expected columns — the <code>department</code> and{" "}

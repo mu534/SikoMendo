@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import {
   UserPlus,
   LogOut,
@@ -37,6 +38,9 @@ function daysUntil(date: Date): number {
 export default async function LifecycleDashboardPage() {
   await requirePermission("VIEW_LIFECYCLE");
 
+  const t = await getTranslations("lifecycle");
+  const tC = await getTranslations("common");
+
   const [
     counts,
     onboardingEmployees,
@@ -71,10 +75,10 @@ export default async function LifecycleDashboardPage() {
         </div>
         <div>
           <h2 className="font-display text-xl font-semibold text-ink-900">
-            Employee Lifecycle
+            {t("title")}
           </h2>
           <p className="mt-0.5 text-sm text-ink-900/55">
-            Actionable overview of onboarding, employment changes, and offboarding activity.
+            {t("description")}
           </p>
         </div>
       </div>
@@ -120,14 +124,14 @@ export default async function LifecycleDashboardPage() {
                 href="/employees?status=ONBOARDING"
                 className="text-xs font-medium text-brand-700 hover:underline"
               >
-                View all
+                {tC("viewAll")}
               </Link>
             }
           />
           {onboardingEmployees.length === 0 ? (
             <EmptyState
               icon={<UserPlus className="h-7 w-7" />}
-              title="No employees onboarding"
+              title={t("onboarding.noOnboarding")}
               description="New employees will appear here when created."
             />
           ) : (
@@ -177,7 +181,7 @@ export default async function LifecycleDashboardPage() {
           {offboardingEmployees.length === 0 ? (
             <EmptyState
               icon={<LogOut className="h-7 w-7" />}
-              title="No pending offboardings"
+              title={t("offboarding.noOffboarding")}
               description="Employees undergoing offboarding will appear here."
             />
           ) : (

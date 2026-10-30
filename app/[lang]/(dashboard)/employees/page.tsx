@@ -19,6 +19,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Table, THead, TH, TBody, TR, TD, EmptyRow } from "@/components/ui/table";
 import { Pagination } from "@/components/ui/pagination";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
+import { getTranslations } from "next-intl/server";
 
 type EmployeeRow = Awaited<ReturnType<typeof listEmployees>>["items"][number];
 
@@ -33,25 +34,6 @@ const STATUS_TONE = {
   TERMINATED:  "danger",
 } as const;
 
-const STATUS_LABEL: Record<string, string> = {
-  ACTIVE:      "Active",
-  ON_LEAVE:    "On Leave",
-  ONBOARDING:  "Onboarding",
-  RESIGNED:    "Resigned",
-  RETIRED:     "Retired",
-  INACTIVE:    "Inactive",
-  SUSPENDED:   "Suspended",
-  TERMINATED:  "Terminated",
-};
-
-const EMPLOYMENT_TYPE_LABEL: Record<string, string> = {
-  PERMANENT:   "Permanent",
-  CONTRACT:    "Contract",
-  TEMPORARY:   "Temporary",
-  PROBATION:   "Probation",
-  INTERNSHIP:  "Internship",
-};
-
 export default async function EmployeesPage({
   searchParams,
 }: {
@@ -59,6 +41,9 @@ export default async function EmployeesPage({
 }) {
   const session = await requirePermission("VIEW_EMPLOYEES");
   const canManage = can(session.user.role, "MANAGE_EMPLOYEES");
+
+  const t = await getTranslations("employees");
+  const tC = await getTranslations("common");
 
   const params = await searchParams;
   const q              = parseStringParam(params.q);
@@ -94,12 +79,12 @@ export default async function EmployeesPage({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="font-display text-xl font-semibold text-ink-900">
-            {showArchived ? "Archived Employees" : "Employees"}
+            {showArchived ? t("titleArchived") : t("title")}
           </h2>
           <p className="mt-1 text-sm text-ink-900/55">
             {showArchived
-              ? "Archived employee records. Restore to make them active again."
-              : "Manage employee records and employment lifecycle."}
+              ? t("descriptionArchived")
+              : t("description")}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -109,18 +94,18 @@ export default async function EmployeesPage({
               variant="outline"
               size="sm"
             >
-              View archived
+              {t("viewArchived")}
             </ButtonLink>
           )}
           {showArchived && (
             <ButtonLink href="/employees" variant="outline" size="sm">
-              ← Active employees
+              {t("activeEmployees")}
             </ButtonLink>
           )}
           {canManage && !showArchived && (
             <ButtonLink href="/employees/new" variant="primary" size="sm">
               <UserPlus className="h-4 w-4" />
-              New Employee
+              {t("newEmployee")}
             </ButtonLink>
           )}
         </div>
@@ -130,23 +115,23 @@ export default async function EmployeesPage({
       {counts && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <StatCard
-            label="Total Employees"
+            label={t("stats.total")}
             value={counts.total}
             icon={<Users className="h-5 w-5" />}
           />
           <StatCard
-            label="Active"
+            label={t("stats.active")}
             value={counts.active}
             icon={<Activity className="h-5 w-5" />}
           />
           <StatCard
-            label="Onboarding"
+            label={t("stats.onboarding")}
             value={counts.onboarding}
-            hint="In pre-boarding checklist"
+            hint={t("inPreboardingChecklist")}
             icon={<UserPlus className="h-5 w-5" />}
           />
           <StatCard
-            label="On Leave"
+            label={t("stats.onLeave")}
             value={counts.onLeave}
             icon={<Clock className="h-5 w-5" />}
           />
@@ -167,7 +152,7 @@ export default async function EmployeesPage({
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-900/35" />
             <Input
               name="q"
-              placeholder="Search by name, ID, department…"
+              placeholder={t("filters.searchPlaceholder")}
               defaultValue={q}
               className="pl-9"
             />
@@ -176,7 +161,7 @@ export default async function EmployeesPage({
           {/* Department */}
           <div className="w-44 shrink-0">
             <Select name="department" defaultValue={departmentId}>
-              <option value="">All departments</option>
+              <option value="">{t("filters.allDepartments")}</option>
               {departments.map((dept) => (
                 <option key={dept.id} value={dept.id}>{dept.name}</option>
               ))}
@@ -186,27 +171,27 @@ export default async function EmployeesPage({
           {/* Status */}
           <div className="w-36 shrink-0">
             <Select name="status" defaultValue={status}>
-              <option value="">All statuses</option>
-              <option value="ACTIVE">Active</option>
-              <option value="ONBOARDING">Onboarding</option>
-              <option value="ON_LEAVE">On Leave</option>
-              <option value="SUSPENDED">Suspended</option>
-              <option value="RESIGNED">Resigned</option>
-              <option value="RETIRED">Retired</option>
-              <option value="TERMINATED">Terminated</option>
-              <option value="INACTIVE">Inactive</option>
+              <option value="">{t("filters.allStatuses")}</option>
+              <option value="ACTIVE">{t("statuses.ACTIVE")}</option>
+              <option value="ONBOARDING">{t("statuses.ONBOARDING")}</option>
+              <option value="ON_LEAVE">{t("statuses.ON_LEAVE")}</option>
+              <option value="SUSPENDED">{t("statuses.SUSPENDED")}</option>
+              <option value="RESIGNED">{t("statuses.RESIGNED")}</option>
+              <option value="RETIRED">{t("statuses.RETIRED")}</option>
+              <option value="TERMINATED">{t("statuses.TERMINATED")}</option>
+              <option value="INACTIVE">{t("statuses.INACTIVE")}</option>
             </Select>
           </div>
 
           {/* Employment type */}
           <div className="w-36 shrink-0">
             <Select name="employmentType" defaultValue={employmentType}>
-              <option value="">All types</option>
-              <option value="PERMANENT">Permanent</option>
-              <option value="CONTRACT">Contract</option>
-              <option value="TEMPORARY">Temporary</option>
-              <option value="PROBATION">Probation</option>
-              <option value="INTERNSHIP">Internship</option>
+              <option value="">{t("filters.allTypes")}</option>
+              <option value="PERMANENT">{t("types.PERMANENT")}</option>
+              <option value="CONTRACT">{t("types.CONTRACT")}</option>
+              <option value="TEMPORARY">{t("types.TEMPORARY")}</option>
+              <option value="PROBATION">{t("types.PROBATION")}</option>
+              <option value="INTERNSHIP">{t("types.INTERNSHIP")}</option>
             </Select>
           </div>
 
@@ -214,7 +199,7 @@ export default async function EmployeesPage({
           {showArchived && <input type="hidden" name="archived" value="1" />}
 
           <Button type="submit" variant="secondary" size="sm" className="shrink-0">
-            Filter
+            {tC("filter")}
           </Button>
 
           {/* Clear link — only show when filters are active */}
@@ -225,7 +210,7 @@ export default async function EmployeesPage({
               size="sm"
               className="shrink-0 text-ink-900/45"
             >
-              Clear
+              {tC("clear")}
             </ButtonLink>
           )}
         </form>
@@ -234,8 +219,8 @@ export default async function EmployeesPage({
         {total > 0 && (
           <div className="border-b border-ink-900/6 px-6 py-2.5">
             <p className="text-xs text-ink-900/45">
-              {total === 1 ? "1 employee" : `${total} employees`}
-              {(q || status || departmentId || employmentType) && " matching filters"}
+              {t("count", { count: total })}
+              {(q || status || departmentId || employmentType) && ` ${tC("matchingFilters")}`}
             </p>
           </div>
         )}
@@ -243,13 +228,13 @@ export default async function EmployeesPage({
         {/* Table */}
         <Table>
           <THead>
-            <TH>Employee</TH>
-            <TH className="hidden sm:table-cell">Department · Position</TH>
-            <TH className="hidden md:table-cell">Manager</TH>
-            <TH className="hidden lg:table-cell">Type</TH>
-            <TH>Status</TH>
-            <TH className="hidden xl:table-cell">Hired</TH>
-            {canManage && <TH className="text-right">Actions</TH>}
+            <TH>{t("columns.employee")}</TH>
+            <TH className="hidden sm:table-cell">{t("columns.departmentPosition")}</TH>
+            <TH className="hidden md:table-cell">{t("columns.manager")}</TH>
+            <TH className="hidden lg:table-cell">{t("columns.type")}</TH>
+            <TH>{t("columns.status")}</TH>
+            <TH className="hidden xl:table-cell">{t("columns.hired")}</TH>
+            {canManage && <TH className="text-right">{tC("actions")}</TH>}
           </THead>
           <TBody>
             {items.length === 0 && (
@@ -258,15 +243,15 @@ export default async function EmployeesPage({
                   <Users className="h-8 w-8 text-ink-900/20" />
                   <span>
                     {q || status || departmentId || employmentType
-                      ? "No employees match your filters."
+                      ? t("noEmployeesFiltered")
                       : showArchived
-                        ? "No archived employees."
-                        : "No employees yet."}
+                        ? t("noArchivedEmployees")
+                        : t("noEmployees")}
                   </span>
                   {canManage && !showArchived && !q && !status && !departmentId && !employmentType && (
                     <ButtonLink href="/employees/new" variant="secondary" size="sm" className="mt-1">
                       <UserPlus className="h-4 w-4" />
-                      Add first employee
+                      {t("addFirstEmployee")}
                     </ButtonLink>
                   )}
                 </div>
@@ -305,7 +290,7 @@ export default async function EmployeesPage({
                   {/* Department / Position */}
                   <TD className="hidden sm:table-cell">
                     <p className="text-sm text-ink-900/80">
-                      {emp.position?.name ?? <span className="text-ink-900/35">No position</span>}
+                      {emp.position?.name ?? <span className="text-ink-900/35">{tC("noPosition")}</span>}
                     </p>
                     <p className="text-xs text-ink-900/45">
                       {emp.department?.name ?? "—"}
@@ -324,14 +309,14 @@ export default async function EmployeesPage({
                   {/* Employment type */}
                   <TD className="hidden lg:table-cell">
                     <span className="text-sm text-ink-900/70">
-                      {EMPLOYMENT_TYPE_LABEL[emp.employmentType ?? ""] ?? "—"}
+                      {emp.employmentType ? t(`types.${emp.employmentType}`) : "—"}
                     </span>
                   </TD>
 
                   {/* Status */}
                   <TD>
                     <Badge tone={statusTone}>
-                      {STATUS_LABEL[emp.employmentStatus] ?? emp.employmentStatus}
+                      {t(`statuses.${emp.employmentStatus}`)}
                     </Badge>
                   </TD>
 
@@ -348,16 +333,16 @@ export default async function EmployeesPage({
                           href={`/employees/${emp.id}`}
                           className="text-sm font-medium text-brand-700 hover:underline"
                         >
-                          View
+                          {tC("view")}
                         </Link>
                         {showArchived ? (
                           <form action={async () => { "use server"; await restoreEmployee(emp.id); }}>
                             <ConfirmSubmitButton
                               variant="outline"
                               size="sm"
-                              confirmMessage={`Restore ${fullName}? They will return to their previous employment status.`}
+                              confirmMessage={t("confirmRestore", { name: fullName })}
                             >
-                              Restore
+                              {tC("restore")}
                             </ConfirmSubmitButton>
                           </form>
                         ) : (
@@ -365,10 +350,10 @@ export default async function EmployeesPage({
                             <ConfirmSubmitButton
                               variant="ghost"
                               size="sm"
-                              confirmMessage={`Archive ${fullName}? You can restore this record later.`}
+                              confirmMessage={t("confirmArchive", { name: fullName })}
                               className="text-ink-900/40 hover:text-red-600"
                             >
-                              Archive
+                              {tC("archive")}
                             </ConfirmSubmitButton>
                           </form>
                         )}
