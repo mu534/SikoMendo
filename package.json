@@ -19,6 +19,8 @@
     "dev:clean": "tsx scripts/dev-clean.ts",
     "predeploy": "tsx scripts/pre-deploy-check.ts",
     "generate-translations": "tsx scripts/generate-translations.ts",
+    "translate:export": "tsx scripts/generate-translations.ts --export",
+    "translate:apply": "tsx scripts/generate-translations.ts --apply",
     "validate-translations": "tsx scripts/validate-translations.ts"
   },
   "dependencies": {
