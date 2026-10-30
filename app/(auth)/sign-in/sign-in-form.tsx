@@ -138,7 +138,7 @@ export function SignInForm() {
       </form>
 
       <p className="text-center text-xs text-ink-900/40">
-        Forgot your password? Contact your HR Officer or Administrator.
+        Forgot your password? Contact your Administrator.
       </p>
     </div>
   );
