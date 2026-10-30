@@ -291,3 +291,139 @@ export async function adminCheckOut(
     return { id: record.id };
   });
 }
+
+// ── correctAbsenceRecord ─────────────────────────────────────────────────────
+
+/**
+ * ADMIN ONLY — correct an automatically-recorded absence when the employee
+ * genuinely attended but forgot to check in.
+ *
+ * formData fields:
+ *   attendanceId  – the Attendance row id to correct
+ *   checkInTime   – "HH:MM" org-local time (required — cannot correct without a time)
+ *   checkOutTime  – "HH:MM" org-local time (optional)
+ *   correctionNote – free-text reason for the correction (required, min 5 chars)
+ *
+ * Rules enforced:
+ *   - Only operates on rows where autoRecorded=true (rejects manual records)
+ *   - Recalculates status via evaluateCheckInStatus so Admin cannot manually set status
+ *   - Sets autoRecorded=false, correctedById, correctionNote
+ *   - Writes an AuditLog entry with action='ABSENCE_CORRECTION'
+ *   - Never deletes or silently overwrites history
+ */
+export async function correctAbsenceRecord(
+  _prevState: unknown,
+  formData: FormData
+): Promise<ActionResult<{ id: string; status: string }>> {
+  const session = await getServerSession();
+
+  return withPermission(session, "MANAGE_ATTENDANCE", async () => {
+    const attendanceId   = String(formData.get("attendanceId") ?? "").trim();
+    const checkInTime    = String(formData.get("checkInTime") ?? "").trim() || null;
+    const checkOutTime   = String(formData.get("checkOutTime") ?? "").trim() || null;
+    const correctionNote = String(formData.get("correctionNote") ?? "").trim();
+
+    if (!attendanceId) throw new Error("Attendance record ID is required.");
+    if (!checkInTime)  throw new Error("Check-in time is required to correct an absence.");
+    if (correctionNote.length < 5) {
+      throw new Error("Correction note must be at least 5 characters.");
+    }
+
+    // Validate time formats
+    if (!/^\d{2}:\d{2}$/.test(checkInTime)) {
+      throw new Error("Check-in time must be in HH:MM format.");
+    }
+    if (checkOutTime && !/^\d{2}:\d{2}$/.test(checkOutTime)) {
+      throw new Error("Check-out time must be in HH:MM format.");
+    }
+
+    // Load the existing record
+    const existing = await prisma.attendance.findUnique({
+      where: { id: attendanceId },
+      select: {
+        id: true,
+        employeeId: true,
+        date: true,
+        status: true,
+        autoRecorded: true,
+        checkIn: true,
+        employee: {
+          select: {
+            firstName: true,
+            lastName: true,
+            employeeId: true,
+            shift: { select: { startTime: true, isActive: true } },
+          },
+        },
+      },
+    });
+
+    if (!existing) throw new Error("Attendance record not found.");
+    if (!existing.autoRecorded) {
+      throw new Error(
+        "This record was not auto-recorded. Use the standard check-in form to make corrections."
+      );
+    }
+
+    // Derive the date string from the stored @db.Date (midnight UTC)
+    const dateStr = existing.date.toISOString().slice(0, 10);
+
+    // Build timestamps (org-local EAT → UTC)
+    const checkInTs  = buildTimestamp(dateStr, checkInTime);
+    const checkOutTs = checkOutTime ? buildTimestamp(dateStr, checkOutTime) : null;
+
+    // Validate times are not in the future
+    const now = getServerNow();
+    if (checkInTs > now) throw new Error("Check-in time cannot be in the future.");
+    if (checkOutTs && checkOutTs > now) throw new Error("Check-out time cannot be in the future.");
+    if (checkOutTs && checkOutTs <= checkInTs) {
+      throw new Error("Check-out time must be after check-in time.");
+    }
+
+    // Recalculate status — Admin cannot manually pick it
+    const policy = await getAttendancePolicy();
+    const shiftStartTime = existing.employee.shift?.isActive
+      ? existing.employee.shift.startTime
+      : null;
+    const newStatus = evaluateCheckInStatus(checkInTs, policy, dateStr, shiftStartTime);
+
+    const updated = await prisma.attendance.update({
+      where: { id: attendanceId },
+      data: {
+        checkIn:        checkInTs,
+        checkOut:       checkOutTs ?? undefined,
+        status:         newStatus,
+        autoRecorded:   false,
+        correctedById:  session!.user.id,
+        correctionNote,
+        recordedById:   session!.user.id,
+      },
+      select: { id: true, status: true },
+    });
+
+    await logAdminAudit(
+      "ABSENCE_CORRECTION",
+      attendanceId,
+      {
+        targetEmployeeId:   existing.employeeId,
+        targetEmployeeCode: existing.employee.employeeId,
+        targetEmployeeName: `${existing.employee.firstName} ${existing.employee.lastName}`,
+        date: dateStr,
+        before: { status: existing.status, autoRecorded: true, checkIn: null },
+        after:  {
+          status: newStatus,
+          autoRecorded: false,
+          checkIn: checkInTs.toISOString(),
+          checkOut: checkOutTs?.toISOString() ?? null,
+        },
+        correctionNote,
+        correctedByAdmin: session!.user.id,
+      },
+      session!.user.id
+    );
+
+    revalidatePath("/attendance");
+    revalidatePath("/attendance/management");
+    return { id: updated.id, status: updated.status };
+  });
+}

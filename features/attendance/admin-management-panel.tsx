@@ -2,8 +2,8 @@
 
 import { useActionState, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, LogIn, LogOut, CalendarDays, CheckCheck } from "lucide-react";
-import { adminCheckIn, adminCheckOut } from "./admin-actions";
+import { ChevronLeft, ChevronRight, LogIn, LogOut, CalendarDays, CheckCheck, Edit } from "lucide-react";
+import { adminCheckIn, adminCheckOut, correctAbsenceRecord } from "./admin-actions";
 import { markUnmarkedPresent } from "./actions";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
@@ -32,6 +32,90 @@ function toTimeDisplay(date: Date | null | undefined): string {
   if (!date) return "—";
   const shifted = new Date(date.getTime() + 3 * 60 * 60 * 1000);
   return shifted.toISOString().slice(11, 16);
+}
+
+// ── Correct absence inline form ────────────────────────────────────────────
+
+function CorrectAbsenceForm({
+  attendanceId,
+  date,
+}: {
+  attendanceId: string;
+  date: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [state, formAction, isPending] = useActionState(correctAbsenceRecord, null);
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:underline"
+      >
+        <Edit className="h-3 w-3" />
+        Correct
+      </button>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-ink-900/15 bg-sand-50 p-2.5 space-y-2">
+      <form action={formAction} className="space-y-2">
+        <input type="hidden" name="attendanceId" value={attendanceId} />
+        <input type="hidden" name="date" value={date} />
+
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-xs font-medium text-ink-900/70 mb-0.5">
+              Check-in time <span className="text-red-500">*</span>
+            </label>
+            <Input type="time" name="checkInTime" required className="w-full text-xs" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-900/70 mb-0.5">
+              Check-out time
+            </label>
+            <Input type="time" name="checkOutTime" className="w-full text-xs" />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-ink-900/70 mb-0.5">
+            Reason <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            name="correctionNote"
+            required
+            minLength={5}
+            placeholder="Reason for correction (min 5 characters)…"
+            rows={2}
+            className="w-full rounded-md border border-ink-900/15 bg-white px-2 py-1.5 text-xs text-ink-900 placeholder:text-ink-900/35 focus:outline-none focus:ring-2 focus:ring-brand-700/30 resize-none"
+          />
+        </div>
+
+        {state && !state.success && (
+          <p className="text-xs text-red-600">{state.error.message}</p>
+        )}
+        {state?.success && (
+          <p className="text-xs text-emerald-600">Corrected — status recalculated.</p>
+        )}
+
+        <div className="flex items-center gap-2">
+          <Button type="submit" size="sm" disabled={isPending}>
+            {isPending ? "Saving…" : "Save"}
+          </Button>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="text-xs text-ink-900/40 hover:text-ink-900"
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  );
 }
 
 // ── Per-row action cell ────────────────────────────────────────────────────
@@ -145,6 +229,11 @@ function AttendanceActionCell({
 
       {hasCheckedOut && (
         <span className="text-xs text-emerald-600">Complete</span>
+      )}
+
+      {/* Correct auto-recorded absence */}
+      {record?.status === "ABSENT" && record?.autoRecorded && !record?.correctionNote && (
+        <CorrectAbsenceForm attendanceId={record.id} date={date} />
       )}
     </div>
   );
@@ -295,12 +384,13 @@ export function AttendanceManagementPanel({
         ) : (
           <div>
             {/* Column headers */}
-            <div className="hidden border-b border-ink-900/8 px-6 py-2.5 text-xs font-medium uppercase tracking-wide text-ink-900/50 sm:grid sm:grid-cols-[1.8fr_130px_90px_90px_1fr_160px]">
+            <div className="hidden border-b border-ink-900/8 px-6 py-2.5 text-xs font-medium uppercase tracking-wide text-ink-900/50 sm:grid sm:grid-cols-[1.8fr_130px_90px_90px_1fr_80px_160px]">
               <span>Employee</span>
               <span>Status</span>
               <span>Check In</span>
               <span>Check Out</span>
               <span>Notes</span>
+              <span>Source</span>
               <span>Actions</span>
             </div>
 
@@ -311,7 +401,7 @@ export function AttendanceManagementPanel({
               return (
                 <div
                   key={emp.id}
-                  className="grid grid-cols-1 items-start gap-3 border-b border-ink-900/6 px-6 py-3 last:border-0 sm:grid-cols-[1.8fr_130px_90px_90px_1fr_160px]"
+                  className="grid grid-cols-1 items-start gap-3 border-b border-ink-900/6 px-6 py-3 last:border-0 sm:grid-cols-[1.8fr_130px_90px_90px_1fr_80px_160px]"
                 >
                   {/* Employee */}
                   <div className="flex items-center gap-3">
@@ -348,6 +438,15 @@ export function AttendanceManagementPanel({
 
                   {/* Notes */}
                   <span className="truncate text-sm text-ink-900/60">{record?.notes || "—"}</span>
+
+                  {/* Source */}
+                  <div>
+                    {record?.autoRecorded && !record?.correctionNote ? (
+                      <Badge tone="warning">Auto</Badge>
+                    ) : record?.correctionNote ? (
+                      <Badge tone="success">Corrected</Badge>
+                    ) : null}
+                  </div>
 
                   {/* Actions */}
                   <AttendanceActionCell employee={emp} date={date} />
