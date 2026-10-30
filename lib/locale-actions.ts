@@ -36,7 +36,7 @@ export async function setLocale(locale: string): Promise<ActionResult<void>> {
   const session = await getServerSession();
   if (session?.user?.id) {
     try {
-      await (prisma.user.update as Function)({
+      await prisma.user.update({
         where: { id: session.user.id },
         data: { locale: locale as Locale },
       });
