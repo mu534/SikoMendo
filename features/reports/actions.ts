@@ -134,8 +134,14 @@ export async function generateReport(
       // within their scope, the query will simply return zero rows — correct.
     }
 
+    const userRecord = await prisma.user.findUnique({
+      where: { id: session!.user.id },
+      select: { locale: true },
+    });
+    const locale = (userRecord?.locale === "om" ? "om" : "en") as "en" | "om";
+
     const { buffer, mimeType, fileName, parameters, docTitle } =
-      await buildReportFile(type, format, filters);
+      await buildReportFile(type, format, filters, locale);
 
     const file = new File([new Uint8Array(buffer)], fileName, { type: mimeType });
     const asset = await uploadToCloudinary(file, "siko-mendo/reports", {
