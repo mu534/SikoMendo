@@ -1,5 +1,4 @@
 import { FileBarChart } from "lucide-react";
-import { getTranslations } from "next-intl/server";
 import { requirePermission } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { generateReport } from "@/features/reports/actions";
@@ -12,8 +11,6 @@ import prisma from "@/lib/prisma";
 export default async function GenerateReportPage() {
   const session = await requirePermission("GENERATE_REPORTS");
   const { role, id: userId } = session.user;
-
-  const t = await getTranslations("reports");
 
   // ── Resolve employee dropdown scope ────────────────────────────────────
   // Manager → only their transitive subordinates.
@@ -46,12 +43,13 @@ export default async function GenerateReportPage() {
   }
 
   const departments = await listActiveDepartments();
+  const count = employees.length;
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="font-display text-xl font-semibold text-ink-900">{t("title")}</h2>
-        <p className="mt-1 text-sm text-ink-900/60">{t("pageDescription")}</p>
+        <h2 className="font-display text-xl font-semibold text-ink-900">{"Generate Report"}</h2>
+        <p className="mt-1 text-sm text-ink-900/60">{"Select a report type, apply filters, and export as PDF or CSV."}</p>
       </div>
 
       <div className="max-w-2xl">
@@ -64,10 +62,10 @@ export default async function GenerateReportPage() {
               </div>
               <div>
                 <h3 className="font-display text-base font-semibold text-ink-900">
-                  {t("reportSettings")}
+                  {"Report Settings"}
                 </h3>
                 <p className="mt-0.5 text-xs text-ink-900/50">
-                  {t("chooseTypeNote")}
+                  {"Select a type and apply any relevant filters."}
                 </p>
               </div>
             </div>
@@ -83,25 +81,23 @@ export default async function GenerateReportPage() {
       {/* Scope note for Managers */}
       {role === "MANAGER" && employees.length === 0 && (
         <p className="max-w-2xl rounded-xl border border-gold-400/30 bg-gold-400/10 px-4 py-3 text-sm text-ink-900/70">
-          {t("managerNoEmployeeNote")}
+          {"Your account is not linked to an employee record, so employee reports will contain no data. Ask HR to link your account to your employee record."}
         </p>
       )}
       {role === "MANAGER" && employees.length > 0 && (
         <p className="max-w-2xl text-xs text-ink-900/45">
-          {t("managerScopeNote", { count: employees.length })}
+          {`Manager scope: this report covers only employees within your reporting hierarchy (${count} employee(s)).`}
         </p>
       )}
 
       {/* Non-generate roles see a redirect notice */}
       {!can(role, "GENERATE_REPORTS") && (
         <p className="text-sm text-ink-900/60">
-          {t.rich("noPermissionNote", {
-            link: (chunks) => (
-              <a href="/reports/history" className="font-medium text-brand-700 hover:underline">
-                {chunks}
-              </a>
-            ),
-          })}
+          {"You do not have permission to generate reports. To view previously generated reports, visit "}
+          <a href="/reports/history" className="font-medium text-brand-700 hover:underline">
+            Report History
+          </a>
+          {"."}
         </p>
       )}
     </div>
