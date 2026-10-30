@@ -4,9 +4,11 @@ import { requirePermission } from "@/lib/session";
 import { createCooperative } from "@/features/cooperatives/actions";
 import { CooperativeForm } from "@/features/cooperatives/cooperative-form";
 import { generateNextCooperativeId } from "@/features/cooperatives/queries";
+import { getTranslations } from "next-intl/server";
 
 export default async function NewCooperativePage() {
   await requirePermission("MANAGE_COOPERATIVES");
+  const t = await getTranslations("cooperatives");
 
   const cooperativeId = await generateNextCooperativeId();
 
@@ -24,7 +26,7 @@ export default async function NewCooperativePage() {
       {/* Page header */}
       <div>
         <h2 className="font-display text-xl font-semibold text-ink-900">
-          Register New Cooperative
+          {t("form.newTitle")}
         </h2>
         <p className="mt-1 text-sm text-ink-900/60">
           Business ID{" "}

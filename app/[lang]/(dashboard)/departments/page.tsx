@@ -4,8 +4,11 @@ import { requirePermission } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { listDepartments } from "@/features/departments/queries";
 import { Badge } from "@/components/ui/badge";
+import { getTranslations } from "next-intl/server";
 
 export default async function DepartmentsPage() {
+  const t = await getTranslations("departments");
+  const tC = await getTranslations("common");
   const session = await requirePermission("VIEW_DEPARTMENTS");
   const canManage = can(session.user.role, "MANAGE_DEPARTMENTS");
   const departments = await listDepartments();
@@ -25,10 +28,10 @@ export default async function DepartmentsPage() {
             <Building2 className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="font-display text-xl font-semibold text-ink-900">Departments</h2>
+            <h2 className="font-display text-xl font-semibold text-ink-900">{t("title")}</h2>
             <p className="mt-0.5 text-sm text-ink-900/55">
               {canManage
-                ? "View, edit, and manage the Union's official department structure and positions."
+                ? t("description")
                 : "The Union's official department and position structure."}
             </p>
           </div>
@@ -78,7 +81,7 @@ export default async function DepartmentsPage() {
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-700/8 text-brand-700">
             <Building2 className="h-7 w-7" />
           </div>
-          <p className="font-medium text-ink-900">No departments yet</p>
+          <p className="font-medium text-ink-900">{t("noDepartments")}</p>
           <p className="mt-1 text-sm text-ink-900/50">Department structure will appear here once configured.</p>
         </div>
       )}

@@ -33,6 +33,7 @@ import { formatDateWithEthiopian } from "@/lib/ethiopian-calendar";
 import { getSignedFileUrl } from "@/lib/cloudinary";
 import { CertificateUploadPanel } from "@/features/cooperatives/certificate-upload-panel";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 // ── Tab type ──────────────────────────────────────────────────────────────────
 
@@ -96,6 +97,8 @@ export default async function CooperativeDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const t = await getTranslations("cooperatives");
+  const tC = await getTranslations("common");
   const session = await requirePermission("VIEW_COOPERATIVES");
   const { id } = await params;
   const sp = await searchParams;
@@ -273,10 +276,10 @@ export default async function CooperativeDetailPage({
                   <ConfirmSubmitButton
                     variant="outline"
                     size="sm"
-                    confirmMessage={`Restore "${cooperative.name}"? It will return to the active list.`}
-                    confirmLabel="Restore"
+                    confirmMessage={t("confirmRestore", { name: cooperative.name })}
+                    confirmLabel={tC("restore")}
                   >
-                    Restore
+                    {tC("restore")}
                   </ConfirmSubmitButton>
                 </form>
               ) : (
@@ -292,11 +295,11 @@ export default async function CooperativeDetailPage({
                 >
                   <ConfirmSubmitButton
                     size="sm"
-                    confirmMessage={`Archive "${cooperative.name}"? All data is preserved and can be restored.`}
-                    confirmLabel="Archive"
+                    confirmMessage={t("confirmArchive", { name: cooperative.name })}
+                    confirmLabel={tC("archive")}
                   >
                     <MoreHorizontal className="h-4 w-4" />
-                    Archive
+                    {tC("archive")}
                   </ConfirmSubmitButton>
                 </form>
               )
@@ -395,15 +398,15 @@ export default async function CooperativeDetailPage({
               <Card className="p-6 lg:col-span-2">
                 <SectionHeading>Basic Information</SectionHeading>
                 <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                  <ReadField label="Cooperative Name" value={cooperative.name} />
-                  <ReadField label="Cooperative ID" value={cooperative.cooperativeId} mono />
-                  <ReadField label="Cooperative Type" value={cooperative.cooperativeType} />
+                  <ReadField label={t("form.cooperativeName")} value={cooperative.name} />
+                  <ReadField label={t("form.cooperativeId")} value={cooperative.cooperativeId} mono />
+                  <ReadField label={t("form.cooperativeType")} value={cooperative.cooperativeType} />
                   <ReadField label="Status" value={cooperative.isActive ? "Active" : "Inactive"} />
                   <ReadField label="District / Aanaa" value={cooperative.district} />
                   <ReadField label="Ganda" value={cooperative.kebele} />
-                  <ReadField label="Location" value={cooperative.location} />
+                  <ReadField label={t("form.location")} value={cooperative.location} />
                   <ReadField
-                    label="Date Joined Union"
+                    label={t("form.dateJoinedUnion")}
                     value={formatDateWithEthiopian(cooperative.dateJoinedUnion)}
                   />
                   {cooperative.description && (
@@ -499,14 +502,14 @@ export default async function CooperativeDetailPage({
               <Card className="p-6">
                 <SectionHeading>Registration Details</SectionHeading>
                 <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                  <ReadField label="Cooperative Type" value={cooperative.cooperativeType} />
-                  <ReadField label="Registration Number" value={cooperative.registrationNumber} mono />
+                  <ReadField label={t("form.cooperativeType")} value={cooperative.cooperativeType} />
+                  <ReadField label={t("form.registrationNumber")} value={cooperative.registrationNumber} mono />
                   <ReadField
-                    label="Registration Date"
+                    label={t("form.registrationDate")}
                     value={formatDateWithEthiopian(cooperative.registrationDate)}
                   />
                   <ReadField
-                    label="Date Joined Union"
+                    label={t("form.dateJoinedUnion")}
                     value={formatDateWithEthiopian(cooperative.dateJoinedUnion)}
                   />
                   <ReadField
@@ -610,17 +613,17 @@ export default async function CooperativeDetailPage({
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
                 {/* Big stat cards */}
                 <MemberStatCard
-                  label="Total Members"
+                  label={t("form.totalMembers")}
                   value={cooperative.totalMembers}
                   tone="brand"
                 />
                 <MemberStatCard
-                  label="Male Members"
+                  label={t("form.maleMembers")}
                   value={cooperative.maleMembers}
                   tone="neutral"
                 />
                 <MemberStatCard
-                  label="Female Members"
+                  label={t("form.femaleMembers")}
                   value={cooperative.femaleMembers}
                   tone="neutral"
                 />
@@ -658,12 +661,12 @@ export default async function CooperativeDetailPage({
               {/* Capital cards */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <FinancialCard
-                  label="Fixed Assets / Dhaabbataa"
+                  label={t("form.fixedAssets")}
                   value={cooperative.fixedAssets != null ? Number(cooperative.fixedAssets) : null}
                   highlight={false}
                 />
                 <FinancialCard
-                  label="Current Assets / Socho'aa"
+                  label={t("form.currentAssets")}
                   value={cooperative.currentAssets != null ? Number(cooperative.currentAssets) : null}
                   highlight={false}
                 />
@@ -713,10 +716,10 @@ export default async function CooperativeDetailPage({
               <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <ReadField label="District / Aanaa" value={cooperative.district} />
                 <ReadField label="Ganda" value={cooperative.kebele} />
-                <ReadField label="Location" value={cooperative.location} />
-                <ReadField label="Contact Person" value={cooperative.contactPerson} />
-                <ReadField label="Contact Phone" value={cooperative.contactPhone} />
-                <ReadField label="Contact Email" value={cooperative.contactEmail} />
+                <ReadField label={t("form.location")} value={cooperative.location} />
+                <ReadField label={t("form.contactPerson")} value={cooperative.contactPerson} />
+                <ReadField label={t("form.contactPhone")} value={cooperative.contactPhone} />
+                <ReadField label={t("form.contactEmail")} value={cooperative.contactEmail} />
                 {cooperative.description && (
                   <ReadField
                     label="Description"

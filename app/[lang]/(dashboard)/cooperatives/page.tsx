@@ -13,6 +13,7 @@ import { Table, THead, TH, TBody, TR, TD, EmptyRow } from "@/components/ui/table
 import { Pagination } from "@/components/ui/pagination";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 export default async function CooperativesPage({
   searchParams,
@@ -20,6 +21,8 @@ export default async function CooperativesPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const session = await requirePermission("VIEW_COOPERATIVES");
+  const t = await getTranslations("cooperatives");
+  const tC = await getTranslations("common");
   const canManage = can(session.user.role, "MANAGE_COOPERATIVES");
 
   const params = await searchParams;
@@ -51,12 +54,12 @@ export default async function CooperativesPage({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-display text-xl font-semibold text-ink-900">
-            {showArchived ? "Archived Cooperatives" : "Cooperatives"}
+            {showArchived ? t("titleArchived") : t("title")}
           </h2>
           <p className="mt-1 text-sm text-ink-900/60">
             {showArchived
-              ? "Archived cooperative branches. Use Restore to reactivate."
-              : "Manage and maintain the union's registered primary cooperatives."}
+              ? t("descriptionArchived")
+              : t("description")}
           </p>
         </div>
 
@@ -64,18 +67,18 @@ export default async function CooperativesPage({
           {!showArchived && (
             <ButtonLink href="/cooperatives?archived=1" variant="outline" size="sm">
               <Archive className="h-4 w-4" />
-              View archived
+              {t("viewArchived")}
             </ButtonLink>
           )}
           {showArchived && (
             <ButtonLink href="/cooperatives" variant="outline" size="sm">
-              ← Active cooperatives
+              {t("activeCooperatives")}
             </ButtonLink>
           )}
           {canManage && !showArchived && (
             <ButtonLink href="/cooperatives/new" variant="primary" size="sm">
               <Plus className="h-4 w-4" />
-              Add Cooperative
+              {t("addCooperative")}
             </ButtonLink>
           )}
         </div>
@@ -85,24 +88,24 @@ export default async function CooperativesPage({
       {counts && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <StatCard
-            label="Total Cooperatives"
+            label={t("stats.total")}
             value={counts.total}
             icon={<Building2 className="h-5 w-5" />}
           />
           <StatCard
-            label="Active"
+            label={t("stats.active")}
             value={counts.active}
             icon={<Activity className="h-5 w-5" />}
           />
           <StatCard
-            label="Inactive"
+            label={t("stats.inactive")}
             value={counts.inactive}
             icon={<LayoutGrid className="h-5 w-5" />}
           />
           <StatCard
-            label="Archived"
+            label={t("stats.archived")}
             value={counts.archived}
-            hint="Soft-deleted records"
+            hint={tC("softDeletedRecords")}
             icon={<Archive className="h-5 w-5" />}
           />
         </div>
@@ -124,7 +127,7 @@ export default async function CooperativesPage({
             />
             <Input
               name="q"
-              placeholder="Search cooperatives…"
+              placeholder={t("filters.searchPlaceholder")}
               defaultValue={q}
               className="pl-9"
               aria-label="Search cooperatives"
@@ -134,7 +137,7 @@ export default async function CooperativesPage({
           {/* Status */}
           <div className="w-36 shrink-0">
             <Select name="status" defaultValue={status} aria-label="Filter by status">
-              <option value="">All statuses</option>
+              <option value="">{t("filters.allStatuses")}</option>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
             </Select>
@@ -153,7 +156,7 @@ export default async function CooperativesPage({
           {/* Cooperative type */}
           <div className="w-40 shrink-0">
             <Select name="type" defaultValue={type} aria-label="Filter by cooperative type">
-              <option value="">All types</option>
+              <option value="">{t("filters.allTypes")}</option>
               <option value="Agricultural">Agricultural</option>
               <option value="Savings & Credit">Savings &amp; Credit</option>
               <option value="Consumer">Consumer</option>
@@ -166,7 +169,7 @@ export default async function CooperativesPage({
           {showArchived && <input type="hidden" name="archived" value="1" />}
 
           <Button type="submit" variant="secondary" size="sm" className="shrink-0">
-            Apply
+            {tC("apply")}
           </Button>
         </form>
 
@@ -174,19 +177,19 @@ export default async function CooperativesPage({
         <div className="overflow-x-auto">
           <Table>
             <THead>
-              <TH>Cooperative</TH>
-              <TH>COOP ID</TH>
-              <TH>District / Location</TH>
-              <TH className="text-right">Members</TH>
-              <TH className="text-right">Capital (ETB)</TH>
-              <TH>Status</TH>
-              {canManage && <TH className="text-right">Actions</TH>}
+              <TH>{t("columns.cooperative")}</TH>
+              <TH>{t("columns.coopId")}</TH>
+              <TH>{t("columns.districtLocation")}</TH>
+              <TH className="text-right">{t("columns.members")}</TH>
+              <TH className="text-right">{t("columns.capital")}</TH>
+              <TH>{t("columns.status")}</TH>
+              {canManage && <TH className="text-right">{tC("actions")}</TH>}
             </THead>
             <TBody>
               {items.length === 0 && (
                 <EmptyRow colSpan={canManage ? 7 : 6}>
                   <Building2 className="mx-auto mb-2 h-8 w-8 text-ink-900/20" aria-hidden="true" />
-                  No cooperatives match your filters.
+                  {t("noCooperatives")}
                 </EmptyRow>
               )}
               {items.map((coop) => {
@@ -269,7 +272,7 @@ export default async function CooperativesPage({
                             href={`/cooperatives/${coop.id}`}
                             className="text-sm font-medium text-brand-700 hover:underline"
                           >
-                            {showArchived ? "View" : "Edit"}
+                            {showArchived ? tC("view") : tC("edit")}
                           </Link>
 
                           {showArchived ? (
@@ -282,10 +285,10 @@ export default async function CooperativesPage({
                               <ConfirmSubmitButton
                                 variant="outline"
                                 size="sm"
-                                confirmMessage={`Restore "${coop.name}"? It will return to the active list.`}
-                                confirmLabel="Restore"
+                                confirmMessage={t("confirmRestore", { name: coop.name })}
+                                confirmLabel={tC("restore")}
                               >
-                                Restore
+                                {tC("restore")}
                               </ConfirmSubmitButton>
                             </form>
                           ) : (
@@ -302,10 +305,10 @@ export default async function CooperativesPage({
                             >
                               <ConfirmSubmitButton
                                 size="sm"
-                                confirmMessage={`Archive "${coop.name}"? It will be hidden from the active list but all data is preserved.`}
-                                confirmLabel="Archive"
+                                confirmMessage={t("confirmArchive", { name: coop.name })}
+                                confirmLabel={tC("archive")}
                               >
-                                Archive
+                                {tC("archive")}
                               </ConfirmSubmitButton>
                             </form>
                           )}

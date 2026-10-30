@@ -9,8 +9,10 @@ import { DepartmentForm } from "@/features/departments/department-form";
 import { PositionsManager } from "@/features/departments/positions-manager";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { getTranslations } from "next-intl/server";
 
 export default async function DepartmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const t = await getTranslations("departments");
   const session = await requireSession();
   if (!can(session.user.role, "VIEW_DEPARTMENTS")) notFound();
   const { id } = await params;
@@ -74,7 +76,7 @@ export default async function DepartmentDetailPage({ params }: { params: Promise
 
         <div className="lg:col-span-2">
           <Card>
-            <CardHeader title="Positions" description="Positions belonging to this department." />
+            <CardHeader title={t("positions.title")} description="Positions belonging to this department." />
             <div className="px-6 pt-5 pb-2">
               <PositionsManager
                 departmentId={department.id}
