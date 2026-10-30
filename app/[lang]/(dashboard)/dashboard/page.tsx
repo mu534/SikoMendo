@@ -11,6 +11,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { requireSession } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import {
@@ -39,35 +40,26 @@ import type { AuditLog } from "@prisma/client";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+type TFunction = Awaited<ReturnType<typeof getTranslations>>;
+
 /** Converts a raw audit action + entity into a short readable sentence. */
-function auditSentence(action: string, entity: string): string {
+function auditSentence(t: TFunction, action: string, entity: string): string {
   const a = action.toUpperCase();
   const e = entity.toLowerCase().replace(/_/g, " ");
 
-  const map: Record<string, string> = {
-    CREATE:               `created a ${e}`,
-    UPDATE:               `updated a ${e}`,
-    UPDATE_PROFILE:       "updated their profile",
-    UPDATE_OWN_INFO:      "updated their contact info",
-    ARCHIVE:              `archived a ${e}`,
-    RESTORE:              `restored a ${e}`,
-    DELETE:               `deleted a ${e}`,
-    SUSPEND:              "suspended a user account",
-    REACTIVATE:           "reactivated a user account",
-    PASSWORD_RESET:       "reset a user password",
-    FORCE_PASSWORD_CHANGE:"forced a password change",
-    PASSWORD_CHANGED:     "changed their password",
-    APPROVE:              "approved a leave request",
-    REJECT:               "rejected a leave request",
-    CANCEL:               "cancelled a leave request",
-    UPSERT:               `recorded ${e}`,
-    BULK_MARK_PRESENT:    "bulk-marked employees present",
-    TERMINATE:            `terminated a ${e}`,
-    ACTIVATE:             `activated a ${e}`,
-    DEACTIVATE:           `deactivated a ${e}`,
-  };
+  const knownActions = [
+    "CREATE", "UPDATE", "UPDATE_PROFILE", "UPDATE_OWN_INFO",
+    "ARCHIVE", "RESTORE", "DELETE", "SUSPEND", "REACTIVATE",
+    "PASSWORD_RESET", "FORCE_PASSWORD_CHANGE", "PASSWORD_CHANGED",
+    "APPROVE", "REJECT", "CANCEL", "UPSERT", "BULK_MARK_PRESENT",
+    "TERMINATE", "ACTIVATE", "DEACTIVATE",
+  ];
 
-  return map[a] ?? `performed "${action.toLowerCase()}" on a ${e}`;
+  if (knownActions.includes(a)) {
+    return t(`audit.${a}` as Parameters<TFunction>[0], { entity: e });
+  }
+
+  return t("audit.unknown", { action: action.toLowerCase(), entity: e });
 }
 
 // ── Dashboard router ──────────────────────────────────────────────────────────
@@ -94,6 +86,9 @@ async function OrganizationDashboard({ userName }: { userName: string }) {
     getNeedsAttention(),
   ]);
 
+  const t = await getTranslations("dashboard");
+  const tC = await getTranslations("common");
+
   // Attendance rate for today (avoid divide-by-zero)
   const totalMarkedToday = stats.presentToday + stats.absentToday;
   const attendanceRate =
@@ -106,10 +101,10 @@ async function OrganizationDashboard({ userName }: { userName: string }) {
       {/* ── Header ─────────────────────────────────────────────── */}
       <div>
         <h2 className="font-display text-xl font-semibold text-ink-900">
-          Welcome back, {userName.split(" ")[0]}
+          {t("welcomeBack", { name: userName.split(" ")[0] })}
         </h2>
         <p className="mt-1 text-sm text-ink-900/60">
-          Here is what is happening across Siko Mendo Union today.
+          {t("orgSubtitle")}
         </p>
       </div>
 
@@ -117,30 +112,30 @@ async function OrganizationDashboard({ userName }: { userName: string }) {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Link href="/employees" className="group">
           <StatCard
-            label="Total employees"
+            label={t("stats.totalEmployees")}
             value={stats.totalEmployees}
-            hint={`${stats.activeEmployees} active`}
+            hint={t("stats.activeEmployees", { count: stats.activeEmployees })}
             icon={<Users className="h-5 w-5" />}
           />
         </Link>
         <Link href="/cooperatives" className="group">
           <StatCard
-            label="Cooperatives"
+            label={t("stats.cooperatives")}
             value={stats.totalCooperatives}
             icon={<Building2 className="h-5 w-5" />}
           />
         </Link>
         <Link href="/attendance" className="group">
           <StatCard
-            label="Present today"
+            label={t("stats.presentToday")}
             value={stats.presentToday}
-            hint={`${attendanceRate} attendance rate`}
+            hint={t("stats.attendanceRate", { rate: attendanceRate })}
             icon={<CalendarCheck className="h-5 w-5" />}
           />
         </Link>
         <Link href="/leave" className="group">
           <StatCard
-            label="Absent today"
+            label={t("stats.absentToday")}
             value={stats.absentToday}
             icon={<CalendarX className="h-5 w-5" />}
           />
@@ -156,7 +151,7 @@ async function OrganizationDashboard({ userName }: { userName: string }) {
         <Card className="p-5">
           <div className="mb-3 flex items-center gap-2">
             <Bell className="h-4 w-4 text-gold-600" />
-            <h3 className="text-sm font-semibold text-ink-900">Needs Attention</h3>
+            <h3 className="text-sm font-semibold text-ink-900">{t("needsAttention.title")}</h3>
           </div>
           <div className="flex flex-wrap gap-3">
             {needsAttention.pendingLeave > 0 && (
@@ -165,7 +160,7 @@ async function OrganizationDashboard({ userName }: { userName: string }) {
                 className="inline-flex items-center gap-2 rounded-lg border border-gold-400/30 bg-gold-400/10 px-3 py-2 text-sm font-medium text-ink-900 hover:bg-gold-400/20 transition-colors"
               >
                 <CalendarOff className="h-3.5 w-3.5 text-gold-600" />
-                {needsAttention.pendingLeave} pending leave request{needsAttention.pendingLeave !== 1 ? "s" : ""}
+                {t("needsAttention.pendingLeave", { count: needsAttention.pendingLeave })}
               </Link>
             )}
             {needsAttention.onboarding > 0 && (
@@ -174,7 +169,7 @@ async function OrganizationDashboard({ userName }: { userName: string }) {
                 className="inline-flex items-center gap-2 rounded-lg border border-brand-400/30 bg-brand-400/10 px-3 py-2 text-sm font-medium text-ink-900 hover:bg-brand-400/20 transition-colors"
               >
                 <UserCheck className="h-3.5 w-3.5 text-brand-600" />
-                {needsAttention.onboarding} employee{needsAttention.onboarding !== 1 ? "s" : ""} onboarding
+                {t("needsAttention.onboarding", { count: needsAttention.onboarding })}
               </Link>
             )}
             {needsAttention.offboarding > 0 && (
@@ -183,7 +178,7 @@ async function OrganizationDashboard({ userName }: { userName: string }) {
                 className="inline-flex items-center gap-2 rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm font-medium text-ink-900 hover:bg-red-400/20 transition-colors"
               >
                 <ArrowRight className="h-3.5 w-3.5 text-red-600" />
-                {needsAttention.offboarding} active offboarding{needsAttention.offboarding !== 1 ? "s" : ""}
+                {t("needsAttention.offboarding", { count: needsAttention.offboarding })}
               </Link>
             )}
             {needsAttention.expiringContracts > 0 && (
@@ -192,13 +187,13 @@ async function OrganizationDashboard({ userName }: { userName: string }) {
                 className="inline-flex items-center gap-2 rounded-lg border border-orange-400/30 bg-orange-400/10 px-3 py-2 text-sm font-medium text-ink-900 hover:bg-orange-400/20 transition-colors"
               >
                 <FileBarChart className="h-3.5 w-3.5 text-orange-600" />
-                {needsAttention.expiringContracts} contract{needsAttention.expiringContracts !== 1 ? "s" : ""} expiring soon
+                {t("needsAttention.expiringContracts", { count: needsAttention.expiringContracts })}
               </Link>
             )}
             {needsAttention.missingDocuments > 0 && (
               <span className="inline-flex items-center gap-2 rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm font-medium text-ink-900">
                 <FileBarChart className="h-3.5 w-3.5 text-red-600" />
-                {needsAttention.missingDocuments} employee{needsAttention.missingDocuments !== 1 ? "s" : ""} missing ID document
+                {t("needsAttention.missingDocuments", { count: needsAttention.missingDocuments })}
               </span>
             )}
           </div>
@@ -210,8 +205,8 @@ async function OrganizationDashboard({ userName }: { userName: string }) {
         <div className="lg:col-span-2">
           <Card>
             <CardHeader
-              title="Attendance trend"
-              description="Present vs. absent over the last 30 days."
+              title={t("charts.attendanceTrend")}
+              description={t("charts.attendanceTrendDesc")}
             />
             <div className="p-6 pt-4">
               <AttendanceTrendChart data={attendanceTrend} />
@@ -220,8 +215,8 @@ async function OrganizationDashboard({ userName }: { userName: string }) {
         </div>
         <Card>
           <CardHeader
-            title="Leave requests"
-            description="Breakdown by current status."
+            title={t("charts.leaveRequests")}
+            description={t("charts.leaveRequestsDesc")}
           />
           <div className="p-6 pt-4">
             <LeaveStatusChart data={leaveBreakdown} />
@@ -231,8 +226,8 @@ async function OrganizationDashboard({ userName }: { userName: string }) {
 
       <Card>
         <CardHeader
-          title="Headcount by department"
-          description="Active employees, grouped by department."
+          title={t("charts.headcountByDept")}
+          description={t("charts.headcountByDeptDesc")}
         />
         <div className="p-6 pt-4">
           <DepartmentHeadcountChart data={departmentHeadcount} />
@@ -242,21 +237,21 @@ async function OrganizationDashboard({ userName }: { userName: string }) {
       {/* ── Recent activity ─────────────────────────────────────── */}
       <Card>
         <CardHeader
-          title="Recent activity"
-          description="The latest changes recorded across the system."
+          title={t("recentActivity.title")}
+          description={t("recentActivity.description")}
           action={
             <Link
               href="/audit-log"
               className="inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:underline"
             >
-              View all <ArrowRight className="h-3 w-3" />
+              {tC("viewAll")} <ArrowRight className="h-3 w-3" />
             </Link>
           }
         />
         {logs.length === 0 ? (
           <EmptyState
-            title="No activity yet"
-            description="Actions like creating employees or users will show up here."
+            title={t("recentActivity.empty")}
+            description={t("recentActivity.emptyDesc")}
             icon={<FileBarChart className="h-8 w-8" />}
           />
         ) : (
@@ -268,9 +263,9 @@ async function OrganizationDashboard({ userName }: { userName: string }) {
               >
                 <span className="min-w-0 truncate text-ink-900/75">
                   <span className="font-medium text-ink-900">
-                    {log.user?.name ?? "System"}
+                    {log.user?.name ?? t("audit.system")}
                   </span>{" "}
-                  {auditSentence(log.action, log.entity)}
+                  {auditSentence(t, log.action, log.entity)}
                 </span>
                 <span className="shrink-0 text-xs text-ink-900/40">
                   {formatDateTime(log.createdAt)}
@@ -310,23 +305,27 @@ async function EmployeeDashboard({
     getRecentNotifications(userId, 5),
   ]);
 
+  const t = await getTranslations("dashboard");
+  const tC = await getTranslations("common");
+  const tN = await getTranslations("notifications");
+
   return (
     <div className="space-y-6">
       {/* ── Header ─────────────────────────────────────────────── */}
       <div>
         <h2 className="font-display text-xl font-semibold text-ink-900">
-          Welcome back, {userName.split(" ")[0]}
+          {t("welcomeBack", { name: userName.split(" ")[0] })}
         </h2>
         <p className="mt-1 text-sm text-ink-900/60">
-          Here&apos;s a quick look at your workspace.
+          {t("empSubtitle")}
         </p>
       </div>
 
       {!employee ? (
         <Card>
           <EmptyState
-            title="No employee record linked yet"
-            description="Ask your HR Officer to link your account to your employee record to unlock the rest of your dashboard."
+            title={t("noEmployeeRecord.title")}
+            description={t("noEmployeeRecord.description")}
             icon={<Users className="h-8 w-8" />}
           />
         </Card>
@@ -341,7 +340,7 @@ async function EmployeeDashboard({
                   {userName}
                 </p>
                 <p className="text-sm text-ink-900/60">
-                  {employee.position?.name ?? "No position"} · {employee.department?.name ?? "No department"}
+                  {employee.position?.name ?? tC("noPosition")} · {employee.department?.name ?? tC("noDepartment")}
                 </p>
               </div>
               <Badge
@@ -355,16 +354,16 @@ async function EmployeeDashboard({
             <div className="mt-4 flex flex-wrap gap-2 border-t border-ink-900/8 pt-4">
               <ButtonLink href="/leave/new" size="sm">
                 <Plus className="h-3.5 w-3.5" />
-                New Leave Request
+                {t("quickLinks.newLeaveRequest")}
               </ButtonLink>
               <ButtonLink href="/attendance" variant="outline" size="sm">
-                My Attendance
+                {t("quickLinks.myAttendance")}
               </ButtonLink>
               <ButtonLink href="/my-documents" variant="outline" size="sm">
-                My Documents
+                {t("quickLinks.myDocuments")}
               </ButtonLink>
               <ButtonLink href="/profile" variant="ghost" size="sm">
-                My Profile
+                {t("quickLinks.myProfile")}
               </ButtonLink>
             </div>
           </Card>
@@ -372,22 +371,22 @@ async function EmployeeDashboard({
           {/* ── Attendance stats ──────────────────────────────── */}
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <StatCard
-              label="Present (month)"
+              label={t("stats.presentMonth")}
               value={attendance?.present ?? 0}
               icon={<UserCheck className="h-5 w-5" />}
             />
             <StatCard
-              label="Absent (month)"
+              label={t("stats.absentMonth")}
               value={attendance?.absent ?? 0}
               icon={<CalendarX className="h-5 w-5" />}
             />
             <StatCard
-              label="Late (month)"
+              label={t("stats.lateMonth")}
               value={attendance?.late ?? 0}
               icon={<CalendarCheck className="h-5 w-5" />}
             />
             <StatCard
-              label="Pending leave"
+              label={t("stats.pendingLeave")}
               value={pendingCount}
               icon={<CalendarOff className="h-5 w-5" />}
             />
@@ -399,12 +398,12 @@ async function EmployeeDashboard({
             <div className="lg:col-span-2">
               <Card>
                 <CardHeader
-                  title="Leave balance"
-                  description={`${new Date().getFullYear()} — remaining / entitled days per leave type.`}
+                  title={t("leaveBalance.title")}
+                  description={t("leaveBalance.description", { year: new Date().getFullYear() })}
                 />
                 <div className="p-5 pt-3">
                   {(balances ?? []).length === 0 ? (
-                    <p className="text-sm text-ink-900/50">No entitlements configured.</p>
+                    <p className="text-sm text-ink-900/50">{t("leaveBalance.noEntitlements")}</p>
                   ) : (
                     <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
                       {(balances ?? []).map((b) => (
@@ -430,7 +429,7 @@ async function EmployeeDashboard({
 
             {/* Notifications — 1/3 width */}
             <Card>
-              <CardHeader title="Notifications" />
+              <CardHeader title={tN("title")} />
               {notifications.items.length === 0 ? (
                 <EmptyState
                   title="Nothing yet"

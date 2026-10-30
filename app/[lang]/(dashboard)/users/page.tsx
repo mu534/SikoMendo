@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Search, Users as UsersIcon } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { requirePermission } from "@/lib/session";
 import { listUsers } from "@/features/users/queries";
 import { suspendUserAccount, reactivateUserAccount } from "@/features/users/actions";
@@ -30,13 +31,17 @@ export default async function UsersPage({
 
   const { items, total, totalPages } = await listUsers({ q, role, status, page });
 
+  const t = await getTranslations("users");
+  const tC = await getTranslations("common");
+  const tNav = await getTranslations("nav");
+
   return (
     <div className="space-y-6">
       {/* ── Page header ─────────────────────────────────────────────── */}
       <div>
-        <h2 className="font-display text-xl font-semibold text-ink-900">All Accounts</h2>
+        <h2 className="font-display text-xl font-semibold text-ink-900">{tNav("allAccounts")}</h2>
         <p className="mt-1 text-sm text-ink-900/60">
-          Manage system accounts, roles, and access to Siko Mendo HRMIS.
+          {t("description")}
         </p>
       </div>
 
@@ -51,14 +56,14 @@ export default async function UsersPage({
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-900/35" />
             <Input
               name="q"
-              placeholder="Search by name, username, or employee ID…"
+              placeholder={t("filters.searchPlaceholder")}
               defaultValue={q}
               className="pl-9"
             />
           </div>
           <div className="w-36 shrink-0">
             <Select name="role" defaultValue={role}>
-              <option value="">All roles</option>
+              <option value="">{t("filters.allRoles")}</option>
               {ROLES.map((r) => (
                 <option key={r} value={r}>
                   {roleLabel(r)}
@@ -69,7 +74,7 @@ export default async function UsersPage({
           <div className="w-36 shrink-0">
             <Select name="status" defaultValue={status}>
               <option value="">All statuses</option>
-              <option value="active">Active</option>
+              <option value="active">{tC("active")}</option>
               <option value="suspended">Suspended</option>
             </Select>
           </div>
@@ -82,18 +87,18 @@ export default async function UsersPage({
         <div className="overflow-x-auto">
           <Table>
             <THead>
-              <TH>Account</TH>
-              <TH>Employee</TH>
-              <TH>Role</TH>
-              <TH>Status</TH>
-              <TH>Created</TH>
-              <TH className="text-right">Actions</TH>
+              <TH>{t("columns.user")}</TH>
+              <TH>{t("columns.linkedEmployee")}</TH>
+              <TH>{t("columns.role")}</TH>
+              <TH>{t("columns.status")}</TH>
+              <TH>{t("columns.created")}</TH>
+              <TH className="text-right">{tC("actions")}</TH>
             </THead>
             <TBody>
               {items.length === 0 && (
                 <EmptyRow colSpan={6}>
                   <UsersIcon className="mx-auto mb-2 h-8 w-8 text-ink-900/20" />
-                  No user accounts match your filters.
+                  {t("noUsers")}
                 </EmptyRow>
               )}
               {items.map((user: UserRow) => {
@@ -142,7 +147,7 @@ export default async function UsersPage({
                     <TD>
                       {user.banned
                         ? <Badge tone="warning">Suspended</Badge>
-                        : <Badge tone="success">Active</Badge>}
+                        : <Badge tone="success">{tC("active")}</Badge>}
                     </TD>
 
                     <TD className="whitespace-nowrap text-sm text-ink-900/60">
@@ -155,7 +160,7 @@ export default async function UsersPage({
                           href={`/users/${user.id}`}
                           className="text-sm font-medium text-brand-700 hover:underline"
                         >
-                          Edit
+                          {tC("edit")}
                         </Link>
                         {!isSelf && (
                           user.banned ? (
@@ -168,9 +173,9 @@ export default async function UsersPage({
                               <ConfirmSubmitButton
                                 variant="outline"
                                 size="sm"
-                                confirmMessage={`Reactivate ${user.name}'s account? They will be able to sign in again.`}
+                                confirmMessage={t("confirmReactivate")}
                               >
-                                Reactivate
+                                {t("actions.reactivate")}
                               </ConfirmSubmitButton>
                             </form>
                           ) : (
@@ -183,9 +188,9 @@ export default async function UsersPage({
                               <ConfirmSubmitButton
                                 variant="outline"
                                 size="sm"
-                                confirmMessage={`Suspend ${user.name}'s account? They won't be able to sign in.`}
+                                confirmMessage={t("confirmSuspend")}
                               >
-                                Suspend
+                                {t("actions.suspend")}
                               </ConfirmSubmitButton>
                             </form>
                           )

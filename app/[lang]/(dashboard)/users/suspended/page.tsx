@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { UserX } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { requirePermission } from "@/lib/session";
 import { listUsers } from "@/features/users/queries";
 import { reactivateUserAccount } from "@/features/users/actions";
@@ -30,15 +31,17 @@ export default async function SuspendedAccountsPage({
     page,
   });
 
+  const t = await getTranslations("users");
+  const tC = await getTranslations("common");
+
   return (
     <div className="space-y-6">
       <div>
         <h2 className="font-display text-xl font-semibold text-ink-900">
-          Suspended Accounts
+          {t("titleSuspended")}
         </h2>
         <p className="mt-1 text-sm text-ink-900/60">
-          These accounts are suspended. Users cannot sign in until reactivated.
-          Employee records and HR history are unaffected.
+          {t("descriptionSuspended")}
         </p>
       </div>
 
@@ -46,18 +49,18 @@ export default async function SuspendedAccountsPage({
         <div className="overflow-x-auto">
           <Table>
             <THead>
-              <TH>Account</TH>
-              <TH>Employee</TH>
-              <TH>Role</TH>
-              <TH>Status</TH>
-              <TH>Created</TH>
-              <TH className="text-right">Actions</TH>
+              <TH>{t("columns.user")}</TH>
+              <TH>{t("columns.linkedEmployee")}</TH>
+              <TH>{t("columns.role")}</TH>
+              <TH>{t("columns.status")}</TH>
+              <TH>{t("columns.created")}</TH>
+              <TH className="text-right">{tC("actions")}</TH>
             </THead>
             <TBody>
               {items.length === 0 && (
                 <EmptyRow colSpan={6}>
                   <UserX className="mx-auto mb-2 h-8 w-8 text-ink-900/20" />
-                  No suspended accounts.
+                  {t("noSuspendedUsers")}
                 </EmptyRow>
               )}
               {items.map((user: UserRow) => {
@@ -115,7 +118,7 @@ export default async function SuspendedAccountsPage({
                           href={`/users/${user.id}`}
                           className="text-sm font-medium text-brand-700 hover:underline"
                         >
-                          Edit
+                          {tC("edit")}
                         </Link>
                         <form
                           action={async () => {
@@ -126,9 +129,9 @@ export default async function SuspendedAccountsPage({
                           <ConfirmSubmitButton
                             variant="outline"
                             size="sm"
-                            confirmMessage={`Reactivate ${user.name}'s account? They will be able to sign in again.`}
+                            confirmMessage={t("confirmReactivate")}
                           >
-                            Reactivate
+                            {t("actions.reactivate")}
                           </ConfirmSubmitButton>
                         </form>
                       </div>

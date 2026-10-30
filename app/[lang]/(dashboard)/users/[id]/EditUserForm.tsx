@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { useTranslations } from "next-intl";
 import { updateUserAccount } from "@/features/users/actions";
 import { ROLES, roleLabel } from "@/lib/permissions";
 import { Input, Label, Select, FieldGroup } from "@/components/ui/field";
@@ -12,6 +13,7 @@ export function EditUserForm({
 }: {
   user: { id: string; name: string; username: string | null; role: string; image: string | null };
 }) {
+  const t = useTranslations("users");
   const action = updateUserAccount.bind(null, user.id);
   const [state, formAction, isPending] = useActionState(action, null);
 
@@ -20,12 +22,12 @@ export function EditUserForm({
       <PhotoInput name="photo" currentName={user.name} currentUrl={user.image} />
 
       <FieldGroup>
-        <Label htmlFor="name">Full name</Label>
+        <Label htmlFor="name">{t("form.name")}</Label>
         <Input id="name" name="name" required defaultValue={user.name} />
       </FieldGroup>
 
       <FieldGroup>
-        <Label htmlFor="username">Username</Label>
+        <Label htmlFor="username">{t("form.username")}</Label>
         <Input
           id="username"
           name="username"
@@ -63,7 +65,7 @@ export function EditUserForm({
 
       <div className="flex items-center gap-3 pt-1">
         <Button type="submit" disabled={isPending}>
-          {isPending ? "Saving…" : "Save changes"}
+          {isPending ? t("form.saving") : t("form.saveChanges")}
         </Button>
         <ButtonLink href="/users" variant="ghost">
           Back to users
