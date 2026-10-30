@@ -138,7 +138,7 @@ export function Header({
         </div>
 
         {/* ── Language switcher ──────────────────────────────────── */}
-        <LanguageSwitcher compact={true} />
+        <LanguageSwitcher variant="header" />
 
         {/* ── User menu ─────────────────────────────────────────── */}
         <div className="relative">

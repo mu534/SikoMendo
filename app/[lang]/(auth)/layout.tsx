@@ -35,7 +35,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
         <div className="flex flex-col items-center justify-center px-6 py-12 sm:px-10 lg:px-14">
           {/* Language switcher — above the form */}
           <div className="mb-6 self-end">
-            <LanguageSwitcher compact={false} />
+            <LanguageSwitcher variant="auth" />
           </div>
           <div className="w-full max-w-md">{children}</div>
         </div>
