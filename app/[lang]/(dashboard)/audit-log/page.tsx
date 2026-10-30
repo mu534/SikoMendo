@@ -9,6 +9,7 @@ import { Select, Input } from "@/components/ui/field";
 import { Table, THead, TH, TBody, TR, TD, EmptyRow } from "@/components/ui/table";
 import { Pagination } from "@/components/ui/pagination";
 import { AuditChangesCell } from "@/features/audit-log/audit-changes-cell";
+import { getTranslations } from "next-intl/server";
 
 // ── Action tone map ───────────────────────────────────────────────────────────
 // Maps every known action verb to a visual badge tone.
@@ -59,6 +60,8 @@ export default async function AuditLogPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   await requirePermission("VIEW_AUDIT_LOG");
+  const t = await getTranslations("audit");
+  const tC = await getTranslations("common");
   const params = await searchParams;
 
   const q        = parseStringParam(params.q);
@@ -80,9 +83,9 @@ export default async function AuditLogPage({
     <div className="space-y-5">
       {/* ── Page header ─────────────────────────────────────────── */}
       <div>
-        <h2 className="font-display text-xl font-semibold text-ink-900">Audit Log</h2>
+        <h2 className="font-display text-xl font-semibold text-ink-900">{t("title")}</h2>
         <p className="mt-1 text-sm text-ink-900/60">
-          Append-only record of who changed what, and when.
+          {t("description")}
           {total > 0 && (
             <span className="ml-1">
               {hasFilters
@@ -105,7 +108,7 @@ export default async function AuditLogPage({
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-900/35" />
             <Input
               name="q"
-              placeholder="Search user, record, or action…"
+              placeholder={t("filters.searchPlaceholder")}
               defaultValue={q}
               className="pl-9"
             />
@@ -126,7 +129,7 @@ export default async function AuditLogPage({
           {/* Module / entity */}
           <div className="w-36 shrink-0">
             <Select name="entity" defaultValue={entity}>
-              <option value="">All modules</option>
+              <option value="">{t("filters.allEntities")}</option>
               {filterOptions.entities.map((e) => (
                 <option key={e} value={e}>
                   {e}
@@ -138,7 +141,7 @@ export default async function AuditLogPage({
           {/* Action */}
           <div className="w-36 shrink-0">
             <Select name="action" defaultValue={action}>
-              <option value="">All actions</option>
+              <option value="">{t("filters.allActions")}</option>
               {filterOptions.actions.map((a) => (
                 <option key={a} value={a}>
                   {actionLabel(a)}
@@ -168,7 +171,7 @@ export default async function AuditLogPage({
           </div>
 
           <Button type="submit" variant="secondary" size="sm" className="shrink-0">
-            Apply
+            {tC("apply")}
           </Button>
         </form>
 
@@ -211,7 +214,7 @@ export default async function AuditLogPage({
                         )}
                       </div>
                     ) : (
-                      <span className="text-sm italic text-ink-900/40">System</span>
+                      <span className="text-sm italic text-ink-900/40">{t("system")}</span>
                     )}
                   </TD>
 

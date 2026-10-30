@@ -18,6 +18,7 @@ import { ROLE_LABELS, PERMISSIONS, type Role } from "@/lib/permissions";
 import { formatDateTime } from "@/lib/utils";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { getTranslations } from "next-intl/server";
 
 // ── Security summary — live counts from the database ─────────────────────────
 
@@ -91,6 +92,7 @@ const SECURITY_EVENT_TONES: Record<string, "success" | "warning" | "danger" | "n
 
 export default async function SecuritySettingsPage() {
   await requirePermission("MANAGE_SETTINGS");
+  const t = await getTranslations("settings");
 
   const {
     totalAccounts,
@@ -109,9 +111,9 @@ export default async function SecuritySettingsPage() {
 
       {/* ── Page header ───────────────────────────────────────────────────── */}
       <div>
-        <h2 className="font-display text-xl font-semibold text-ink-900">Security &amp; Access</h2>
+        <h2 className="font-display text-xl font-semibold text-ink-900">{t("securityTitle")}</h2>
         <p className="mt-1 text-sm text-ink-900/60">
-          Active security controls and account status for the Siko Mendo Union HRMIS.
+          {t("securityDescription")}
         </p>
       </div>
 

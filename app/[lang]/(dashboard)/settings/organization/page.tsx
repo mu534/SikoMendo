@@ -5,20 +5,21 @@ import { getOrgSettings } from "@/features/settings/queries";
 import { OrgSettingsForm } from "@/features/settings/org-settings-form";
 import { Card } from "@/components/ui/card";
 import { Building2 } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
 export default async function OrganizationSettingsPage() {
   await requirePermission("MANAGE_SETTINGS");
+  const t = await getTranslations("settings");
   const settings = await getOrgSettings();
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="font-display text-xl font-semibold text-ink-900">
-          Organisation Settings
+          {t("organisationTitle")}
         </h2>
         <p className="mt-1 text-sm text-ink-900/60">
-          Organisation name, tagline, location, and logo. The logo appears in the sidebar and
-          on generated reports.
+          {t("organisationDescription")}
         </p>
       </div>
 

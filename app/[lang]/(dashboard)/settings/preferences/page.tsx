@@ -2,16 +2,18 @@ import { requirePermission } from "@/lib/session";
 import { Card } from "@/components/ui/card";
 import { SlidersHorizontal, ExternalLink } from "lucide-react";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 
 export default async function SystemPreferencesPage() {
   await requirePermission("MANAGE_SETTINGS");
+  const t = await getTranslations("settings");
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="font-display text-xl font-semibold text-ink-900">System Preferences</h2>
+        <h2 className="font-display text-xl font-semibold text-ink-900">{t("preferencesTitle")}</h2>
         <p className="mt-1 text-sm text-ink-900/60">
-          Module-specific configuration is managed within each module.
+          {t("preferencesDescription")}
         </p>
       </div>
 

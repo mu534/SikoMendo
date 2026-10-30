@@ -12,6 +12,7 @@ import {
   ChangePasswordForm,
   EmployeeContactForm,
 } from "@/features/profile/profile-forms";
+import { getTranslations } from "next-intl/server";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -77,6 +78,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function ProfilePage() {
+  const t = await getTranslations("profile");
   const session = await requireSession();
   const { user } = session;
 
@@ -116,9 +118,9 @@ export default async function ProfilePage() {
     <div className="space-y-6">
       {/* ── Page title ────────────────────────────────────────────────────── */}
       <div>
-        <h2 className="font-display text-xl font-semibold text-ink-900">My Profile</h2>
+        <h2 className="font-display text-xl font-semibold text-ink-900">{t("title")}</h2>
         <p className="mt-1 text-sm text-ink-900/55">
-          Manage your personal information, contact details, and security settings.
+          {t("description")}
         </p>
       </div>
 
@@ -260,7 +262,7 @@ export default async function ProfilePage() {
           <Card className="p-6">
             <div className="mb-5 border-b border-ink-900/8 pb-4">
               <h3 className="font-display text-base font-semibold text-ink-900">
-                Personal Information
+                {t("personalInfo")}
               </h3>
               <p className="mt-1 text-sm text-ink-900/55">
                 Update your display name. Username and role are managed by an Administrator.
@@ -279,7 +281,7 @@ export default async function ProfilePage() {
             <Card className="p-6">
               <div className="mb-5 border-b border-ink-900/8 pb-4">
                 <h3 className="font-display text-base font-semibold text-ink-900">
-                  Contact Information
+                  {t("contactInfo")}
                 </h3>
                 <p className="mt-1 text-sm text-ink-900/55">
                   Keep your contact details and emergency contact up to date.
@@ -301,7 +303,7 @@ export default async function ProfilePage() {
             <Card className="p-6">
               <div className="mb-5 border-b border-ink-900/8 pb-4">
                 <h3 className="font-display text-base font-semibold text-ink-900">
-                  Contact Information
+                  {t("contactInfo")}
                 </h3>
               </div>
               <p className="text-sm text-ink-900/55">
@@ -316,7 +318,7 @@ export default async function ProfilePage() {
             <Card className="p-6">
               <div className="mb-5 border-b border-ink-900/8 pb-4">
                 <h3 className="font-display text-base font-semibold text-ink-900">
-                  Employment Details
+                  {t("employmentInfo")}
                 </h3>
                 <p className="mt-1 text-sm text-ink-900/55">
                   Managed by HR. Contact your HR Officer to request changes.

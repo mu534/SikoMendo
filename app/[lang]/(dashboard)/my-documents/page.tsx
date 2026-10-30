@@ -5,8 +5,10 @@ import { getSignedFileUrl } from "@/lib/cloudinary";
 import { formatDate, formatBytes } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { getTranslations } from "next-intl/server";
 
 export default async function MyDocumentsPage() {
+  const t = await getTranslations("documents");
   const session = await requireSession();
 
   const employee = await prisma.employee.findUnique({
@@ -22,7 +24,7 @@ export default async function MyDocumentsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="font-display text-xl font-semibold text-ink-900">My Documents</h2>
+        <h2 className="font-display text-xl font-semibold text-ink-900">{t("title")}</h2>
         <p className="mt-1 text-sm text-ink-900/60">
           Documents HR has uploaded to your employee record. You can view and download these, but not
           delete them.
@@ -37,7 +39,7 @@ export default async function MyDocumentsPage() {
             description="Ask your HR Officer to link your account to your employee record to see documents here."
           />
         ) : employee.documents.length === 0 ? (
-          <EmptyState icon={<FileText className="h-8 w-8" />} title="No documents yet" />
+          <EmptyState icon={<FileText className="h-8 w-8" />} title={t("noDocuments")} />
         ) : (
           <ul className="divide-y divide-ink-900/6">
             {employee.documents.map((doc) => {
@@ -97,7 +99,7 @@ export default async function MyDocumentsPage() {
                       className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-900/60 hover:text-ink-900"
                     >
                       <Download className="h-3.5 w-3.5" />
-                      Download
+                      {t("download")}
                     </a>
                   </div>
                 </li>

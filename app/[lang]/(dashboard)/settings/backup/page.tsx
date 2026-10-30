@@ -8,6 +8,7 @@ import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { CreateBackupButton } from "@/features/settings/create-backup-button";
 import { deleteBackupRecord } from "@/features/settings/backup-actions";
 import { DatabaseBackup, Download, Trash2, Info } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
 type BackupRow = {
   id: string;
@@ -30,6 +31,7 @@ const STATUS_TONE: Record<string, BadgeTone> = {
 
 export default async function BackupRestorePage() {
   await requirePermission("MANAGE_SETTINGS");
+  const t = await getTranslations("settings");
 
   // Fetch backup history via raw SQL (backup_log not yet in generated client)
   const rows = await prisma.$queryRaw<BackupRow[]>`
@@ -49,12 +51,10 @@ export default async function BackupRestorePage() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="font-display text-xl font-semibold text-ink-900">
-            Backup &amp; Restore
+            {t("backupTitle")}
           </h2>
           <p className="mt-1 text-sm text-ink-900/60">
-            Export a full database snapshot. Backups are stored as compressed JSON archives
-            on Cloudinary (authenticated / private). Only administrators can create or
-            access backups.
+            {t("backupDescription")}
           </p>
         </div>
         <CreateBackupButton />
