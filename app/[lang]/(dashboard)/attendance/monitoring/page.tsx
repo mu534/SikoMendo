@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { requirePermission } from "@/lib/session";
 import { getDailyRegister } from "@/features/attendance/queries";
 import { ReadOnlyRegister } from "@/features/attendance/read-only-register";
@@ -20,6 +21,8 @@ export default async function AttendanceMonitoringPage({
   // requirePermission redirects Admin (no VIEW_ATTENDANCE_MONITOR) to /dashboard
   await requirePermission("VIEW_ATTENDANCE_MONITOR");
 
+  const t = await getTranslations("attendance");
+
   const params = await searchParams;
   const today  = getOrgLocalDateString();
   const date   = parseStringParam(params.date) || today;
@@ -31,7 +34,7 @@ export default async function AttendanceMonitoringPage({
 
   return (
     <ReadOnlyRegister
-      heading="Attendance Monitoring"
+      heading={t("monitoringTitle")}
       description="Organisation-wide daily attendance — read only. Use My Attendance to record your own."
       employees={employees}
       summary={summary}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, FileText } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { requireSession } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { getSignedFileUrl } from "@/lib/cloudinary";
@@ -19,6 +20,8 @@ import { Avatar } from "@/components/ui/avatar";
 export default async function LeaveDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await requireSession();
   const { id } = await params;
+
+  const t = await getTranslations("leave");
 
   const leave = await getLeaveRequestById(id);
   if (!leave) notFound();
@@ -136,7 +139,7 @@ export default async function LeaveDetailPage({ params }: { params: Promise<{ id
                 }}
               >
                 <ConfirmSubmitButton confirmMessage="Cancel this leave request?" variant="danger">
-                  Cancel Request
+                  {t("actions.cancel")}
                 </ConfirmSubmitButton>
               </form>
             </Card>

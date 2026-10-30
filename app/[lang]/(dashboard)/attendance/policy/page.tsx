@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { requirePermission } from "@/lib/session";
 import { getAttendancePolicyRaw } from "@/features/attendance/policy-queries";
 import { listShifts, listActiveShifts } from "@/features/attendance/shift-queries";
@@ -16,6 +17,8 @@ import { PolicyPageClient } from "@/features/attendance/policy-page-client";
 export default async function AttendancePolicyPage() {
   await requirePermission("MANAGE_ATTENDANCE_POLICY");
 
+  const t = await getTranslations("attendance");
+
   const [policy, allShifts, activeShifts] = await Promise.all([
     getAttendancePolicyRaw(),
     listShifts(),
@@ -27,7 +30,7 @@ export default async function AttendancePolicyPage() {
       {/* Page header */}
       <div>
         <h2 className="font-display text-xl font-semibold text-ink-900">
-          Attendance Policy
+          {t("policyTitle")}
         </h2>
         <p className="mt-1 text-sm text-ink-900/60">
           Configure work shifts and attendance rules. Changes apply to future check-ins
