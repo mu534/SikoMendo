@@ -1,33 +1,21 @@
-import type { Metadata } from "next";
+/**
+ * Non-locale force-password-change stub.
+ *
+ * The proxy redirects bare /force-password-change → /{locale}/force-password-change
+ * before this is ever reached. This is a belt-and-suspenders fallback.
+ * The actual page with session guards and translations lives at
+ * app/[lang]/(auth)/force-password-change/page.tsx.
+ */
 import { redirect } from "next/navigation";
-import { getServerSession } from "@/lib/session";
-import prisma from "@/lib/prisma";
-import { ForcePasswordChangeForm } from "@/features/auth/force-password-change-form";
+import { cookies } from "next/headers";
 
-export const metadata: Metadata = {
-  title: "Set a new password",
-};
+const LOCALES = ["en", "om"] as const;
+const DEFAULT_LOCALE = "en";
 
-export default async function ForcePasswordChangePage() {
-  const session = await getServerSession();
-
-  // Not authenticated — send to sign-in.
-  if (!session) {
-    redirect("/sign-in");
-  }
-
-  // Re-read the flag from the DB rather than the (potentially stale) session
-  // value, so an admin reset that just happened is reflected immediately
-  // without requiring the employee to sign in again.
-  const flags = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { mustChangePassword: true },
-  });
-
-  // Flag already cleared — nothing to do here, send to dashboard.
-  if (!flags?.mustChangePassword) {
-    redirect("/dashboard");
-  }
-
-  return <ForcePasswordChangeForm />;
+export default async function ForcePasswordChangeRedirectPage() {
+  const cookieStore = await cookies();
+  const val = cookieStore.get("NEXT_LOCALE")?.value;
+  const locale =
+    (LOCALES as readonly string[]).includes(val ?? "") ? val! : DEFAULT_LOCALE;
+  redirect(`/${locale}/force-password-change`);
 }

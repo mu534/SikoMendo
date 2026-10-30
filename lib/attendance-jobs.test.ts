@@ -89,8 +89,9 @@ describe("TC1: employee with no check-in → ABSENT created", () => {
     expect(prisma.attendance.createMany).toHaveBeenCalledOnce();
     const call = vi.mocked(prisma.attendance.createMany).mock.calls[0]![0]!;
     expect(call.skipDuplicates).toBe(true);
-    expect(call.data).toHaveLength(1);
-    expect(call.data[0]).toMatchObject({
+    const dataArr = Array.isArray(call.data) ? call.data : [call.data];
+    expect(dataArr).toHaveLength(1);
+    expect(dataArr[0]).toMatchObject({
       employeeId,
       status: "ABSENT",
       autoRecorded: true,
