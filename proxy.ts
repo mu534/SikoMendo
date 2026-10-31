@@ -14,11 +14,6 @@ const intlMiddleware = createMiddleware(routing);
 
 const LOCALES = ["en", "om"] as const;
 type Locale = (typeof LOCALES)[number];
-const DEFAULT_LOCALE: Locale = "en";
-
-function isValidLocale(val: string | undefined): val is Locale {
-  return LOCALES.includes(val as Locale);
-}
 
 // ── Public paths (locale-stripped) ────────────────────────────────────────────
 // These never require a session check. Everything else is protected.
