@@ -1,16 +1,12 @@
-import { requirePermission } from "@/lib/session";
-import { CreateUserForm } from "@/features/users/create-user-form";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
-export default async function NewUserPage() {
-  await requirePermission("MANAGE_USERS");
+const LOCALES = ["en", "om"] as const;
+const DEFAULT_LOCALE = "en";
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="font-display text-xl font-semibold text-ink-900">New user account</h2>
-        <p className="mt-1 text-sm text-ink-900/60">Provision access for a staff member. They&apos;ll sign in with their username and password.</p>
-      </div>
-      <CreateUserForm />
-    </div>
-  );
+export default async function RedirectPage() {
+  const cookieStore = await cookies();
+  const val = cookieStore.get("NEXT_LOCALE")?.value;
+  const locale = LOCALES.includes(val as (typeof LOCALES)[number]) ? val! : DEFAULT_LOCALE;
+  redirect(`/${locale}/users/new`);
 }

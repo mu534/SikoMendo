@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
 import { useState, useTransition } from "react";
 import { Menu, LogOut, ChevronDown, Bell } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -169,9 +169,9 @@ export function Header({
                     {roleLabel(user.role)}
                   </Badge>
                 </div>
-                <a href="/profile" className="block px-3.5 py-2 text-sm text-ink-900/80 hover:bg-sand-100">
+                <Link href="/profile" className="block px-3.5 py-2 text-sm text-ink-900/80 hover:bg-sand-100">
                   {t("common.myProfile")}
-                </a>
+                </Link>
                 <button
                   onClick={handleSignOut}
                   disabled={isPending}

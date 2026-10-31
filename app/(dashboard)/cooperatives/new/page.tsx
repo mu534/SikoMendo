@@ -1,41 +1,12 @@
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
-import { requirePermission } from "@/lib/session";
-import { createCooperative } from "@/features/cooperatives/actions";
-import { CooperativeForm } from "@/features/cooperatives/cooperative-form";
-import { generateNextCooperativeId } from "@/features/cooperatives/queries";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
-export default async function NewCooperativePage() {
-  await requirePermission("MANAGE_COOPERATIVES");
+const LOCALES = ["en", "om"] as const;
+const DEFAULT_LOCALE = "en";
 
-  const cooperativeId = await generateNextCooperativeId();
-
-  return (
-    <div className="space-y-6">
-      {/* Back link */}
-      <Link
-        href="/cooperatives"
-        className="inline-flex items-center gap-1.5 text-sm text-ink-900/50 hover:text-ink-900 transition-colors"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-        Back to cooperatives
-      </Link>
-
-      {/* Page header */}
-      <div>
-        <h2 className="font-display text-xl font-semibold text-ink-900">
-          Register New Cooperative
-        </h2>
-        <p className="mt-1 text-sm text-ink-900/60">
-          Business ID{" "}
-          <span className="rounded bg-ink-900/6 px-1.5 py-0.5 font-mono text-xs font-medium text-ink-900">
-            {cooperativeId}
-          </span>{" "}
-          has been pre-assigned and will be saved on submit. A legal certificate is required.
-        </p>
-      </div>
-
-      <CooperativeForm action={createCooperative} cooperativeId={cooperativeId} />
-    </div>
-  );
+export default async function RedirectPage() {
+  const cookieStore = await cookies();
+  const val = cookieStore.get("NEXT_LOCALE")?.value;
+  const locale = LOCALES.includes(val as (typeof LOCALES)[number]) ? val! : DEFAULT_LOCALE;
+  redirect(`/${locale}/cooperatives/new`);
 }

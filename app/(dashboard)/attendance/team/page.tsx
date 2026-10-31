@@ -1,9 +1,12 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-/**
- * /attendance/team — legacy route, now consolidates to /attendance/monitoring.
- * Both HR Officer and Manager use the unified monitoring view.
- */
-export default function TeamAttendancePage() {
-  redirect("/attendance/monitoring");
+const LOCALES = ["en", "om"] as const;
+const DEFAULT_LOCALE = "en";
+
+export default async function RedirectPage() {
+  const cookieStore = await cookies();
+  const val = cookieStore.get("NEXT_LOCALE")?.value;
+  const locale = LOCALES.includes(val as (typeof LOCALES)[number]) ? val! : DEFAULT_LOCALE;
+  redirect(`/${locale}/attendance/team`);
 }
