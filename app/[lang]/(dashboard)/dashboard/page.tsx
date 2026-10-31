@@ -64,19 +64,24 @@ function auditSentence(t: TFunction, action: string, entity: string): string {
 
 // ── Dashboard router ──────────────────────────────────────────────────────────
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  params,
+}: {
+  params: Promise<{ lang: string }>;
+}) {
+  const { lang } = await params;
   const session = await requireSession();
 
   if (can(session.user.role, "DASHBOARD_ANALYTICS")) {
-    return <OrganizationDashboard userName={session.user.name} />;
+    return <OrganizationDashboard lang={lang} userName={session.user.name} />;
   }
 
-  return <EmployeeDashboard userId={session.user.id} userName={session.user.name} />;
+  return <EmployeeDashboard lang={lang} userId={session.user.id} userName={session.user.name} />;
 }
 
 // ── Organisation dashboard (Admin / HR / Manager) ─────────────────────────────
 
-async function OrganizationDashboard({ userName }: { userName: string }) {
+async function OrganizationDashboard({ lang, userName }: { lang: string; userName: string }) {
   const [stats, logs, attendanceTrend, leaveBreakdown, departmentHeadcount, needsAttention] = await Promise.all([
     getOrganizationStats(),
     getRecentAuditLogs(8),
@@ -110,7 +115,7 @@ async function OrganizationDashboard({ userName }: { userName: string }) {
 
       {/* ── KPI stat row ───────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Link href="/employees" className="group">
+        <Link href={`/${lang}/employees`} className="group">
           <StatCard
             label={t("stats.totalEmployees")}
             value={stats.totalEmployees}
@@ -118,14 +123,14 @@ async function OrganizationDashboard({ userName }: { userName: string }) {
             icon={<Users className="h-5 w-5" />}
           />
         </Link>
-        <Link href="/cooperatives" className="group">
+        <Link href={`/${lang}/cooperatives`} className="group">
           <StatCard
             label={t("stats.cooperatives")}
             value={stats.totalCooperatives}
             icon={<Building2 className="h-5 w-5" />}
           />
         </Link>
-        <Link href="/attendance" className="group">
+        <Link href={`/${lang}/attendance`} className="group">
           <StatCard
             label={t("stats.presentToday")}
             value={stats.presentToday}
@@ -133,7 +138,7 @@ async function OrganizationDashboard({ userName }: { userName: string }) {
             icon={<CalendarCheck className="h-5 w-5" />}
           />
         </Link>
-        <Link href="/leave" className="group">
+        <Link href={`/${lang}/leave`} className="group">
           <StatCard
             label={t("stats.absentToday")}
             value={stats.absentToday}
@@ -156,7 +161,7 @@ async function OrganizationDashboard({ userName }: { userName: string }) {
           <div className="flex flex-wrap gap-3">
             {needsAttention.pendingLeave > 0 && (
               <Link
-                href="/leave?status=PENDING"
+                href={`/${lang}/leave?status=PENDING`}
                 className="inline-flex items-center gap-2 rounded-lg border border-gold-400/30 bg-gold-400/10 px-3 py-2 text-sm font-medium text-ink-900 hover:bg-gold-400/20 transition-colors"
               >
                 <CalendarOff className="h-3.5 w-3.5 text-gold-600" />
@@ -165,7 +170,7 @@ async function OrganizationDashboard({ userName }: { userName: string }) {
             )}
             {needsAttention.onboarding > 0 && (
               <Link
-                href="/employees/lifecycle"
+                href={`/${lang}/employees/lifecycle`}
                 className="inline-flex items-center gap-2 rounded-lg border border-brand-400/30 bg-brand-400/10 px-3 py-2 text-sm font-medium text-ink-900 hover:bg-brand-400/20 transition-colors"
               >
                 <UserCheck className="h-3.5 w-3.5 text-brand-600" />
@@ -174,7 +179,7 @@ async function OrganizationDashboard({ userName }: { userName: string }) {
             )}
             {needsAttention.offboarding > 0 && (
               <Link
-                href="/employees/lifecycle"
+                href={`/${lang}/employees/lifecycle`}
                 className="inline-flex items-center gap-2 rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm font-medium text-ink-900 hover:bg-red-400/20 transition-colors"
               >
                 <ArrowRight className="h-3.5 w-3.5 text-red-600" />
@@ -183,7 +188,7 @@ async function OrganizationDashboard({ userName }: { userName: string }) {
             )}
             {needsAttention.expiringContracts > 0 && (
               <Link
-                href="/employees"
+                href={`/${lang}/employees`}
                 className="inline-flex items-center gap-2 rounded-lg border border-orange-400/30 bg-orange-400/10 px-3 py-2 text-sm font-medium text-ink-900 hover:bg-orange-400/20 transition-colors"
               >
                 <FileBarChart className="h-3.5 w-3.5 text-orange-600" />
@@ -241,7 +246,7 @@ async function OrganizationDashboard({ userName }: { userName: string }) {
           description={t("recentActivity.description")}
           action={
             <Link
-              href="/audit-log"
+              href={`/${lang}/audit-log`}
               className="inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:underline"
             >
               {tC("viewAll")} <ArrowRight className="h-3 w-3" />
@@ -282,9 +287,11 @@ async function OrganizationDashboard({ userName }: { userName: string }) {
 // ── Employee dashboard ─────────────────────────────────────────────────────────
 
 async function EmployeeDashboard({
+  lang,
   userId,
   userName,
 }: {
+  lang: string;
   userId: string;
   userName: string;
 }) {
@@ -352,17 +359,17 @@ async function EmployeeDashboard({
 
             {/* Quick links — responsive pill row */}
             <div className="mt-4 flex flex-wrap gap-2 border-t border-ink-900/8 pt-4">
-              <ButtonLink href="/leave/new" size="sm">
+              <ButtonLink href={`/${lang}/leave/new`} size="sm">
                 <Plus className="h-3.5 w-3.5" />
                 {t("quickLinks.newLeaveRequest")}
               </ButtonLink>
-              <ButtonLink href="/attendance" variant="outline" size="sm">
+              <ButtonLink href={`/${lang}/attendance`} variant="outline" size="sm">
                 {t("quickLinks.myAttendance")}
               </ButtonLink>
-              <ButtonLink href="/my-documents" variant="outline" size="sm">
+              <ButtonLink href={`/${lang}/my-documents`} variant="outline" size="sm">
                 {t("quickLinks.myDocuments")}
               </ButtonLink>
-              <ButtonLink href="/profile" variant="ghost" size="sm">
+              <ButtonLink href={`/${lang}/profile`} variant="ghost" size="sm">
                 {t("quickLinks.myProfile")}
               </ButtonLink>
             </div>
