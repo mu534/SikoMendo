@@ -14,13 +14,16 @@ import { parseStringParam } from "@/lib/utils";
  * HR Officers and Managers both see the full org-wide register here (read-only).
  */
 export default async function AttendanceMonitoringPage({
+  params: routeParams,
   searchParams,
 }: {
+  params: Promise<{ lang: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   // requirePermission redirects Admin (no VIEW_ATTENDANCE_MONITOR) to /dashboard
   await requirePermission("VIEW_ATTENDANCE_MONITOR");
 
+  const { lang } = await routeParams;
   const t = await getTranslations("attendance");
 
   const params = await searchParams;
@@ -28,7 +31,7 @@ export default async function AttendanceMonitoringPage({
   const date   = parseStringParam(params.date) || today;
   const status = parseStringParam(params.status);
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) redirect("/attendance/monitoring");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) redirect(`/${lang}/attendance/monitoring`);
 
   const { employees, summary } = await getDailyRegister({ date, status });
 

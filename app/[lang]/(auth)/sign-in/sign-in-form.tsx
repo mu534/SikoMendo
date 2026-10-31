@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { LogIn, Eye, EyeOff } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useLocale } from "next-intl";
+import { useRouter } from "@/i18n/navigation";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Input, Label, FieldGroup, FieldError } from "@/components/ui/field";
@@ -20,7 +20,6 @@ function mapAuthError(message: string | undefined): string {
 
 export function SignInForm() {
   const t = useTranslations("auth.signIn");
-  const locale = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -72,7 +71,7 @@ export function SignInForm() {
       const raw = searchParams.get("redirectTo") ?? "";
       const redirectTo =
         raw.startsWith("/") && !raw.startsWith("//") ? raw : "/dashboard";
-      router.push(`/${locale}${redirectTo}`);
+      router.push(redirectTo);
       router.refresh();
     } finally {
       setIsSubmitting(false);

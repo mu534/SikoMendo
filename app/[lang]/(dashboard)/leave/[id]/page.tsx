@@ -17,9 +17,9 @@ import { formatDateWithEthiopian } from "@/lib/ethiopian-calendar";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 
-export default async function LeaveDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function LeaveDetailPage({ params }: { params: Promise<{ lang: string; id: string }> }) {
   const session = await requireSession();
-  const { id } = await params;
+  const { lang, id } = await params;
 
   const t = await getTranslations("leave");
 
@@ -43,7 +43,7 @@ export default async function LeaveDetailPage({ params }: { params: Promise<{ id
   const canDecide = can(session.user.role, "MANAGE_LEAVE") && canViewAll;
 
   if (!isOwner && !canViewAll) {
-    redirect("/leave");
+    redirect(`/${lang}/leave`);
   }
 
   const canCancel = isOwner && leave.status === "PENDING";
@@ -53,7 +53,7 @@ export default async function LeaveDetailPage({ params }: { params: Promise<{ id
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <Link href="/leave" className="mb-2 inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:underline">
+          <Link href={`/${lang}/leave`} className="mb-2 inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:underline">
             <ArrowLeft className="h-4 w-4" />
             Back to leave requests
           </Link>

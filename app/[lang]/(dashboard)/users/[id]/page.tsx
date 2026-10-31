@@ -13,10 +13,10 @@ import { AccountSecurityPanel } from "@/features/users/account-security-panel";
 export default async function EditUserPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ lang: string; id: string }>;
 }) {
   const session = await requirePermission("MANAGE_USERS");
-  const { id } = await params;
+  const { lang, id } = await params;
 
   const user = await getUserById(id);
   if (!user) notFound();
@@ -52,7 +52,7 @@ export default async function EditUserPage({
             <p className="mt-1 text-sm text-ink-900/60">
               Employee:{" "}
               <Link
-                href={`/employees/${emp.id}`}
+                href={`/${lang}/employees/${emp.id}`}
                 className="font-medium text-brand-700 hover:underline"
               >
                 {emp.firstName} {emp.lastName} ({emp.employeeId})

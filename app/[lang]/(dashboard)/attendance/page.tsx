@@ -9,16 +9,21 @@ import { requireSession } from "@/lib/session";
  * MANAGER     → /attendance/monitoring  (org-wide read-only)
  * EMPLOYEE    → /attendance/mine        (own attendance only)
  */
-export default async function AttendanceRootPage() {
+export default async function AttendanceRootPage({
+  params,
+}: {
+  params: Promise<{ lang: string }>;
+}) {
+  const { lang } = await params;
   const session = await requireSession();
 
   switch (session.user.role) {
     case "ADMIN":
-      redirect("/attendance/management");
+      redirect(`/${lang}/attendance/management`);
     case "HR_OFFICER":
     case "MANAGER":
-      redirect("/attendance/monitoring");
+      redirect(`/${lang}/attendance/monitoring`);
     default:
-      redirect("/attendance/mine");
+      redirect(`/${lang}/attendance/mine`);
   }
 }

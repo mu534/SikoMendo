@@ -5,14 +5,19 @@ import prisma from "@/lib/prisma";
 import { getEmployeeLeaveBalances } from "@/features/leave/queries";
 import { LeaveRequestForm } from "@/features/leave/leave-request-form";
 
-export default async function NewLeaveRequestPage() {
+export default async function NewLeaveRequestPage({
+  params,
+}: {
+  params: Promise<{ lang: string }>;
+}) {
+  const { lang } = await params;
   const session = await requirePermission("MANAGE_OWN_LEAVE");
 
   const t = await getTranslations("leave");
 
   const employee = await prisma.employee.findUnique({ where: { userId: session.user.id } });
   if (!employee) {
-    redirect("/leave");
+    redirect(`/${lang}/leave`);
   }
 
   const balances = await getEmployeeLeaveBalances(employee.id);

@@ -94,13 +94,13 @@ export default async function CooperativeDetailPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ lang: string; id: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const t = await getTranslations("cooperatives");
   const tC = await getTranslations("common");
   const session = await requirePermission("VIEW_COOPERATIVES");
-  const { id } = await params;
+  const { lang, id } = await params;
   const sp = await searchParams;
 
   const cooperative = await getCooperativeById(id);
@@ -196,7 +196,7 @@ export default async function CooperativeDetailPage({
 
       {/* ── Back link ────────────────────────────────────────────────────── */}
       <Link
-        href="/cooperatives"
+        href={`/${lang}/cooperatives`}
         className="inline-flex items-center gap-1.5 text-sm text-ink-900/50 hover:text-ink-900 transition-colors"
       >
         <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
@@ -246,7 +246,7 @@ export default async function CooperativeDetailPage({
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             {!isEditMode && (
               <ButtonLink
-                href={`/cooperatives/${id}?edit=1`}
+                href={`/${lang}/cooperatives/${id}?edit=1`}
                 variant="outline"
                 size="sm"
               >
@@ -256,7 +256,7 @@ export default async function CooperativeDetailPage({
             )}
             {isEditMode && (
               <ButtonLink
-                href={`/cooperatives/${id}`}
+                href={`/${lang}/cooperatives/${id}`}
                 variant="ghost"
                 size="sm"
               >
@@ -270,7 +270,7 @@ export default async function CooperativeDetailPage({
                   action={async () => {
                     "use server";
                     await restoreCooperative(id);
-                    redirect(`/cooperatives/${id}`);
+                    redirect(`/${lang}/cooperatives/${id}`);
                   }}
                 >
                   <ConfirmSubmitButton
@@ -288,9 +288,9 @@ export default async function CooperativeDetailPage({
                     "use server";
                     const result = await archiveCooperative(id);
                     if (!result.success) {
-                      redirect(`/cooperatives/${id}?error=${encodeURIComponent(result.error.message)}`);
+                      redirect(`/${lang}/cooperatives/${id}?error=${encodeURIComponent(result.error.message)}`);
                     }
-                    redirect("/cooperatives");
+                    redirect(`/${lang}/cooperatives`);
                   }}
                 >
                   <ConfirmSubmitButton
@@ -376,7 +376,7 @@ export default async function CooperativeDetailPage({
               {TABS.map((t) => (
                 <Link
                   key={t.id}
-                  href={`/cooperatives/${id}?tab=${t.id}`}
+                  href={`/${lang}/cooperatives/${id}?tab=${t.id}`}
                   aria-current={tab === t.id ? "page" : undefined}
                   className={[
                     "shrink-0 border-b-2 px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap",

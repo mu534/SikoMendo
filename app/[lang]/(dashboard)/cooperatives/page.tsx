@@ -16,10 +16,13 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
 export default async function CooperativesPage({
+  params: routeParams,
   searchParams,
 }: {
+  params: Promise<{ lang: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const { lang } = await routeParams;
   const session = await requirePermission("VIEW_COOPERATIVES");
   const t = await getTranslations("cooperatives");
   const tC = await getTranslations("common");
@@ -269,7 +272,7 @@ export default async function CooperativesPage({
                       <TD className="text-right">
                         <div className="flex items-center justify-end gap-2">
                           <Link
-                            href={`/cooperatives/${coop.id}`}
+                            href={`/${lang}/cooperatives/${coop.id}`}
                             className="text-sm font-medium text-brand-700 hover:underline"
                           >
                             {showArchived ? tC("view") : tC("edit")}
@@ -298,7 +301,7 @@ export default async function CooperativesPage({
                                 const result = await archiveCooperative(coop.id);
                                 if (!result.success) {
                                   redirect(
-                                    `/cooperatives?error=${encodeURIComponent(result.error.message)}`
+                                    `/${lang}/cooperatives?error=${encodeURIComponent(result.error.message)}`
                                   );
                                 }
                               }}
@@ -323,7 +326,7 @@ export default async function CooperativesPage({
         </div>
 
         <Pagination
-          basePath="/cooperatives"
+          basePath={`/${lang}/cooperatives`}
           params={{
             q,
             status,

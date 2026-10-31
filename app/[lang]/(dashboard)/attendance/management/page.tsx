@@ -13,10 +13,13 @@ import { parseStringParam } from "@/lib/utils";
  * Status is determined by the active attendance policy — not manually chosen.
  */
 export default async function AttendanceManagementPage({
+  params: routeParams,
   searchParams,
 }: {
+  params: Promise<{ lang: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const { lang } = await routeParams;
   await requirePermission("MANAGE_ATTENDANCE");
 
   const params = await searchParams;
@@ -24,7 +27,7 @@ export default async function AttendanceManagementPage({
   const date   = parseStringParam(params.date) || today;
   const status = parseStringParam(params.status);
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) redirect(`/attendance/management`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) redirect(`/${lang}/attendance/management`);
 
   const { employees, summary } = await getDailyRegister({ date, status });
 

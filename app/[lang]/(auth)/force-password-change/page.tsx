@@ -8,12 +8,17 @@ export const metadata: Metadata = {
   title: "Set a new password",
 };
 
-export default async function ForcePasswordChangePage() {
+export default async function ForcePasswordChangePage({
+  params,
+}: {
+  params: Promise<{ lang: string }>;
+}) {
+  const { lang } = await params;
   const session = await getServerSession();
 
   // Not authenticated — send to sign-in.
   if (!session) {
-    redirect("/sign-in");
+    redirect(`/${lang}/sign-in`);
   }
 
   // Re-read the flag from the DB rather than the (potentially stale) session
@@ -26,7 +31,7 @@ export default async function ForcePasswordChangePage() {
 
   // Flag already cleared — nothing to do here, send to dashboard.
   if (!flags?.mustChangePassword) {
-    redirect("/dashboard");
+    redirect(`/${lang}/dashboard`);
   }
 
   return <ForcePasswordChangeForm />;
