@@ -1,26 +1,27 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
+import createMiddleware from "next-intl/middleware";
+import { routing } from "./i18n/routing";
+
+// ── next-intl middleware ──────────────────────────────────────────────────────
+// Handles locale detection, sets the X-NEXT-INTL-LOCALE request header (which
+// is how next-intl's `requestLocale` / `getTranslations()` receives the locale
+// in server components), and redirects bare paths like `/dashboard` → `/en/dashboard`.
+const intlMiddleware = createMiddleware(routing);
 
 // ── Locale configuration ──────────────────────────────────────────────────────
 
 const LOCALES = ["en", "om"] as const;
 type Locale = (typeof LOCALES)[number];
 const DEFAULT_LOCALE: Locale = "en";
-const LOCALE_COOKIE = "NEXT_LOCALE";
 
 function isValidLocale(val: string | undefined): val is Locale {
   return LOCALES.includes(val as Locale);
 }
 
-/** Detect locale from cookie, falling back to the default. */
-function getLocaleFromRequest(request: NextRequest): Locale {
-  const cookieVal = request.cookies.get(LOCALE_COOKIE)?.value;
-  return isValidLocale(cookieVal) ? cookieVal : DEFAULT_LOCALE;
-}
-
-// ── Public routes (without locale prefix) ─────────────────────────────────────
-// These paths never require a session. Everything else is protected.
+// ── Public paths (locale-stripped) ────────────────────────────────────────────
+// These never require a session check. Everything else is protected.
 //
 // /force-password-change is here so the proxy never redirect-loops it to
 // /sign-in — the page itself has a session guard.
@@ -42,12 +43,9 @@ export async function proxy(request: NextRequest) {
   );
 
   if (!pathnameLocale) {
-    // No locale prefix — redirect to the locale-prefixed equivalent.
-    // Detect locale from cookie, defaulting to "en".
-    const locale = getLocaleFromRequest(request);
-    const newUrl = request.nextUrl.clone();
-    newUrl.pathname = `/${locale}${pathname}`;
-    return NextResponse.redirect(newUrl);
+    // No locale prefix — intlMiddleware will redirect to the locale-prefixed
+    // equivalent using the cookie / accept-language negotiation.
+    return intlMiddleware(request);
   }
 
   // ── Step 2: Strip the locale prefix to get the bare path ──────────────────
@@ -56,9 +54,10 @@ export async function proxy(request: NextRequest) {
       ? "/"
       : pathname.slice(`/${pathnameLocale}`.length);
 
-  // ── Step 3: Allow public paths through without session check ──────────────
+  // ── Step 3: Allow public paths through (but still run intlMiddleware so
+  //            the X-NEXT-INTL-LOCALE header is always set) ──────────────────
   if (PUBLIC_PATHS.has(pathWithoutLocale)) {
-    return NextResponse.next();
+    return intlMiddleware(request);
   }
 
   // ── Step 4: Session check ─────────────────────────────────────────────────
@@ -75,7 +74,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(signInUrl);
   }
 
-  return NextResponse.next();
+  // ── Step 5: Authenticated request — run intlMiddleware to set the locale
+  //            header, then forward ──────────────────────────────────────────
+  return intlMiddleware(request);
 }
 
 export const config = {
