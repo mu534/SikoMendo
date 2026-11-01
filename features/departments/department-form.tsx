@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { useTranslations } from "next-intl";
 import { Label, Textarea, FieldGroup } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 
@@ -21,6 +22,8 @@ export function DepartmentForm({
   department: DepartmentFormValues;
 }) {
   const [state, formAction, isPending] = useActionState(action, null);
+  const t = useTranslations("departments");
+  const tC = useTranslations("common");
 
   const errorMessage =
     state && (state as { success: boolean }).success === false
@@ -36,22 +39,17 @@ export function DepartmentForm({
       )}
 
       <FieldGroup>
-        <Label htmlFor="description">Description</Label>
-        <Textarea id="description" name="description" rows={3} defaultValue={department.description ?? ""} placeholder="Optional" />
+        <Label htmlFor="description">{t("form.description")}</Label>
+        <Textarea id="description" name="description" rows={3} defaultValue={department.description ?? ""} placeholder={tC("optional")} />
       </FieldGroup>
 
       <label className="flex items-center gap-2 text-sm text-ink-900">
-        <input
-          type="checkbox"
-          name="isActive"
-          defaultChecked={department.isActive}
-          className="h-4 w-4 rounded border-ink-900/25"
-        />
-        Active
+        <input type="checkbox" name="isActive" defaultChecked={department.isActive} className="h-4 w-4 rounded border-ink-900/25" />
+        {t("form.isActive")}
       </label>
 
       <Button type="submit" disabled={isPending}>
-        {isPending ? "Saving…" : "Save"}
+        {isPending ? t("form.saving") : t("form.save")}
       </Button>
     </form>
   );

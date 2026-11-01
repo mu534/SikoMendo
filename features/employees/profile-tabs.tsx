@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { User, Briefcase, Clock, Calendar, FileText, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -13,19 +14,6 @@ export type ProfileTab =
   | "documents"
   | "lifecycle";
 
-const ALL_TABS: {
-  id: ProfileTab;
-  label: string;
-  icon: React.ElementType;
-}[] = [
-  { id: "overview",    label: "Overview",    icon: User       },
-  { id: "employment",  label: "Employment",  icon: Briefcase  },
-  { id: "attendance",  label: "Attendance",  icon: Clock      },
-  { id: "leave",       label: "Leave",       icon: Calendar   },
-  { id: "documents",   label: "Documents",   icon: FileText   },
-  { id: "lifecycle",   label: "Lifecycle",   icon: Activity   },
-];
-
 export function ProfileTabs({
   employeeId,
   visibleTabs,
@@ -35,6 +23,20 @@ export function ProfileTabs({
 }) {
   const searchParams = useSearchParams();
   const activeTab = (searchParams.get("tab") ?? "overview") as ProfileTab;
+  const tE = useTranslations("employees");
+  const tA = useTranslations("attendance");
+  const tL = useTranslations("leave");
+  const tD = useTranslations("documents");
+  const tLife = useTranslations("lifecycle");
+
+  const ALL_TABS: { id: ProfileTab; label: string; icon: React.ElementType }[] = [
+    { id: "overview",    label: tE("overview.title"),        icon: User      },
+    { id: "employment",  label: tE("form.employmentDetails"), icon: Briefcase },
+    { id: "attendance",  label: tA("title"),                  icon: Clock     },
+    { id: "leave",       label: tL("title"),                  icon: Calendar  },
+    { id: "documents",   label: tD("title"),                  icon: FileText  },
+    { id: "lifecycle",   label: tLife("title"),               icon: Activity  },
+  ];
 
   const tabs = visibleTabs
     ? ALL_TABS.filter((t) => visibleTabs.includes(t.id))
@@ -42,16 +44,12 @@ export function ProfileTabs({
 
   return (
     <div className="border-b border-ink-900/8 bg-white">
-      <nav
-        className="-mb-px flex overflow-x-auto px-4 sm:px-6"
-        aria-label="Employee profile sections"
-      >
+      <nav className="-mb-px flex overflow-x-auto px-4 sm:px-6" aria-label="Employee profile sections">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
-          const href =
-            tab.id === "overview"
-              ? `/employees/${employeeId}`
-              : `/employees/${employeeId}?tab=${tab.id}`;
+          const href = tab.id === "overview"
+            ? `/employees/${employeeId}`
+            : `/employees/${employeeId}?tab=${tab.id}`;
           const Icon = tab.icon;
 
           return (
