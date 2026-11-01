@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
 import { User, Briefcase, Phone, Search, GraduationCap } from "lucide-react";
 import { Input, Label, Select, Textarea, FieldGroup, FieldError } from "@/components/ui/field";
@@ -28,14 +29,6 @@ const EducationSection = dynamic(
 export { SectionHeader } from "./section-header";
 
 export const EMPLOYEE_FORM_ID = "employee-form";
-
-const EMPLOYMENT_TYPE_LABELS: Record<string, string> = {
-  PERMANENT:  "Permanent",
-  CONTRACT:   "Contract",
-  TEMPORARY:  "Temporary",
-  PROBATION:  "Probation",
-  INTERNSHIP: "Internship",
-};
 
 type EmploymentStatus =
   | "ONBOARDING" | "ACTIVE" | "ON_LEAVE" | "RESIGNED" | "RETIRED"
@@ -105,6 +98,8 @@ function ManagerCombobox({
   const [selected, setSelected] = useState<ManagerOption | null>(
     managers.find((m) => m.id === defaultValue) ?? null
   );
+  const t = useTranslations("employees");
+  const tC = useTranslations("common");
 
   const filtered =
     query.trim() === ""
@@ -116,101 +111,57 @@ function ManagerCombobox({
 
   return (
     <div className="relative">
-      {/* Hidden input for form submission */}
       <input type="hidden" name={name} value={selected?.id ?? ""} />
 
-      {/* Trigger / search input */}
       <div className="relative">
-        <Search
-          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-900/35"
-          aria-hidden="true"
-        />
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-900/35" aria-hidden="true" />
         <input
           type="text"
           role="combobox"
           aria-expanded={open}
           aria-haspopup="listbox"
-          aria-label="Search manager"
-          placeholder={selected ? `${selected.firstName} ${selected.lastName}` : "Search by name or ID…"}
+          aria-label={t("form.selectManager")}
+          placeholder={selected ? `${selected.firstName} ${selected.lastName}` : t("form.selectManager")}
           value={query}
           onFocus={() => setOpen(true)}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setOpen(true);
-          }}
+          onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
           onBlur={() => setTimeout(() => setOpen(false), 150)}
           className="w-full rounded-lg border border-ink-900/15 bg-white py-2 pl-9 pr-3 text-sm text-ink-900 placeholder:text-ink-900/35 focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-600/20"
         />
       </div>
 
-      {/* Currently selected — shown below input when closed */}
       {selected && !open && (
         <div className="mt-1.5 flex items-center justify-between rounded-lg border border-ink-900/8 bg-sand-50 px-3 py-2">
           <div>
-            <p className="text-sm font-medium text-ink-900">
-              {selected.firstName} {selected.lastName}
-            </p>
-            <p className="text-xs text-ink-900/45">
-              {selected.employeeId}
-              {selected.position?.name ? ` · ${selected.position.name}` : ""}
-            </p>
+            <p className="text-sm font-medium text-ink-900">{selected.firstName} {selected.lastName}</p>
+            <p className="text-xs text-ink-900/45">{selected.employeeId}{selected.position?.name ? ` · ${selected.position.name}` : ""}</p>
           </div>
           {!required && (
-            <button
-              type="button"
-              onClick={() => { setSelected(null); setQuery(""); }}
-              className="text-xs font-medium text-ink-900/40 hover:text-ink-900"
-              aria-label="Remove manager selection"
-            >
-              Remove
+            <button type="button" onClick={() => { setSelected(null); setQuery(""); }} className="text-xs font-medium text-ink-900/40 hover:text-ink-900" aria-label={tC("clear")}>
+              {tC("clear")}
             </button>
           )}
         </div>
       )}
 
-      {/* Dropdown list */}
       {open && (
-        <ul
-          role="listbox"
-          aria-label="Manager options"
-          className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-xl border border-ink-900/10 bg-white py-1 shadow-lg shadow-ink-900/8"
-        >
+        <ul role="listbox" aria-label={t("form.manager")} className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-xl border border-ink-900/10 bg-white py-1 shadow-lg shadow-ink-900/8">
           {!required && (
-            <li
-              role="option"
-              aria-selected={!selected}
-              onMouseDown={() => { setSelected(null); setQuery(""); setOpen(false); }}
-              className="cursor-pointer px-3 py-2 text-sm text-ink-900/45 hover:bg-sand-50"
-            >
-              — No manager —
+            <li role="option" aria-selected={!selected} onMouseDown={() => { setSelected(null); setQuery(""); setOpen(false); }} className="cursor-pointer px-3 py-2 text-sm text-ink-900/45 hover:bg-sand-50">
+              {tC("none")}
             </li>
           )}
-          {filtered.length === 0 && (
-            <li className="px-3 py-2 text-sm text-ink-900/40">No employees found.</li>
-          )}
+          {filtered.length === 0 && <li className="px-3 py-2 text-sm text-ink-900/40">{tC("noResults")}</li>}
           {filtered.map((m) => (
-            <li
-              key={m.id}
-              role="option"
-              aria-selected={selected?.id === m.id}
+            <li key={m.id} role="option" aria-selected={selected?.id === m.id}
               onMouseDown={() => { setSelected(m); setQuery(""); setOpen(false); }}
-              className={`cursor-pointer px-3 py-2.5 hover:bg-sand-50 ${
-                selected?.id === m.id ? "bg-brand-50" : ""
-              }`}
-            >
-              <p className="text-sm font-medium text-ink-900">
-                {m.firstName} {m.lastName}
-              </p>
-              <p className="text-xs text-ink-900/45">
-                {m.employeeId}
-                {m.position?.name ? ` · ${m.position.name}` : ""}
-              </p>
+              className={`cursor-pointer px-3 py-2.5 hover:bg-sand-50 ${selected?.id === m.id ? "bg-brand-50" : ""}`}>
+              <p className="text-sm font-medium text-ink-900">{m.firstName} {m.lastName}</p>
+              <p className="text-xs text-ink-900/45">{m.employeeId}{m.position?.name ? ` · ${m.position.name}` : ""}</p>
             </li>
           ))}
           {managers.length > 12 && filtered.length === 12 && (
-            <li className="px-3 py-1.5 text-xs text-ink-900/35">
-              Type to narrow results…
-            </li>
+            <li className="px-3 py-1.5 text-xs text-ink-900/35">{tC("search")}</li>
           )}
         </ul>
       )}
@@ -232,8 +183,7 @@ function RelationshipSelect({
 }: {
   defaultValue?: string | null;
 }) {
-  // A stored value is "custom Other" if it is non-empty AND not one of the
-  // named options (including the sentinel itself, which is never persisted).
+  const t = useTranslations("employees");
   const namedOptions = new Set<string>(EMERGENCY_CONTACT_RELATIONSHIPS);
   const isStoredOther = !!defaultValue && !namedOptions.has(defaultValue);
 
@@ -245,44 +195,23 @@ function RelationshipSelect({
   );
 
   const isOther = selected === OTHER_SENTINEL;
-  // The resolved value that goes into the hidden input (and therefore the DB).
   const resolvedValue = isOther ? customText.trim() : selected;
 
   return (
     <>
-      {/* Hidden input carries the resolved relationship value */}
       <input type="hidden" name="emergencyContactRelationship" value={resolvedValue} />
-
-      {/* Visible dropdown */}
       <div className="relative">
-        <Select
-          id="emergencyContactRelationship"
-          value={selected}
-          onChange={(e) => {
-            setSelected(e.target.value);
-            if (e.target.value !== OTHER_SENTINEL) setCustomText("");
-          }}
-        >
-          <option value="">Select relationship…</option>
+        <Select id="emergencyContactRelationship" value={selected} onChange={(e) => { setSelected(e.target.value); if (e.target.value !== OTHER_SENTINEL) setCustomText(""); }}>
+          <option value="">{t("form.selectRelationship")}</option>
           {EMERGENCY_CONTACT_RELATIONSHIPS.map((r) => (
-            <option key={r} value={r}>{r}</option>
+            <option key={r} value={r}>{t(`relationships.${r}` as Parameters<typeof t>[0])}</option>
           ))}
         </Select>
       </div>
-
-      {/* "Specify" text input — shown only when "Other" is selected */}
       {isOther && (
         <FieldGroup className="mt-3">
-          <Label htmlFor="emergencyContactRelationshipOther">
-            Specify Relationship<RequiredMark />
-          </Label>
-          <Input
-            id="emergencyContactRelationshipOther"
-            placeholder="Describe the relationship"
-            value={customText}
-            onChange={(e) => setCustomText(e.target.value)}
-            required
-          />
+          <Label htmlFor="emergencyContactRelationshipOther">{t("form.emergencyContactRelationship")}<RequiredMark /></Label>
+          <Input id="emergencyContactRelationshipOther" value={customText} onChange={(e) => setCustomText(e.target.value)} required />
         </FieldGroup>
       )}
     </>
@@ -300,6 +229,8 @@ export function EmployeeFormActions({
   isEdit?: boolean;
   onCancel?: () => void;
 }) {
+  const t = useTranslations("employees");
+  const tC = useTranslations("common");
   return (
     <div className="flex flex-wrap items-center gap-3 border-t border-ink-900/8 pt-4">
       <Button type="submit" form={EMPLOYEE_FORM_ID} disabled={isPending}>
@@ -309,18 +240,18 @@ export function EmployeeFormActions({
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
             </svg>
-            Saving…
+            {tC("saving")}
           </span>
-        ) : isEdit ? "Save changes" : "Create employee"}
+        ) : isEdit ? tC("save") : t("newEmployee")}
       </Button>
       {isEdit && onCancel ? (
-        <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
+        <Button type="button" variant="outline" onClick={onCancel}>{tC("cancel")}</Button>
       ) : isEdit ? (
-        <Button type="reset" form={EMPLOYEE_FORM_ID} variant="outline">Reset</Button>
+        <Button type="reset" form={EMPLOYEE_FORM_ID} variant="outline">{tC("clear")}</Button>
       ) : (
         <>
-          <Button type="reset" form={EMPLOYEE_FORM_ID} variant="outline">Reset</Button>
-          <ButtonLink href="/employees" variant="ghost">Cancel</ButtonLink>
+          <Button type="reset" form={EMPLOYEE_FORM_ID} variant="outline">{tC("clear")}</Button>
+          <ButtonLink href="/employees" variant="ghost">{tC("cancel")}</ButtonLink>
         </>
       )}
     </div>
@@ -349,6 +280,8 @@ export function EmployeeForm({
 }) {
   const router = useRouter();
   const [state, formAction, isPending] = useActionState(action, null);
+  const t = useTranslations("employees");
+  const tC = useTranslations("common");
 
   // Cascading department→position filter
   const [selectedDeptId, setSelectedDeptId] = useState(employee?.departmentId ?? "");
@@ -366,14 +299,14 @@ export function EmployeeForm({
   // Employee must be strictly older than 20 (i.e. turned 21 or older already).
   const [dobError, setDobError] = useState<string | null>(null);
   function validateDob(value: string) {
-    if (!value) { setDobError("Date of birth is required"); return; }
+    if (!value) { setDobError(t("form.dateOfBirth")); return; }
     const dob = new Date(value);
-    if (isNaN(dob.getTime())) { setDobError("Enter a valid date"); return; }
+    if (isNaN(dob.getTime())) { setDobError(tC("required")); return; }
     const today = new Date();
-    if (dob > today) { setDobError("Date of birth cannot be in the future"); return; }
+    if (dob > today) { setDobError(tC("required")); return; }
     const threshold = new Date(today.getFullYear() - 21, today.getMonth(), today.getDate());
     if (dob > threshold) {
-      setDobError("Employee must be older than 20 years to register");
+      setDobError(tC("required"));
     } else {
       setDobError(null);
     }
@@ -412,7 +345,7 @@ export function EmployeeForm({
     <div className="max-w-3xl space-y-5">
       {showToast && (
         <div role="status" className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
-          Employee record updated successfully.
+          {tC("save")}
         </div>
       )}
       {errorMessage && (
@@ -425,7 +358,7 @@ export function EmployeeForm({
 
         {/* ── Section 1: Personal Information ──────────────────────────── */}
         <Card className="p-6">
-          <SectionHeader icon={User} title="Personal Information" />
+          <SectionHeader icon={User} title={t("form.personalInfo")} />
           <div className="space-y-5">
             <PhotoInput
               name="photo"
@@ -435,72 +368,64 @@ export function EmployeeForm({
 
             {isEdit && employee.employeeId && (
               <div className="rounded-lg border border-ink-900/10 bg-sand-100 px-4 py-3">
-                <p className="text-xs font-medium uppercase tracking-wide text-ink-900/45">Employee ID</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-ink-900/45">{t("overview.employeeId")}</p>
                 <p className="mt-1 text-sm font-medium text-ink-900">{employee.employeeId}</p>
-                <p className="mt-0.5 text-xs text-ink-900/45">Automatically assigned — cannot be changed.</p>
               </div>
             )}
             {!isEdit && (
               <div className="rounded-lg border border-brand-100 bg-brand-50 px-4 py-3 text-sm text-brand-800">
-                Employee ID will be automatically assigned on save (e.g. EMP-0008).
+                {t("inPreboardingChecklist")}
               </div>
             )}
 
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <FieldGroup>
-                <Label htmlFor="firstName">First Name (Given Name)<RequiredMark /></Label>
+                <Label htmlFor="firstName">{t("form.firstName")}<RequiredMark /></Label>
                 <Input id="firstName" name="firstName" required defaultValue={employee?.firstName ?? ""} />
               </FieldGroup>
               <FieldGroup>
-                <Label htmlFor="middleName">Father&apos;s Name<RequiredMark /></Label>
+                <Label htmlFor="middleName">{t("form.middleName")}<RequiredMark /></Label>
                 <Input id="middleName" name="middleName" required defaultValue={employee?.middleName ?? ""} />
               </FieldGroup>
               <FieldGroup>
-                <Label htmlFor="lastName">Grandfather&apos;s Name<RequiredMark /></Label>
+                <Label htmlFor="lastName">{t("form.lastName")}<RequiredMark /></Label>
                 <Input id="lastName" name="lastName" required defaultValue={employee?.lastName ?? ""} />
               </FieldGroup>
               <FieldGroup>
-                <Label htmlFor="gender">Gender<RequiredMark /></Label>
+                <Label htmlFor="gender">{t("form.gender")}<RequiredMark /></Label>
                 <Select id="gender" name="gender" defaultValue={employee?.gender ?? ""}>
-                  <option value="">Select gender…</option>
-                  <option value="MALE">Male</option>
-                  <option value="FEMALE">Female</option>
+                  <option value="">{t("form.selectGender")}</option>
+                  <option value="MALE">{t("form.genderMale")}</option>
+                  <option value="FEMALE">{t("form.genderFemale")}</option>
                 </Select>
               </FieldGroup>
               <FieldGroup>
-                <Label htmlFor="dateOfBirth">Date of Birth<RequiredMark /></Label>
-                <Input
-                  id="dateOfBirth"
-                  name="dateOfBirth"
-                  type="date"
-                  required
-                  defaultValue={toDateInputValue(employee?.dateOfBirth)}
-                  onChange={(e) => validateDob(e.target.value)}
-                />
+                <Label htmlFor="dateOfBirth">{t("form.dateOfBirth")}<RequiredMark /></Label>
+                <Input id="dateOfBirth" name="dateOfBirth" type="date" required defaultValue={toDateInputValue(employee?.dateOfBirth)} onChange={(e) => validateDob(e.target.value)} />
                 {dobError && <FieldError>{dobError}</FieldError>}
               </FieldGroup>
               <FieldGroup>
-                <Label htmlFor="maritalStatus">Marital Status<RequiredMark /></Label>
+                <Label htmlFor="maritalStatus">{t("form.maritalStatus")}<RequiredMark /></Label>
                 <Select id="maritalStatus" name="maritalStatus" defaultValue={employee?.maritalStatus ?? ""}>
-                  <option value="">Select status…</option>
-                  <option value="SINGLE">Single</option>
-                  <option value="MARRIED">Married</option>
-                  <option value="DIVORCED">Divorced</option>
-                  <option value="WIDOWED">Widowed</option>
-                  <option value="OTHER">Other</option>
+                  <option value="">{t("form.selectMaritalStatus")}</option>
+                  <option value="SINGLE">{t("form.maritalSingle")}</option>
+                  <option value="MARRIED">{t("form.maritalMarried")}</option>
+                  <option value="DIVORCED">{t("form.maritalDivorced")}</option>
+                  <option value="WIDOWED">{t("form.maritalWidowed")}</option>
+                  <option value="OTHER">{t("form.maritalOther")}</option>
                 </Select>
               </FieldGroup>
               <FieldGroup>
-                <Label htmlFor="phone">Phone Number<RequiredMark /></Label>
+                <Label htmlFor="phone">{t("form.phone")}<RequiredMark /></Label>
                 <PhoneInput name="phone" defaultValue={employee?.phone} required />
               </FieldGroup>
               <FieldGroup>
-                <Label htmlFor="email">Email Address</Label>
+                <Label htmlFor="email">{t("overview.email")}</Label>
                 <Input id="email" name="email" type="email" defaultValue={employee?.email ?? ""} />
               </FieldGroup>
             </div>
             <FieldGroup>
-              <Label htmlFor="address">Address</Label>
+              <Label htmlFor="address">{t("form.address")}</Label>
               <Textarea id="address" name="address" rows={2} defaultValue={employee?.address ?? ""} />
             </FieldGroup>
           </div>
@@ -508,142 +433,83 @@ export function EmployeeForm({
 
         {/* ── Section 2: Employment Information ────────────────────────── */}
         <Card className="p-6">
-          <SectionHeader icon={Briefcase} title="Employment Information" />
+          <SectionHeader icon={Briefcase} title={t("form.employmentDetails")} />
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
 
             {isEdit ? (
               <>
-                {/* Locked on edit — changes go through Employment History */}
                 <FieldGroup>
-                  <Label htmlFor="departmentId">Department</Label>
+                  <Label htmlFor="departmentId">{t("form.department")}</Label>
                   <Select id="departmentId" value={selectedDeptId} disabled onChange={() => {}}>
-                    <option value={selectedDeptId}>
-                      {departments.find((d) => d.id === selectedDeptId)?.name ?? "—"}
-                    </option>
+                    <option value={selectedDeptId}>{departments.find((d) => d.id === selectedDeptId)?.name ?? tC("na")}</option>
                   </Select>
                   <input type="hidden" name="departmentId" value={selectedDeptId} />
                 </FieldGroup>
                 <FieldGroup>
-                  <Label htmlFor="positionId">Position</Label>
+                  <Label htmlFor="positionId">{t("form.position")}</Label>
                   <Select id="positionId" value={selectedPosId} disabled onChange={() => {}}>
-                    <option value={selectedPosId}>
-                      {positions.find((p) => p.id === selectedPosId)?.name ?? "—"}
-                    </option>
+                    <option value={selectedPosId}>{positions.find((p) => p.id === selectedPosId)?.name ?? tC("na")}</option>
                   </Select>
                   <input type="hidden" name="positionId" value={selectedPosId} />
                 </FieldGroup>
                 <FieldGroup>
-                  <Label htmlFor="employmentType">Employment Type</Label>
+                  <Label htmlFor="employmentType">{t("form.employmentType")}</Label>
                   <Select id="employmentType" value={employee?.employmentType ?? ""} disabled onChange={() => {}}>
-                    <option value={employee?.employmentType ?? ""}>
-                      {EMPLOYMENT_TYPE_LABELS[employee?.employmentType ?? ""] ?? "Not specified"}
-                    </option>
+                    <option value={employee?.employmentType ?? ""}>{employee?.employmentType ? t(`types.${employee.employmentType as "PERMANENT"|"CONTRACT"|"TEMPORARY"|"PROBATION"|"INTERNSHIP"}`) : tC("notSet")}</option>
                   </Select>
                   <input type="hidden" name="employmentType" value={employee?.employmentType ?? ""} />
-                  <p className="mt-1 text-xs text-ink-900/50">
-                    Use <span className="font-medium">Record Employment Change</span> to update
-                    department, position, or type.
-                  </p>
                 </FieldGroup>
               </>
             ) : (
               <>
                 <FieldGroup>
-                  <Label htmlFor="departmentId">Department<RequiredMark /></Label>
-                  <Select
-                    id="departmentId"
-                    name="departmentId"
-                    required
-                    value={selectedDeptId}
-                    onChange={handleDeptChange}
-                  >
-                    <option value="">Select department…</option>
-                    {departments.map((d) => (
-                      <option key={d.id} value={d.id}>{d.name}</option>
-                    ))}
+                  <Label htmlFor="departmentId">{t("form.department")}<RequiredMark /></Label>
+                  <Select id="departmentId" name="departmentId" required value={selectedDeptId} onChange={handleDeptChange}>
+                    <option value="">{t("form.selectDepartment")}</option>
+                    {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
                   </Select>
                 </FieldGroup>
 
                 <FieldGroup>
-                  <Label htmlFor="positionId">Position<RequiredMark /></Label>
-                  <Select
-                    id="positionId"
-                    name="positionId"
-                    required
-                    value={selectedPosId}
-                    onChange={(e) => setSelectedPosId(e.target.value)}
-                    disabled={!selectedDeptId}
-                  >
-                    <option value="">
-                      {selectedDeptId ? "Select position…" : "Select a department first"}
-                    </option>
-                    {filteredPositions.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
+                  <Label htmlFor="positionId">{t("form.position")}<RequiredMark /></Label>
+                  <Select id="positionId" name="positionId" required value={selectedPosId} onChange={(e) => setSelectedPosId(e.target.value)} disabled={!selectedDeptId}>
+                    <option value="">{selectedDeptId ? t("form.selectPosition") : t("form.selectDepartmentFirst")}</option>
+                    {filteredPositions.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </Select>
                   {selectedDeptId && filteredPositions.length === 0 && (
-                    <p className="mt-1 text-xs text-ink-900/50">
-                      No active positions in this department.
-                    </p>
+                    <p className="mt-1 text-xs text-ink-900/50">{t("form.noPositionsInDept")}</p>
                   )}
                 </FieldGroup>
 
                 <FieldGroup>
-                  <Label htmlFor="employmentType">Employment Type<RequiredMark /></Label>
+                  <Label htmlFor="employmentType">{t("form.employmentType")}<RequiredMark /></Label>
                   <Select id="employmentType" name="employmentType" defaultValue={currentEmploymentType}>
-                    <option value="">Select type…</option>
-                    <option value="PERMANENT">Permanent</option>
-                    <option value="CONTRACT">Contract</option>
-                    <option value="TEMPORARY">Temporary</option>
-                    <option value="PROBATION">Probation</option>
-                    <option value="INTERNSHIP">Internship</option>
+                    <option value="">{t("form.selectEmploymentType")}</option>
+                    {(["PERMANENT","CONTRACT","TEMPORARY","PROBATION","INTERNSHIP"] as const).map((v) => (
+                      <option key={v} value={v}>{t(`types.${v}`)}</option>
+                    ))}
                   </Select>
                 </FieldGroup>
               </>
             )}
 
             <FieldGroup>
-              <Label htmlFor="hireDate">Hire Date<RequiredMark /></Label>
-              <Input
-                id="hireDate"
-                name="hireDate"
-                type="date"
-                required
-                defaultValue={toDateInputValue(employee?.hireDate)}
-              />
+              <Label htmlFor="hireDate">{t("form.hireDate")}<RequiredMark /></Label>
+              <Input id="hireDate" name="hireDate" type="date" required defaultValue={toDateInputValue(employee?.hireDate)} />
             </FieldGroup>
 
-            {/*
-              Employment Status: only shown in EDIT mode, and only for
-              administrative adjustments (ON_LEAVE, SUSPENDED).
-              New employees always start in ONBOARDING (server-enforced).
-              Lifecycle transitions (ACTIVE, RESIGNED, TERMINATED, etc.)
-              are controlled by lifecycle workflows — not this form.
-            */}
             {isEdit && (
               <FieldGroup>
-                <Label htmlFor="employmentStatus">Administrative Status</Label>
-                <Select
-                  id="employmentStatus"
-                  name="employmentStatus"
-                  defaultValue={employee?.employmentStatus ?? "ONBOARDING"}
-                >
-                  {/* Show current value if it's lifecycle-controlled (read-only display) */}
-                  {["ONBOARDING","ACTIVE","RESIGNED","RETIRED","TERMINATED","INACTIVE"].includes(
-                    employee?.employmentStatus ?? ""
-                  ) && (
+                <Label htmlFor="employmentStatus">{tC("status")}</Label>
+                <Select id="employmentStatus" name="employmentStatus" defaultValue={employee?.employmentStatus ?? "ONBOARDING"}>
+                  {["ONBOARDING","ACTIVE","RESIGNED","RETIRED","TERMINATED","INACTIVE"].includes(employee?.employmentStatus ?? "") && (
                     <option value={employee?.employmentStatus ?? "ONBOARDING"} disabled>
-                      {(employee?.employmentStatus ?? "ONBOARDING").replace(/_/g, " ")} (set by lifecycle)
+                      {t(`statuses.${(employee?.employmentStatus ?? "ONBOARDING") as "ONBOARDING"|"ACTIVE"|"RESIGNED"|"RETIRED"|"TERMINATED"|"INACTIVE"}`)}
                     </option>
                   )}
-                  <option value="ON_LEAVE">On Leave</option>
-                  <option value="SUSPENDED">Suspended</option>
+                  <option value="ON_LEAVE">{t("statuses.ON_LEAVE")}</option>
+                  <option value="SUSPENDED">{t("statuses.SUSPENDED")}</option>
                 </Select>
-                <p className="mt-1 text-xs text-ink-900/45">
-                  Only administrative adjustments (On Leave, Suspended) can be set here. Use the{" "}
-                  <span className="font-medium">Lifecycle</span> tab for onboarding, offboarding, and
-                  other status transitions.
-                </p>
               </FieldGroup>
             )}
 
@@ -652,49 +518,32 @@ export function EmployeeForm({
               <input type="hidden" name="employmentStatus" value="ONBOARDING" />
             )}
 
-            {/* Manager / Reports-to — searchable combobox */}
             <FieldGroup className="sm:col-span-2">
-              <Label htmlFor="managerId">Reports To (Manager)<RequiredMark /></Label>
-              <ManagerCombobox
-                managers={managers}
-                defaultValue={employee?.managerId}
-                name="managerId"
-                required
-              />
+              <Label htmlFor="managerId">{t("form.manager")}<RequiredMark /></Label>
+              <ManagerCombobox managers={managers} defaultValue={employee?.managerId} name="managerId" required />
             </FieldGroup>
           </div>
         </Card>
 
         {/* ── Section 3: Emergency Contact ─────────────────────────────── */}
         <Card className="p-6">
-          <SectionHeader icon={Phone} title="Emergency Contact" />
+          <SectionHeader icon={Phone} title={t("form.emergencyContact")} />
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <FieldGroup>
-              <Label htmlFor="emergencyContactName">Contact Name<RequiredMark /></Label>
-              <Input
-                id="emergencyContactName"
-                name="emergencyContactName"
-                required
-                maxLength={100}
-                placeholder="Full name"
-                defaultValue={employee?.emergencyContactName ?? ""}
-              />
+              <Label htmlFor="emergencyContactName">{t("form.emergencyContactName")}<RequiredMark /></Label>
+              <Input id="emergencyContactName" name="emergencyContactName" required maxLength={100} defaultValue={employee?.emergencyContactName ?? ""} />
             </FieldGroup>
             <FieldGroup>
-              <Label htmlFor="emergencyContactRelationship">Relationship<RequiredMark /></Label>
+              <Label htmlFor="emergencyContactRelationship">{t("form.emergencyContactRelationship")}<RequiredMark /></Label>
               <RelationshipSelect defaultValue={employee?.emergencyContactRelationship} />
             </FieldGroup>
             <FieldGroup>
-              <Label htmlFor="emergencyContactPhone">Phone Number<RequiredMark /></Label>
+              <Label htmlFor="emergencyContactPhone">{t("form.emergencyContactPhone")}<RequiredMark /></Label>
               <PhoneInput name="emergencyContactPhone" defaultValue={employee?.emergencyContactPhone} required />
             </FieldGroup>
             <FieldGroup>
-              <Label htmlFor="emergencyContactAddress">Address <span className="text-xs font-normal text-ink-900/40">(optional)</span></Label>
-              <Input
-                id="emergencyContactAddress"
-                name="emergencyContactAddress"
-                defaultValue={employee?.emergencyContactAddress ?? ""}
-              />
+              <Label htmlFor="emergencyContactAddress">{t("form.emergencyContactAddress")} <span className="text-xs font-normal text-ink-900/40">({tC("optional")})</span></Label>
+              <Input id="emergencyContactAddress" name="emergencyContactAddress" defaultValue={employee?.emergencyContactAddress ?? ""} />
             </FieldGroup>
           </div>
         </Card>
@@ -704,7 +553,7 @@ export function EmployeeForm({
           {/* SectionHeader is rendered here (outside the dynamic boundary) so
               Turbopack never needs to statically resolve GraduationCap from the
               dynamically-loaded education-section bundle. */}
-          <SectionHeader icon={GraduationCap} title="Education" />
+          <SectionHeader icon={GraduationCap} title={t("education.title")} />
           <EducationSection initialRecords={employee?.educations ?? []} />
         </Card>
 

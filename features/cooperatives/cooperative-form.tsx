@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { Building2, MapPin, Users, BarChart2, ShieldCheck } from "lucide-react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { BasicInformationSection } from "./form-sections/BasicInformationSection";
@@ -32,6 +33,8 @@ export function CooperativeForm({
   const router = useRouter();
   const isCreate = !cooperative;
   const [state, formAction, isPending] = useActionState(action, null);
+  const t = useTranslations("cooperatives");
+  const tC = useTranslations("common");
 
   // Redirect to detail page on successful create
   useEffect(() => {
@@ -111,11 +114,8 @@ export function CooperativeForm({
       <div className="min-w-0 flex-1 max-w-3xl space-y-5">
         {/* Success toast */}
         {showSuccessToast && (
-          <div
-            role="status"
-            className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800"
-          >
-            Changes saved successfully.
+          <div role="status" className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
+            {tC("save")}
           </div>
         )}
 
@@ -184,40 +184,16 @@ export function CooperativeForm({
             <Button type="submit" disabled={isPending}>
               {isPending ? (
                 <span className="flex items-center gap-2">
-                  <svg
-                    className="h-4 w-4 animate-spin"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    aria-hidden="true"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8v8H4z"
-                    />
+                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                   </svg>
-                  Saving…
+                  {t("form.saving")}
                 </span>
-              ) : isCreate ? (
-                "Create cooperative"
-              ) : (
-                "Save changes"
-              )}
+              ) : isCreate ? t("addCooperative") : t("form.save")}
             </Button>
-            <Button type="reset" variant="outline">
-              Reset
-            </Button>
-            <ButtonLink href="/cooperatives" variant="ghost">
-              Cancel
-            </ButtonLink>
+            <Button type="reset" variant="outline">{tC("clear")}</Button>
+            <ButtonLink href="/cooperatives" variant="ghost">{tC("cancel")}</ButtonLink>
           </div>
         </form>
       </div>
@@ -229,60 +205,27 @@ export function CooperativeForm({
       >
         <div className="sticky top-6 rounded-2xl border border-ink-900/8 bg-white p-5 shadow-sm shadow-ink-900/[0.02]">
           <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-ink-900/45">
-            Cooperative Summary
+            {t("title")}
           </p>
 
           <ul className="space-y-3.5 text-sm">
-            <SummaryRow
-              icon={<Building2 className="h-3.5 w-3.5" />}
-              label="Name"
-              value={name || "—"}
-            />
-            <SummaryRow
-              icon={<MapPin className="h-3.5 w-3.5" />}
-              label="District"
-              value={district || "—"}
-            />
-            <SummaryRow
-              icon={<Users className="h-3.5 w-3.5" />}
-              label="Members"
-              value={totalMembers !== "" ? Number(totalMembers).toLocaleString() : "—"}
-            />
+            <SummaryRow icon={<Building2 className="h-3.5 w-3.5" />} label={t("form.cooperativeName")} value={name || tC("na")} />
+            <SummaryRow icon={<MapPin className="h-3.5 w-3.5" />} label={t("form.district")} value={district || tC("na")} />
+            <SummaryRow icon={<Users className="h-3.5 w-3.5" />} label={t("form.totalMembers")} value={totalMembers !== "" ? Number(totalMembers).toLocaleString() : tC("na")} />
+            <SummaryRow icon={<BarChart2 className="h-3.5 w-3.5" />} label={t("form.numberOfShares")} value={numShares !== "" ? Number(numShares).toLocaleString() : tC("na")} />
             <SummaryRow
               icon={<BarChart2 className="h-3.5 w-3.5" />}
-              label="Shares"
-              value={numShares !== "" ? Number(numShares).toLocaleString() : "—"}
-            />
-            <SummaryRow
-              icon={<BarChart2 className="h-3.5 w-3.5" />}
-              label="Total Capital"
-              value={
-                totalCapital != null
-                  ? `${totalCapital.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB`
-                  : "—"
-              }
+              label={t("form.fixedAssets")}
+              value={totalCapital != null ? `${totalCapital.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB` : tC("na")}
             />
             <li className="flex items-start gap-2.5 border-t border-ink-900/6 pt-3.5">
-              <span
-                className={[
-                  "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px]",
-                  certUploaded
-                    ? "bg-emerald-100 text-emerald-700"
-                    : "bg-amber-100 text-amber-600",
-                ].join(" ")}
-                aria-hidden="true"
-              >
+              <span className={["mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px]", certUploaded ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-600"].join(" ")} aria-hidden="true">
                 <ShieldCheck className="h-3 w-3" />
               </span>
               <div className="min-w-0">
-                <p className="text-xs font-medium text-ink-900/50">Legal Certificate</p>
-                <p
-                  className={[
-                    "text-sm font-medium",
-                    certUploaded ? "text-emerald-700" : "text-amber-600",
-                  ].join(" ")}
-                >
-                  {certUploaded ? "✓ Uploaded" : "Required"}
+                <p className="text-xs font-medium text-ink-900/50">{t("form.legalCertificate")}</p>
+                <p className={["text-sm font-medium", certUploaded ? "text-emerald-700" : "text-amber-600"].join(" ")}>
+                  {certUploaded ? tC("active") : tC("required")}
                 </p>
               </div>
             </li>
