@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { useTranslations } from "next-intl";
 import { CheckCircle2, Circle, AlertCircle, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,16 +25,6 @@ type Props = {
   canManage: boolean;
 };
 
-const CHECKLIST_LABELS: Record<keyof Omit<OnboardingChecklist, "completedSteps" | "totalSteps" | "isComplete">, string> = {
-  hasName:        "Employee name recorded",
-  hasDepartment:  "Department assigned",
-  hasPosition:    "Position assigned",
-  hasHireDate:    "Hire date set",
-  hasContract:    "Active contract created",
-  hasIdDocument:  "ID document uploaded",
-  hasUserAccount: "System account created",
-};
-
 export function OnboardingPanel({
   employeeId,
   employmentStatus,
@@ -42,10 +33,9 @@ export function OnboardingPanel({
   canManage,
 }: Props) {
   const boundAction = completeOnboarding.bind(null, employeeId);
-  const [state, formAction, isPending] = useActionState<unknown, FormData>(
-    boundAction,
-    null
-  );
+  const [state, formAction, isPending] = useActionState<unknown, FormData>(boundAction, null);
+  const t = useTranslations("lifecycle.onboarding");
+  const tC = useTranslations("common");
 
   const errorMessage =
     state && (state as { success: boolean }).success === false
@@ -55,74 +45,82 @@ export function OnboardingPanel({
   const isOnboarding = employmentStatus === "ONBOARDING";
   const isCompleted  = !!record?.completedAt;
 
+  // Checklist label keys map to lifecycle.onboarding namespace
+  const CHECKLIST_KEYS: Array<{ key: keyof Omit<OnboardingChecklist, "completedSteps" | "totalSteps" | "isComplete">; label: string }> = [
+    { key: "hasName",        label: tC("name") },
+    { key: "hasDepartment",  label: tC("noDepartment") },
+    { key: "hasPosition",    label: tC("noPosition") },
+    { key: "hasHireDate",    label: tC("date") },
+    { key: "hasContract",    label: tC("active") },
+    { key: "hasIdDocument",  label: tC("required") },
+    { key: "hasUserAccount", label: tC("status") },
+  ];
+
   return (
     <div className="space-y-6">
-      {/* Status bar */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <UserPlus className="h-4 w-4 text-brand-700" />
-          <span className="text-sm font-semibold text-ink-900">Onboarding</span>
+          <span className="text-sm font-semibold text-ink-900">{t("title")}</span>
         </div>
         {isCompleted ? (
-          <Badge tone="success">Completed</Badge>
+          <Badge tone="success">{t("completed")}</Badge>
         ) : isOnboarding ? (
-          <Badge tone="brand">In Progress</Badge>
+          <Badge tone="brand">{t("inProgress")}</Badge>
         ) : (
-          <Badge tone="neutral">Not Started</Badge>
+          <Badge tone="neutral">{tC("none")}</Badge>
         )}
       </div>
 
-      {/* Record metadata */}
       {record && (
         <div className="rounded-xl border border-ink-900/8 bg-sand-50 p-4 text-sm">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <p className="text-xs font-medium text-ink-900/45">Started</p>
+              <p className="text-xs font-medium text-ink-900/45">{t("startedAt")}</p>
               <p className="mt-0.5 text-ink-900">{record.startedAt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</p>
             </div>
             {record.completedAt && (
               <div>
-                <p className="text-xs font-medium text-ink-900/45">Completed</p>
+                <p className="text-xs font-medium text-ink-900/45">{t("completedAt")}</p>
                 <p className="mt-0.5 text-ink-900">{record.completedAt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</p>
               </div>
             )}
             {record.responsibleHr && (
               <div>
-                <p className="text-xs font-medium text-ink-900/45">Responsible HR</p>
+                <p className="text-xs font-medium text-ink-900/45">{t("responsibleHr")}</p>
                 <p className="mt-0.5 text-ink-900">{record.responsibleHr.name}</p>
               </div>
             )}
             {record.completedBy && (
               <div>
-                <p className="text-xs font-medium text-ink-900/45">Completed by</p>
+                <p className="text-xs font-medium text-ink-900/45">{t("completedAt")}</p>
                 <p className="mt-0.5 text-ink-900">{record.completedBy.name}</p>
               </div>
             )}
           </div>
           {record.notes && (
             <div className="mt-3 border-t border-ink-900/8 pt-3">
-              <p className="text-xs font-medium text-ink-900/45">Notes</p>
+              <p className="text-xs font-medium text-ink-900/45">{t("notes")}</p>
               <p className="mt-0.5 text-ink-900/70">{record.notes}</p>
             </div>
           )}
         </div>
       )}
 
-      {/* Checklist */}
       {(isOnboarding || record) && (
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-widest text-ink-900/40">
-            Checklist — {checklist.completedSteps}/{checklist.totalSteps} complete
+            {t("checklistTitle")} — {checklist.completedSteps}/{checklist.totalSteps}
           </p>
           <div className="overflow-hidden rounded-xl border border-ink-900/8">
-            {(Object.keys(CHECKLIST_LABELS) as Array<keyof typeof CHECKLIST_LABELS>).map((key, i, arr) => {
+            {CHECKLIST_KEYS.map(({ key, label }, i) => {
               const done = checklist[key] as boolean;
               return (
                 <div
                   key={key}
                   className={[
                     "flex items-center gap-3 px-4 py-3",
-                    i < arr.length - 1 ? "border-b border-ink-900/6" : "",
+                    i < CHECKLIST_KEYS.length - 1 ? "border-b border-ink-900/6" : "",
                     done ? "bg-white" : "bg-sand-50/60",
                   ].join(" ")}
                 >
@@ -132,17 +130,16 @@ export function OnboardingPanel({
                     <Circle className="h-4 w-4 shrink-0 text-ink-900/20" />
                   )}
                   <span className={`text-sm ${done ? "text-ink-900" : "text-ink-900/50"}`}>
-                    {CHECKLIST_LABELS[key]}
+                    {label}
                   </span>
                   {!done && (
-                    <span className="ml-auto text-xs font-medium text-gold-600">Pending</span>
+                    <span className="ml-auto text-xs font-medium text-gold-600">{tC("loading")}</span>
                   )}
                 </div>
               );
             })}
           </div>
 
-          {/* Progress bar */}
           <div className="h-1.5 overflow-hidden rounded-full bg-ink-900/8">
             <div
               className="h-full rounded-full bg-brand-700 transition-all duration-300"
@@ -150,22 +147,17 @@ export function OnboardingPanel({
             />
           </div>
           <p className="text-right text-xs text-ink-900/45">
-            {Math.round((checklist.completedSteps / checklist.totalSteps) * 100)}% complete
+            {Math.round((checklist.completedSteps / checklist.totalSteps) * 100)}%
           </p>
         </div>
       )}
 
-      {/* Complete onboarding form — only shown to HR while onboarding is in progress */}
       {canManage && isOnboarding && !isCompleted && (
         <div className="rounded-xl border border-brand-700/20 bg-brand-50/30 p-4">
           <div className="mb-3 flex items-center gap-2">
             <AlertCircle className="h-4 w-4 text-brand-700" />
-            <p className="text-sm font-semibold text-brand-800">Complete onboarding</p>
+            <p className="text-sm font-semibold text-brand-800">{t("completeOnboarding")}</p>
           </div>
-          <p className="mb-4 text-xs text-ink-900/60">
-            Verify the checklist above before completing. This will transition the employee to{" "}
-            <strong>Active</strong> status.
-          </p>
 
           {errorMessage && (
             <div role="alert" className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
@@ -175,27 +167,18 @@ export function OnboardingPanel({
 
           <form action={formAction} className="space-y-3">
             <FieldGroup>
-              <Label htmlFor="ob-notes">Notes (optional)</Label>
-              <Textarea
-                id="ob-notes"
-                name="notes"
-                rows={2}
-                placeholder="Any remarks about the onboarding process…"
-              />
+              <Label htmlFor="ob-notes">{t("notes")} ({tC("optional")})</Label>
+              <Textarea id="ob-notes" name="notes" rows={2} placeholder={t("notes")} />
             </FieldGroup>
             <Button type="submit" disabled={isPending} size="md">
-              {isPending ? "Completing…" : "Mark onboarding complete"}
+              {isPending ? t("completing") : t("completeOnboarding")}
             </Button>
           </form>
         </div>
       )}
 
-      {/* No onboarding record and not in onboarding state */}
       {!record && !isOnboarding && (
-        <p className="text-sm text-ink-900/50">
-          No onboarding record for this employee. Onboarding is automatically initiated when a new
-          employee is created.
-        </p>
+        <p className="text-sm text-ink-900/50">{t("noOnboarding")}</p>
       )}
     </div>
   );

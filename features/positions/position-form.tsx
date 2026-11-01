@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { Input, Label, FieldGroup } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { createPosition, updatePosition } from "./actions";
@@ -23,6 +24,8 @@ export function PositionForm({
 }) {
   const action = position ? updatePosition.bind(null, position.id) : createPosition;
   const [state, formAction, isPending] = useActionState(action, null);
+  const t = useTranslations("departments");
+  const tC = useTranslations("common");
 
   const succeeded = state !== null && (state as { success: boolean }).success === true;
   useEffect(() => {
@@ -47,12 +50,12 @@ export function PositionForm({
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <FieldGroup>
-          <Label htmlFor="position-name">Position Name</Label>
+          <Label htmlFor="position-name">{t("positions.positionName")}</Label>
           <Input id="position-name" name="name" required defaultValue={position?.name} />
         </FieldGroup>
         <FieldGroup>
-          <Label htmlFor="position-description">Description</Label>
-          <Input id="position-description" name="description" defaultValue={position?.description ?? ""} placeholder="Optional" />
+          <Label htmlFor="position-description">{tC("description")}</Label>
+          <Input id="position-description" name="description" defaultValue={position?.description ?? ""} placeholder={tC("optional")} />
         </FieldGroup>
       </div>
 
@@ -63,16 +66,16 @@ export function PositionForm({
           defaultChecked={position?.isActive ?? true}
           className="h-4 w-4 rounded border-ink-900/25"
         />
-        Active
+        {tC("active")}
       </label>
 
       <div className="flex items-center gap-3">
         <Button type="submit" size="sm" disabled={isPending}>
-          {isPending ? "Saving…" : position ? "Save position" : "Add position"}
+          {isPending ? tC("saving") : position ? t("positions.editPosition") : t("positions.addPosition")}
         </Button>
         {onDone && (
           <Button type="button" size="sm" variant="ghost" onClick={onDone}>
-            Cancel
+            {tC("cancel")}
           </Button>
         )}
       </div>
