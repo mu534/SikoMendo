@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { requireSession } from "@/lib/session";
 import prisma from "@/lib/prisma";
 import {
@@ -9,20 +10,20 @@ import { SelfAttendancePanel } from "@/features/attendance/self-attendance-panel
 import { getOrgLocalDateString } from "@/lib/attendance-date";
 import { parseStringParam, parsePageParam } from "@/lib/utils";
 
-/**
- * My Attendance — available to all authenticated roles.
- * Employee is resolved from the session; never from URL params.
- */
 export default async function MyAttendancePage({
+  params: routeParams,
   searchParams,
 }: {
+  params: Promise<{ lang: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const { lang } = await routeParams;
   const session = await requireSession();
+  await getTranslations("attendance"); // ensures locale is loaded server-side
+
   const params  = await searchParams;
   const today   = getOrgLocalDateString();
 
-  // Derive employee from session — NEVER from any query param or form field
   const employee = await prisma.employee.findUnique({
     where: { userId: session.user.id },
     select: { id: true },
@@ -60,7 +61,7 @@ export default async function MyAttendancePage({
       historyEndDate={endDate}
       historyStatus={status}
       hasEmployee={!!employee}
-      basePath="/attendance/mine"
+      basePath={`/${lang}/attendance/mine`}
     />
   );
 }

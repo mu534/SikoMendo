@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useEffect, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { createUserAccount, generateUserCredentials } from "./actions";
 import { ROLES, roleLabel } from "@/lib/permissions";
 import { Input, Label, Select, FieldGroup } from "@/components/ui/field";
@@ -11,6 +12,8 @@ import { PhotoInput } from "@/features/employees/photo-input";
 
 export function CreateUserForm() {
   const router = useRouter();
+  const t = useTranslations("users");
+  const tC = useTranslations("common");
   const [state, formAction, isPending] = useActionState(createUserAccount, null);
   const [isGenerating, startGenerating] = useTransition();
 
@@ -29,7 +32,7 @@ export function CreateUserForm() {
 
   function handleGenerate() {
     if (!name.trim()) {
-      setGenError("Enter the full name first so a username can be generated from it.");
+      setGenError(t("form.name"));
       return;
     }
     setGenError(null);
@@ -52,18 +55,17 @@ export function CreateUserForm() {
       setCopied(field);
       setTimeout(() => setCopied((current) => (current === field ? null : current)), 1500);
     } catch {
-      // Clipboard API unavailable — the field's value is still visible and
-      // can be copied manually, so there's nothing else to do here.
+      // Clipboard API unavailable — the field value is still visible.
     }
   }
 
   return (
     <Card className="max-w-xl p-6">
       <form action={formAction} className="space-y-5">
-        <PhotoInput name="photo" currentName={name || "New user"} currentUrl={null} />
+        <PhotoInput name="photo" currentName={name || t("newUser")} currentUrl={null} />
 
         <FieldGroup>
-          <Label htmlFor="name">Full name</Label>
+          <Label htmlFor="name">{t("form.name")}</Label>
           <Input
             id="name"
             name="name"
@@ -77,10 +79,8 @@ export function CreateUserForm() {
         <div className="rounded-lg border border-dashed border-brand-300 bg-brand-50/50 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-medium text-ink-900">Login credentials</p>
-              <p className="text-xs text-ink-900/50">
-                Generate a unique username and a strong temporary password automatically.
-              </p>
+              <p className="text-sm font-medium text-ink-900">{t("form.password")}</p>
+              <p className="text-xs text-ink-900/50">{t("description")}</p>
             </div>
             <Button
               type="button"
@@ -89,14 +89,14 @@ export function CreateUserForm() {
               onClick={handleGenerate}
               disabled={isGenerating}
             >
-              {isGenerating ? "Generating…" : username ? "Regenerate" : "Generate"}
+              {isGenerating ? tC("loading") : username ? tC("update") : tC("create")}
             </Button>
           </div>
           {genError && <p className="mt-2 text-sm text-red-600">{genError}</p>}
         </div>
 
         <FieldGroup>
-          <Label htmlFor="username">Username</Label>
+          <Label htmlFor="username">{t("form.username")}</Label>
           <div className="flex gap-2">
             <Input
               id="username"
@@ -105,27 +105,19 @@ export function CreateUserForm() {
               placeholder="e.g. aster.tadesse"
               autoComplete="off"
               pattern="[a-z0-9._\-]+"
-              title="Lowercase letters, numbers, dots, hyphens, and underscores only"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
             />
             {username && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => copyToClipboard(username, "username")}
-              >
-                {copied === "username" ? "Copied" : "Copy"}
+              <Button type="button" variant="outline" onClick={() => copyToClipboard(username, "username")}>
+                {copied === "username" ? tC("confirm") : tC("save")}
               </Button>
             )}
           </div>
-          <p className="text-xs text-ink-900/50">
-            Used to sign in. Lowercase letters, numbers, dots, hyphens, underscores only — or generate one above.
-          </p>
         </FieldGroup>
 
         <FieldGroup>
-          <Label htmlFor="password">Temporary password</Label>
+          <Label htmlFor="password">{t("form.password")}</Label>
           <div className="flex gap-2">
             <Input
               id="password"
@@ -137,25 +129,18 @@ export function CreateUserForm() {
               onChange={(e) => setPassword(e.target.value)}
             />
             <Button type="button" variant="outline" onClick={() => setShowPassword((s) => !s)}>
-              {showPassword ? "Hide" : "Show"}
+              {showPassword ? tC("close") : tC("view")}
             </Button>
             {password && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => copyToClipboard(password, "password")}
-              >
-                {copied === "password" ? "Copied" : "Copy"}
+              <Button type="button" variant="outline" onClick={() => copyToClipboard(password, "password")}>
+                {copied === "password" ? tC("confirm") : tC("save")}
               </Button>
             )}
           </div>
-          <p className="text-xs text-ink-900/50">
-            Share this with the user — they can change it from their profile.
-          </p>
         </FieldGroup>
 
         <FieldGroup>
-          <Label htmlFor="role">System Role</Label>
+          <Label htmlFor="role">{t("form.role")}</Label>
           <Select id="role" name="role" required defaultValue="EMPLOYEE">
             {ROLES.map((role) => (
               <option key={role} value={role}>
@@ -163,11 +148,6 @@ export function CreateUserForm() {
               </option>
             ))}
           </Select>
-          <p className="text-xs text-ink-900/50">
-            System role controls HRMIS access — it is separate from the employee&apos;s
-            job position. Assign <span className="font-medium">General Manager</span> only
-            to the organisation&apos;s central manager, not to department-level managers.
-          </p>
         </FieldGroup>
 
         {state && !state.success && (
@@ -176,10 +156,10 @@ export function CreateUserForm() {
 
         <div className="flex items-center gap-3 pt-1">
           <Button type="submit" disabled={isPending}>
-            {isPending ? "Creating…" : "Create user"}
+            {isPending ? t("form.creating") : t("form.createAccount")}
           </Button>
           <ButtonLink href="/users" variant="ghost">
-            Cancel
+            {tC("cancel")}
           </ButtonLink>
         </div>
       </form>

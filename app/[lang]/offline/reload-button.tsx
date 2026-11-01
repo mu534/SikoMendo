@@ -2,10 +2,10 @@
 
 import { Button } from "@/components/ui/button";
 
-export function ReloadButton() {
+export function ReloadButton({ label }: { label: string }) {
   return (
     <Button variant="primary" className="mt-6" onClick={() => window.location.reload()}>
-      Try again
+      {label}
     </Button>
   );
 }

@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { Camera, Trash2 } from "lucide-react";
 import { CheckCircle2, XCircle } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Input, Label, FieldGroup } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { updateOrgSettings, removeOrgLogo } from "./actions";
@@ -16,6 +17,8 @@ export function OrgSettingsForm({ settings }: { settings: OrgSettings }) {
     updateOrgSettings,
     null
   );
+  const t = useTranslations("settings");
+  const tC = useTranslations("common");
 
   const [toast, setToast] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -26,18 +29,18 @@ export function OrgSettingsForm({ settings }: { settings: OrgSettings }) {
   useEffect(() => {
     if (state?.success) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setToast("Organisation settings saved.");
+      setToast(t("form.save"));
       setPreview(null);
-      const t = setTimeout(() => setToast(null), 4000);
-      return () => clearTimeout(t);
+      const timer = setTimeout(() => setToast(null), 4000);
+      return () => clearTimeout(timer);
     }
-  }, [state]);
+  }, [state, t]);
 
   const error = state && !state.success ? state.error.message : null;
   const currentLogo = preview ?? settings.logoUrl;
 
   function handleRemoveLogo() {
-    if (!confirm("Remove the organisation logo? The default icon will be used instead.")) return;
+    if (!confirm(t("form.logo"))) return;
     setRemoveError(null);
     startRemoveTransition(async () => {
       const result = await removeOrgLogo();
@@ -63,13 +66,12 @@ export function OrgSettingsForm({ settings }: { settings: OrgSettings }) {
 
       {/* Logo */}
       <div>
-        <Label>Organisation Logo</Label>
+        <Label>{t("form.logo")}</Label>
         <div className="mt-1.5 flex items-center gap-4">
-          {/* Preview */}
           <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-ink-900/10 bg-sand-100">
             {currentLogo ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={currentLogo} alt="Logo preview" className="h-full w-full object-contain" />
+              <img src={currentLogo} alt={t("form.logo")} className="h-full w-full object-contain" />
             ) : (
               <span className="text-2xl font-bold text-brand-700">
                 {(settings.orgName[0] ?? "S").toUpperCase()}
@@ -80,7 +82,7 @@ export function OrgSettingsForm({ settings }: { settings: OrgSettings }) {
           <div className="space-y-2">
             <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-ink-900/15 bg-white px-3.5 py-2 text-sm font-medium text-ink-900 hover:bg-sand-100">
               <Camera className="h-4 w-4" />
-              {currentLogo ? "Replace logo" : "Upload logo"}
+              {currentLogo ? tC("update") : tC("add")}
               <input
                 type="file"
                 name="logo"
@@ -90,11 +92,7 @@ export function OrgSettingsForm({ settings }: { settings: OrgSettings }) {
                   const file = e.target.files?.[0];
                   if (!file) return;
                   const err = validateOrgLogoFile(file);
-                  if (err) {
-                    setLogoError(err);
-                    e.target.value = "";
-                    return;
-                  }
+                  if (err) { setLogoError(err); e.target.value = ""; return; }
                   setLogoError(null);
                   setPreview(URL.createObjectURL(file));
                 }}
@@ -111,41 +109,35 @@ export function OrgSettingsForm({ settings }: { settings: OrgSettings }) {
                 className="text-red-600 hover:text-red-700"
               >
                 <Trash2 className="h-3.5 w-3.5" />
-                Remove logo
+                {tC("delete")}
               </Button>
             )}
           </div>
         </div>
         <p className="mt-1.5 text-xs text-ink-900/45">
-          PNG, JPG, WEBP, or SVG · max {formatBytes(ORG_LOGO_MAX_BYTES)} · Recommended: square, min 64×64 px.
+          PNG, JPG, WEBP, SVG · max {formatBytes(ORG_LOGO_MAX_BYTES)}
         </p>
-        {logoError && (
-          <p role="alert" className="mt-1 text-xs font-medium text-red-600">{logoError}</p>
-        )}
+        {logoError && <p role="alert" className="mt-1 text-xs font-medium text-red-600">{logoError}</p>}
       </div>
 
-      {/* Fields */}
       <FieldGroup>
-        <Label htmlFor="orgName">Organisation name <span className="text-red-500">*</span></Label>
+        <Label htmlFor="orgName">{t("form.orgName")} <span className="text-red-500">*</span></Label>
         <Input id="orgName" name="orgName" required defaultValue={settings.orgName} />
       </FieldGroup>
 
       <FieldGroup>
-        <Label htmlFor="tagline">Tagline / System name <span className="text-red-500">*</span></Label>
+        <Label htmlFor="tagline">{t("form.tagline")} <span className="text-red-500">*</span></Label>
         <Input id="tagline" name="tagline" required defaultValue={settings.tagline} />
-        <p className="text-xs text-ink-900/45">
-          Shown below the organisation name in the sidebar (e.g. &ldquo;Union HRMIS&rdquo;).
-        </p>
       </FieldGroup>
 
       <FieldGroup>
-        <Label htmlFor="location">Location <span className="text-red-500">*</span></Label>
+        <Label htmlFor="location">{t("form.location")} <span className="text-red-500">*</span></Label>
         <Input id="location" name="location" required defaultValue={settings.location} />
       </FieldGroup>
 
       <div className="flex items-center gap-3 pt-1">
         <Button type="submit" disabled={isPending}>
-          {isPending ? "Saving…" : "Save changes"}
+          {isPending ? t("form.saving") : t("form.save")}
         </Button>
       </div>
     </form>

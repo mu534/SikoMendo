@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { Input, Label, Select, Textarea, FieldGroup, FieldError } from "@/components/ui/field";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -23,6 +24,9 @@ function calculateTotalDays(start: string, end: string): number | null {
 
 export function LeaveRequestForm({ balances = [] }: { balances?: LeaveBalanceEntry[] }) {
   const router = useRouter();
+  const t = useTranslations("leave");
+  const tC = useTranslations("common");
+  const tV = useTranslations("validation");
   const [state, formAction, isPending] = useActionState(submitLeaveRequest, null);
   const typedState = state as ActionState;
 
@@ -56,7 +60,7 @@ export function LeaveRequestForm({ balances = [] }: { balances?: LeaveBalanceEnt
         )}
 
         <FieldGroup>
-          <Label htmlFor="leaveType">Leave Type</Label>
+          <Label htmlFor="leaveType">{t("form.leaveType")}</Label>
           <Select
             id="leaveType"
             name="leaveType"
@@ -64,27 +68,23 @@ export function LeaveRequestForm({ balances = [] }: { balances?: LeaveBalanceEnt
             value={leaveType}
             onChange={(e) => setLeaveType(e.target.value)}
           >
-            <option value="" disabled>
-              Select a leave type…
-            </option>
+            <option value="" disabled>{t("form.selectLeaveType")}</option>
             {LEAVE_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {LEAVE_TYPE_LABELS[type]}
-              </option>
+              <option key={type} value={type}>{LEAVE_TYPE_LABELS[type]}</option>
             ))}
           </Select>
           {selectedBalance && (
             <p className="mt-1.5 text-xs text-ink-900/50">
               {selectedBalance.remaining === null
-                ? "No yearly cap for this leave type."
-                : `${selectedBalance.remaining} of ${selectedBalance.entitled} day(s) remaining this year.`}
+                ? t("noBalance")
+                : `${selectedBalance.remaining} / ${selectedBalance.entitled}`}
             </p>
           )}
         </FieldGroup>
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <FieldGroup>
-            <Label htmlFor="startDate">Start Date</Label>
+            <Label htmlFor="startDate">{t("form.startDate")}</Label>
             <Input
               id="startDate"
               name="startDate"
@@ -95,7 +95,7 @@ export function LeaveRequestForm({ balances = [] }: { balances?: LeaveBalanceEnt
             />
           </FieldGroup>
           <FieldGroup>
-            <Label htmlFor="endDate">End Date</Label>
+            <Label htmlFor="endDate">{t("form.endDate")}</Label>
             <Input
               id="endDate"
               name="endDate"
@@ -108,20 +108,19 @@ export function LeaveRequestForm({ balances = [] }: { balances?: LeaveBalanceEnt
         </div>
 
         <div className="rounded-lg bg-sand-100 px-4 py-3 text-sm text-ink-900/70">
-          Total days requested:{" "}
-          <span className="font-semibold text-ink-900">{totalDays ?? "—"}</span>
+          {t("form.calculatedDays", { days: totalDays ?? "—" })}
         </div>
         {startDate && endDate && totalDays === null && (
-          <FieldError>Start date cannot be after end date.</FieldError>
+          <FieldError>{tV("dateRangeInvalid")}</FieldError>
         )}
 
         <FieldGroup>
-          <Label htmlFor="reason">Reason</Label>
-          <Textarea id="reason" name="reason" rows={4} required placeholder="Briefly explain the reason for your leave request." />
+          <Label htmlFor="reason">{t("form.reason")}</Label>
+          <Textarea id="reason" name="reason" rows={4} required placeholder={t("form.reasonPlaceholder")} />
         </FieldGroup>
 
         <FieldGroup>
-          <Label htmlFor="document">Supporting Document (optional)</Label>
+          <Label htmlFor="document">{tC("optional")}</Label>
           <input
             id="document"
             name="document"
@@ -139,18 +138,14 @@ export function LeaveRequestForm({ balances = [] }: { balances?: LeaveBalanceEnt
           <p className="mt-1 text-xs text-ink-900/45">
             PDF, JPG, PNG, WebP, DOC, DOCX · max {formatBytes(LEAVE_DOCUMENT_MAX_BYTES)}
           </p>
-          {docError && (
-            <p role="alert" className="mt-1 text-xs font-medium text-red-600">{docError}</p>
-          )}
+          {docError && <p role="alert" className="mt-1 text-xs font-medium text-red-600">{docError}</p>}
         </FieldGroup>
 
         <div className="flex items-center gap-3 border-t border-ink-900/8 pt-5">
           <Button type="submit" disabled={isPending || !!docError}>
-            {isPending ? "Submitting…" : "Submit Request"}
+            {isPending ? t("form.submitting") : t("form.submitRequest")}
           </Button>
-          <ButtonLink href="/leave" variant="ghost">
-            Cancel
-          </ButtonLink>
+          <ButtonLink href="/leave" variant="ghost">{tC("cancel")}</ButtonLink>
         </div>
       </form>
     </Card>

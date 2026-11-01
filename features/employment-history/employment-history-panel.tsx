@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Plus } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Table, THead, TH, TBody, TR, TD, EmptyRow } from "@/components/ui/table";
@@ -39,26 +40,22 @@ export function EmploymentHistoryPanel({
   positions: PositionOption[];
   currentDepartmentId: string;
   canManage: boolean;
-  /** The employee's linked User account, passed down from the server. */
   linkedUser?: LinkedUser;
-  /**
-   * Whether the current viewer has MANAGE_ROLES (ADMIN only).
-   * Controls whether the role-change selector is shown in the form.
-   * The server re-validates this regardless.
-   */
   canChangeRole?: boolean;
 }) {
   const [showForm, setShowForm] = useState(false);
+  const t = useTranslations("employmentHistory");
+  const tC = useTranslations("common");
 
   return (
     <div className="space-y-4">
       {canManage && (
         <div className="flex items-center justify-between">
-          <p className="text-sm font-medium text-ink-900">{history.length} record(s)</p>
+          <p className="text-sm font-medium text-ink-900">{history.length} {tC("total")}</p>
           {!showForm && (
             <Button size="sm" variant="outline" onClick={() => setShowForm(true)}>
               <Plus className="h-3.5 w-3.5" />
-              Record Employment Change
+              {t("recordChange")}
             </Button>
           )}
         </div>
@@ -78,31 +75,29 @@ export function EmploymentHistoryPanel({
 
       <Table>
         <THead>
-          <TH>Department</TH>
-          <TH>Position</TH>
-          <TH>Type</TH>
-          <TH>Effective</TH>
-          <TH>End</TH>
-          <TH>Reason</TH>
+          <TH>{t("columns.department")}</TH>
+          <TH>{t("columns.position")}</TH>
+          <TH>{t("columns.type")}</TH>
+          <TH>{t("columns.effectiveDate")}</TH>
+          <TH>{t("columns.endDate")}</TH>
+          <TH>{t("columns.reason")}</TH>
         </THead>
         <TBody>
           {history.length === 0 && (
-            <EmptyRow colSpan={6}>No employment history yet.</EmptyRow>
+            <EmptyRow colSpan={6}>{t("noHistory")}</EmptyRow>
           )}
           {history.map((h) => (
             <TR key={h.id}>
               <TD>{h.department.name}</TD>
               <TD>{h.position.name}</TD>
-              <TD>{h.employmentType ?? "—"}</TD>
+              <TD>{h.employmentType ?? tC("na")}</TD>
               <TD>{formatDate(h.effectiveDate)}</TD>
               <TD>
-                {h.endDate ? formatDate(h.endDate) : <Badge tone="success">Current</Badge>}
+                {h.endDate ? formatDate(h.endDate) : <Badge tone="success">{tC("active")}</Badge>}
               </TD>
               <TD>
                 <p>{h.changeReason}</p>
-                {h.remarks && (
-                  <p className="text-xs text-ink-900/45">{h.remarks}</p>
-                )}
+                {h.remarks && <p className="text-xs text-ink-900/45">{h.remarks}</p>}
               </TD>
             </TR>
           ))}

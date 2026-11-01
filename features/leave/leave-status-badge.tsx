@@ -1,5 +1,6 @@
+import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
-import { LEAVE_STATUS_LABELS, type LeaveStatusValue } from "./schemas";
+import type { LeaveStatusValue } from "./schemas";
 
 const STATUS_TONE: Record<LeaveStatusValue, "neutral" | "brand" | "success" | "warning" | "danger"> = {
   PENDING: "warning",
@@ -9,5 +10,6 @@ const STATUS_TONE: Record<LeaveStatusValue, "neutral" | "brand" | "success" | "w
 };
 
 export function LeaveStatusBadge({ status }: { status: LeaveStatusValue }) {
-  return <Badge tone={STATUS_TONE[status]}>{LEAVE_STATUS_LABELS[status]}</Badge>;
+  const t = useTranslations("leave");
+  return <Badge tone={STATUS_TONE[status]}>{t(`statuses.${status}`)}</Badge>;
 }
