@@ -72,9 +72,16 @@ export async function createEmployee(
   const session = await getServerSession();
 
   return withPermission(session, "MANAGE_EMPLOYEES", async () => {
+    if (!session?.user?.id) throw new Error("Unauthorized");
+    const userId = session.user.id;
+
     const parsed = employeeSchema.safeParse(employeeFormDataToObject(formData));
     if (!parsed.success) {
-      throw new Error(parsed.error.issues[0]?.message ?? "Invalid input.");
+      // Surface the consent field error if present, otherwise the first field error.
+      const consentIssue = parsed.error.issues.find(
+        (i) => i.path[0] === "emergencyContactConsentRecorded"
+      );
+      throw new Error(consentIssue?.message ?? parsed.error.issues[0]?.message ?? "Invalid input.");
     }
 
     // P2-11: Validate department/position relationship server-side
@@ -133,7 +140,7 @@ export async function createEmployee(
             ...(parsed.data.emergencyContactConsentRecorded
               ? {
                   emergencyContactConsentAt:         new Date(),
-                  emergencyContactConsentByUserId:   session?.user.id ?? null,
+                  emergencyContactConsentByUserId:   userId,
                 }
               : {}),
             departmentId:   parsed.data.departmentId,
@@ -176,7 +183,7 @@ export async function createEmployee(
         await tx.onboardingRecord.create({
           data: {
             employeeId: created.id,
-            responsibleHrId: session?.user.id,
+            responsibleHrId: userId,
           },
         });
 
@@ -187,7 +194,7 @@ export async function createEmployee(
         "CREATE",
         employee.id,
         { employeeId, name: `${employee.firstName} ${employee.lastName}` },
-        session?.user.id
+        userId
       );
 
       revalidatePath("/employees");
@@ -211,9 +218,16 @@ export async function updateEmployee(
   const session = await getServerSession();
 
   return withPermission(session, "MANAGE_EMPLOYEES", async () => {
+    if (!session?.user?.id) throw new Error("Unauthorized");
+    const userId = session.user.id;
+
     const parsed = employeeSchema.safeParse(employeeFormDataToObject(formData));
     if (!parsed.success) {
-      throw new Error(parsed.error.issues[0]?.message ?? "Invalid input.");
+      // Surface the consent field error if present, otherwise the first field error.
+      const consentIssue = parsed.error.issues.find(
+        (i) => i.path[0] === "emergencyContactConsentRecorded"
+      );
+      throw new Error(consentIssue?.message ?? parsed.error.issues[0]?.message ?? "Invalid input.");
     }
 
     const existing = await prisma.employee.findUnique({ where: { id } });
@@ -267,7 +281,7 @@ export async function updateEmployee(
           ...(parsed.data.emergencyContactConsentRecorded
             ? {
                 emergencyContactConsentAt:         new Date(),
-                emergencyContactConsentByUserId:   session?.user.id ?? null,
+                emergencyContactConsentByUserId:   userId,
               }
             : {}),
           hireDate:         parsed.data.hireDate ?? null,
@@ -307,7 +321,7 @@ export async function updateEmployee(
       await deleteFromCloudinary(existing.profileImageKey, "image").catch(() => {/* non-fatal */});
     }
 
-    await logAudit("UPDATE", id, { updatedBy: session?.user.name }, session?.user.id);
+    await logAudit("UPDATE", id, { updatedBy: session?.user.name }, userId);
 
     revalidatePath("/employees");
     revalidatePath(`/employees/${id}`);

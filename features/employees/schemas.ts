@@ -454,16 +454,14 @@ export const employeeSchema = z.object({
   userId: optionalString,
   managerId: z.preprocess((v) => (v ? String(v).trim() : ""), z.string().min(1, "Manager (Reports To) is required")),
 }).superRefine((data, ctx) => {
-  // If any primary contact field is present, consent must be recorded
-  const hasContactData =
-    (data.emergencyContactName && data.emergencyContactName.trim() !== "") ||
-    (data.emergencyContactPhone && data.emergencyContactPhone.trim() !== "") ||
-    (data.emergencyContactRelationship && data.emergencyContactRelationship.trim() !== "");
+  // Consent is required if a contact name has been entered — that is the
+  // indicator a contact record is being added.
+  const hasContactData = Boolean(data.emergencyContactName?.trim());
 
   if (hasContactData && !data.emergencyContactConsentRecorded) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      path: ["consentRequired"],
+      path: ["emergencyContactConsentRecorded"],
       message: "You must confirm consent before saving emergency contact information.",
     });
   }
