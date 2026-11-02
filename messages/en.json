@@ -281,7 +281,7 @@
     "noEmployees": "No employees yet.",
     "noEmployeesFiltered": "No employees match your filters.",
     "noArchivedEmployees": "No archived employees.",
-    "inPreboardingChecklist": "In pre-boarding checklist",
+    "inPreboardingChecklist": "Initial status: Onboarding — this employee will appear in the onboarding checklist after saving.",
     "statuses": {
       "ACTIVE": "Active",
       "ON_LEAVE": "On Leave",
@@ -381,7 +381,12 @@
       "consentNote": "This records the HR Officer's confirmation. It is not a verified digital signature.",
       "consentRequired": "You must confirm consent before saving emergency contact information.",
       "consentRecordedBy": "Consent recorded by HR on",
-      "optional": "optional"
+      "optional": "optional",
+      "requiredFieldsNote": "Fields marked with * are required.",
+      "profilePhoto": "Profile photo",
+      "uploadPhoto": "Upload photo",
+      "changePhoto": "Change photo",
+      "removePhoto": "Remove photo"
     },
     "relationships": {
       "Spouse": "Spouse",

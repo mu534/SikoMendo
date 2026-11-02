@@ -244,7 +244,7 @@ export function EmployeeFormActions({
   const t = useTranslations("employees");
   const tC = useTranslations("common");
   return (
-    <div className="flex flex-wrap items-center gap-3 border-t border-ink-900/8 pt-4">
+    <div className="flex flex-wrap items-center gap-3">
       <Button type="submit" form={EMPLOYEE_FORM_ID} disabled={isPending}>
         {isPending ? (
           <span className="flex items-center gap-2">
@@ -354,7 +354,7 @@ export function EmployeeForm({
   const currentEmploymentType = employee?.employmentType ?? "";
 
   return (
-    <div className="max-w-3xl space-y-5">
+    <div className="space-y-5">
       {showToast && (
         <div role="status" className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
           {tC("save")}
@@ -367,6 +367,7 @@ export function EmployeeForm({
       )}
 
       <form id={EMPLOYEE_FORM_ID} action={formAction} className="space-y-5">
+        <p className="text-xs text-ink-900/50"><span className="text-red-500">*</span> {t("form.requiredFieldsNote")}</p>
 
         {/* ── Section 1: Personal Information ──────────────────────────── */}
         <Card className="p-6">
@@ -661,7 +662,9 @@ export function EmployeeForm({
         </Card>
 
       </form>
-      <EmployeeFormActions isEdit={isEdit} isPending={isPending} onCancel={onSaveSuccess} />
+      <div className="sticky bottom-0 z-10 border-t border-ink-900/8 bg-white px-4 py-3 shadow-[0_-1px_3px_rgba(0,0,0,0.04)]">
+        <EmployeeFormActions isEdit={isEdit} isPending={isPending} onCancel={onSaveSuccess} />
+      </div>
     </div>
   );
 }

@@ -276,7 +276,7 @@
     "noEmployees": "Ammaaf hojjetaan hin jiru.",
     "noEmployeesFiltered": "Hojjetaan calaltoota kee waliin walsimu hin jiru.",
     "noArchivedEmployees": "Hojjettoonni kuufaman hin jiran.",
-    "inPreboardingChecklist": "Tarree mirkaneessaa hojii dura keessatti",
+    "inPreboardingChecklist": "Haala jalqabaa: Onboarding — hojjetaan kun gadifageenyaan booda tarree ilaallannaa keessa ni mul'ata.",
     "statuses": {
       "ACTIVE": "Hojii irra",
       "ON_LEAVE": "Hayyama irra",
@@ -376,7 +376,12 @@
       "consentNote": "Kun mirkaneessa Ogeessa Dhimma Nama Hojjetaa (HR) galmeessa. Mallattoo dijitaalaa mirkana'aa miti.",
       "consentRequired": "Odeeffannoo qunnamtii hatattamaa ol kaa'uuf hayyama mirkanneessuu qabda.",
       "consentRecordedBy": "Hayyamni HR tiin galmaa'e guyyaa",
-      "optional": "dirqama miti"
+      "optional": "dirqama miti",
+      "requiredFieldsNote": "Dirreewwan * mallattoo qaban barbaachisaa dha.",
+      "profilePhoto": "Suuraa piroofaayilaa",
+      "uploadPhoto": "Suuraa fe'i",
+      "changePhoto": "Suuraa jijjiiri",
+      "removePhoto": "Suuraa haqi"
     },
     "relationships": {
       "Spouse": "Hiriyyaa gaa'elaa",
