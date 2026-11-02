@@ -51,6 +51,7 @@
     "none": "None",
     "notSet": "Not set",
     "na": "—",
+    "notYetEntered": "Not yet entered",
     "copyright": "© {year} {orgName}",
     "copyrightFull": "© {year} {orgName}\n{location}",
     "myProfile": "My profile",
@@ -721,7 +722,8 @@
       "uploadCertificate": "Upload certificate",
       "certificateHint": "Upload the cooperative's legal registration certificate (PDF or image).",
       "save": "Save cooperative",
-      "saving": "Saving…"
+      "saving": "Saving…",
+      "cooperativeIdHint": "Auto-assigned — cannot be changed"
     }
   },
 

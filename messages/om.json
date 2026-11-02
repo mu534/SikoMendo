@@ -52,6 +52,7 @@
     "none": "Homaa",
     "notSet": "Hin murtoofne",
     "na": "—",
+    "notYetEntered": "Ammaaf hin galmoofne",
     "copyright": "© {year} {orgName}",
     "copyrightFull": "© {year} {orgName}\n{location}",
     "myProfile": "Piroofaayila koo",
@@ -713,7 +714,8 @@
       "uploadCertificate": "Ragaa olkaa'i",
       "certificateHint": "Ragaa galmee seeraa waldaa hojii gamtaa (PDF yookaan suuraa) olkaa'i.",
       "save": "Waldaa hojii gamtaa olkaa'i",
-      "saving": "Olkaa'amaa jira…"
+      "saving": "Olkaa'amaa jira…",
+      "cooperativeIdHint": "Ofumaan ramadame — jijjiiruun hin danda'amu"
     }
   },
   "departments": {

@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2 } from "lucide-react";
+import { Building2, Lock } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Input, Label, Select, FieldGroup } from "@/components/ui/field";
 import { Card } from "@/components/ui/card";
@@ -26,14 +26,18 @@ export function BasicInformationSection({ cooperative, cooperativeId, onNameChan
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <FieldGroup>
             <Label htmlFor="cooperativeId_display">{t("cooperativeId")}</Label>
-            <Input
-              id="cooperativeId_display"
-              readOnly
-              tabIndex={-1}
-              aria-readonly="true"
-              value={cooperative?.cooperativeId ?? cooperativeId ?? tC("loading")}
-              className="cursor-default bg-sand-100"
-            />
+            <div className="relative">
+              <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-900/35" aria-hidden="true" />
+              <Input
+                id="cooperativeId_display"
+                readOnly
+                tabIndex={-1}
+                aria-readonly="true"
+                value={cooperative?.cooperativeId ?? cooperativeId ?? tC("loading")}
+                className="cursor-default bg-sand-100 pl-8"
+              />
+            </div>
+            <p className="mt-1 text-xs text-ink-900/45">{t("cooperativeIdHint")}</p>
           </FieldGroup>
 
           <FieldGroup>
