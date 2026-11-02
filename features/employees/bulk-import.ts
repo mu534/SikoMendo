@@ -11,7 +11,7 @@ import type { EducationLevel } from "@prisma/client";
 // ── Local schema for CSV import ────────────────────────────────────────────
 // Same as employeeSchema but managerId is optional — CSV rows may omit it.
 // Empty value → null (DB allows null for managerId; onDelete: SetNull).
-const importEmployeeSchema = employeeSchema.extend({
+const importEmployeeSchema = employeeSchema.safeExtend({
   managerId: z.preprocess(
     (v) => (v ? String(v).trim() : ""),
     z.string().optional().transform((v) => (v && v.length > 0 ? v : null))

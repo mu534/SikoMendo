@@ -282,7 +282,7 @@ export type EducationRecordInput = z.infer<typeof educationRecordSchema>;
 
 // ── Main employee schema ───────────────────────────────────────────────────
 
-export const employeeSchema = z.object({
+const employeeSchemaObject = z.object({
   firstName: z.preprocess(
     (v) => (v ? String(v).trim() : ""),
     z.string()
@@ -453,7 +453,9 @@ export const employeeSchema = z.object({
     .pipe(z.array(educationRecordSchema).min(1, "At least one education record is required")),
   userId: optionalString,
   managerId: z.preprocess((v) => (v ? String(v).trim() : ""), z.string().min(1, "Manager (Reports To) is required")),
-}).superRefine((data, ctx) => {
+});
+
+function validateEmployeeConsent(data: { emergencyContactName?: string; emergencyContactConsentRecorded: boolean }, ctx: z.RefinementCtx) {
   // Consent is required if a contact name has been entered — that is the
   // indicator a contact record is being added.
   const hasContactData = Boolean(data.emergencyContactName?.trim());
@@ -465,7 +467,9 @@ export const employeeSchema = z.object({
       message: "You must confirm consent before saving emergency contact information.",
     });
   }
-});
+}
+
+export const employeeSchema = employeeSchemaObject.superRefine(validateEmployeeConsent);
 
 export type EmployeeInput = z.infer<typeof employeeSchema>;
 
@@ -473,11 +477,11 @@ export type EmployeeInput = z.infer<typeof employeeSchema>;
 // per the Employment History requirement, those only ever change through
 // recordEmploymentChange(), never a direct edit, so "current" info always
 // reflects the latest active history record.
-export const employeeUpdateSchema = employeeSchema.omit({
+export const employeeUpdateSchema = employeeSchemaObject.omit({
   departmentId: true,
   positionId: true,
   employmentType: true,
-});
+}).superRefine(validateEmployeeConsent);
 
 export type EmployeeUpdateInput = z.infer<typeof employeeUpdateSchema>;
 

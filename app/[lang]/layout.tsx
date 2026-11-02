@@ -36,12 +36,8 @@ export default async function LangLayout({
   const messages = await getMessages();
 
   return (
-    <html lang={lang} className="h-full">
-      <body className="h-full antialiased">
-        <NextIntlClientProvider locale={lang} messages={messages}>
-          {children}
-        </NextIntlClientProvider>
-      </body>
-    </html>
+    <NextIntlClientProvider locale={lang} messages={messages}>
+      {children}
+    </NextIntlClientProvider>
   );
 }
