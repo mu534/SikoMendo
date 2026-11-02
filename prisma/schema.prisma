@@ -258,6 +258,23 @@ model Employee {
   emergencyContactRelationship String?
   emergencyContactAddress      String?
 
+  // Emergency contact — extended fields (primary contact)
+  emergencyContactAltPhone           String?
+  emergencyContactEmail              String?
+  emergencyContactAddressCity        String?
+  emergencyContactAddressRegion      String?
+  emergencyContactAddressPostalCode  String?
+
+  // Emergency contact — secondary contact
+  emergencyContact2Name         String?
+  emergencyContact2Phone        String?
+  emergencyContact2Relationship String?
+
+  // Emergency contact — consent / acknowledgement recording
+  emergencyContactConsentRecorded    Boolean   @default(false)
+  emergencyContactConsentAt          DateTime?
+  emergencyContactConsentByUserId    String?
+
   // Relations
   departmentId  String?
   department    Department?    @relation(fields: [departmentId], references: [id], onDelete: Restrict)

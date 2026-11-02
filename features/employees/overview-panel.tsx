@@ -49,6 +49,16 @@ type OverviewEmployee = {
   emergencyContactPhone?: string | null;
   emergencyContactRelationship?: string | null;
   emergencyContactAddress?: string | null;
+  emergencyContactAltPhone?: string | null;
+  emergencyContactEmail?: string | null;
+  emergencyContactAddressCity?: string | null;
+  emergencyContactAddressRegion?: string | null;
+  emergencyContactAddressPostalCode?: string | null;
+  emergencyContact2Name?: string | null;
+  emergencyContact2Phone?: string | null;
+  emergencyContact2Relationship?: string | null;
+  emergencyContactConsentRecorded?: boolean | null;
+  emergencyContactConsentAt?: Date | null;
   educations?: EducationRecord[];
 };
 
@@ -156,12 +166,69 @@ export function OverviewPanel({
         <Card className="p-5">
           <SectionHeader icon={Phone} title={t("form.emergencyContact")} />
           {employee.emergencyContactName ? (
-            <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <ReadField label={tC("name")} value={employee.emergencyContactName} />
-              <ReadField label={t("form.emergencyContactRelationship")} value={employee.emergencyContactRelationship} />
-              <ReadField label={t("overview.phone")} value={employee.emergencyContactPhone} />
-              <ReadField label={t("form.address")} value={employee.emergencyContactAddress} />
-            </dl>
+            <div className="space-y-4">
+              {/* Primary contact */}
+              <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <ReadField label={tC("name")} value={employee.emergencyContactName} />
+                <ReadField label={t("form.emergencyContactRelationship")} value={employee.emergencyContactRelationship} />
+                <ReadField label={t("overview.phone")} value={employee.emergencyContactPhone} />
+                {employee.emergencyContactAltPhone && (
+                  <ReadField label={t("form.emergencyContactAltPhone")} value={employee.emergencyContactAltPhone} />
+                )}
+                {employee.emergencyContactEmail && (
+                  <ReadField label={t("form.emergencyContactEmail")} value={employee.emergencyContactEmail} className="sm:col-span-2" />
+                )}
+              </dl>
+
+              {/* Address block */}
+              {(employee.emergencyContactAddress || employee.emergencyContactAddressCity) && (
+                <div className="border-t border-ink-900/8 pt-4">
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-900/40">{t("form.contactAddress")}</p>
+                  <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {employee.emergencyContactAddress && (
+                      <ReadField label={t("form.emergencyContactAddress")} value={employee.emergencyContactAddress} className="sm:col-span-2" />
+                    )}
+                    {employee.emergencyContactAddressCity && (
+                      <ReadField label={t("form.city")} value={employee.emergencyContactAddressCity} />
+                    )}
+                    {employee.emergencyContactAddressRegion && (
+                      <ReadField label={t("form.region")} value={employee.emergencyContactAddressRegion} />
+                    )}
+                    {employee.emergencyContactAddressPostalCode && (
+                      <ReadField label={t("form.postalCode")} value={employee.emergencyContactAddressPostalCode} />
+                    )}
+                  </dl>
+                </div>
+              )}
+
+              {/* Secondary contact block */}
+              {employee.emergencyContact2Name && (
+                <div className="border-t border-ink-900/8 pt-4">
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-900/40">{t("form.secondaryContact")}</p>
+                  <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <ReadField label={tC("name")} value={employee.emergencyContact2Name} />
+                    <ReadField label={t("form.secondaryContactRelationship")} value={employee.emergencyContact2Relationship} />
+                    {employee.emergencyContact2Phone && (
+                      <ReadField label={t("overview.phone")} value={employee.emergencyContact2Phone} />
+                    )}
+                  </dl>
+                </div>
+              )}
+
+              {/* Consent status */}
+              <div className="border-t border-ink-900/8 pt-4">
+                {employee.emergencyContactConsentRecorded && employee.emergencyContactConsentAt ? (
+                  <p className="text-xs text-ink-900/50">
+                    {t("form.consentRecordedBy")}{" "}
+                    {new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(
+                      new Date(employee.emergencyContactConsentAt)
+                    )}
+                  </p>
+                ) : (
+                  <p className="text-xs text-amber-600/80">{t("form.consentRequired")}</p>
+                )}
+              </div>
+            </div>
           ) : (
             <p className="text-sm text-ink-900/40">{tC("noResults")}</p>
           )}

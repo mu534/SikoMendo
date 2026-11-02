@@ -356,7 +356,24 @@
       "emergencyContactPhone": "Bilbila quunnamtii",
       "emergencyContactRelationship": "Hariiroo",
       "emergencyContactAddress": "Teessoo quunnamtii",
-      "selectRelationship": "Hariiroo filadhu"
+      "selectRelationship": "Hariiroo filadhu",
+      "primaryContact": "Qunnamtii Hatattamaa Duraa",
+      "secondaryContact": "Qunnamtii Hatattamaa Lammaffaa",
+      "contactAddress": "Teessoo Nama Qunnamtii",
+      "emergencyContactAltPhone": "Lakkoofsa Bilbilaa Biroo",
+      "emergencyContactEmail": "Teessoo Imeelii",
+      "city": "Magaalaa",
+      "region": "Godinaa / Naannoo",
+      "postalCode": "Koodii Postaa",
+      "secondaryContactName": "Maqaa Guutuu",
+      "secondaryContactRelationship": "Hariiroo Hojjetaa Waliin",
+      "secondaryContactPhone": "Lakkoofsa Bilbilaa",
+      "consentTitle": "Hayyama fi Mirkanaa'ina",
+      "consentCheckboxLabel": "Hojjettaan hayyama barbaachisaa namoota qunnamtii hatattamaa irraa argachuun odeeffannoo isaanii dhaabbataaf kennuufi fi yeroo balaa fayyaa ykn hojii irratti qunnamtii isaaniin gahuun akka danda'amu mirkaneeffate.",
+      "consentNote": "Kun mirkaneessa Ogeessa Dhimma Nama Hojjetaa (HR) galmeessa. Mallattoo dijitaalaa mirkana'aa miti.",
+      "consentRequired": "Odeeffannoo qunnamtii hatattamaa ol kaa'uuf hayyama mirkanneessuu qabda.",
+      "consentRecordedBy": "Hayyamni HR tiin galmaa'e guyyaa",
+      "optional": "dirqama miti"
     },
     "relationships": {
       "Spouse": "Hiriyyaa gaa'elaa",
@@ -369,7 +386,11 @@
       "Guardian": "Eegduu",
       "Other Relative": "Fira biraa",
       "Friend": "Hiriyyaa",
-      "Other": "Kan biraa"
+      "Other": "Kan biraa",
+      "Parent": "Abbaa / Haadha",
+      "Sibling": "Obboleessa / Obboleettii",
+      "Child": "Ilma / Intala",
+      "Domestic Partner": "Hiriyaa Manaa"
     },
     "education": {
       "title": "Barnoota",

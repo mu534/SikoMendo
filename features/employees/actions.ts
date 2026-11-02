@@ -121,6 +121,21 @@ export async function createEmployee(
             emergencyContactPhone:        parsed.data.emergencyContactPhone ?? null,
             emergencyContactRelationship: parsed.data.emergencyContactRelationship ?? null,
             emergencyContactAddress:      parsed.data.emergencyContactAddress ?? null,
+            emergencyContactAltPhone:     parsed.data.emergencyContactAltPhone ?? null,
+            emergencyContactEmail:        parsed.data.emergencyContactEmail ?? null,
+            emergencyContactAddressCity:       parsed.data.emergencyContactAddressCity ?? null,
+            emergencyContactAddressRegion:     parsed.data.emergencyContactAddressRegion ?? null,
+            emergencyContactAddressPostalCode: parsed.data.emergencyContactAddressPostalCode ?? null,
+            emergencyContact2Name:         parsed.data.emergencyContact2Name ?? null,
+            emergencyContact2Phone:        parsed.data.emergencyContact2Phone ?? null,
+            emergencyContact2Relationship: parsed.data.emergencyContact2Relationship ?? null,
+            emergencyContactConsentRecorded:   parsed.data.emergencyContactConsentRecorded ?? false,
+            ...(parsed.data.emergencyContactConsentRecorded
+              ? {
+                  emergencyContactConsentAt:         new Date(),
+                  emergencyContactConsentByUserId:   session?.user.id ?? null,
+                }
+              : {}),
             departmentId:   parsed.data.departmentId,
             positionId:     parsed.data.positionId,
             hireDate:       parsed.data.hireDate ?? null,
@@ -240,6 +255,21 @@ export async function updateEmployee(
           emergencyContactPhone:        parsed.data.emergencyContactPhone ?? null,
           emergencyContactRelationship: parsed.data.emergencyContactRelationship ?? null,
           emergencyContactAddress:      parsed.data.emergencyContactAddress ?? null,
+          emergencyContactAltPhone:     parsed.data.emergencyContactAltPhone ?? null,
+          emergencyContactEmail:        parsed.data.emergencyContactEmail ?? null,
+          emergencyContactAddressCity:       parsed.data.emergencyContactAddressCity ?? null,
+          emergencyContactAddressRegion:     parsed.data.emergencyContactAddressRegion ?? null,
+          emergencyContactAddressPostalCode: parsed.data.emergencyContactAddressPostalCode ?? null,
+          emergencyContact2Name:         parsed.data.emergencyContact2Name ?? null,
+          emergencyContact2Phone:        parsed.data.emergencyContact2Phone ?? null,
+          emergencyContact2Relationship: parsed.data.emergencyContact2Relationship ?? null,
+          emergencyContactConsentRecorded:   parsed.data.emergencyContactConsentRecorded ?? false,
+          ...(parsed.data.emergencyContactConsentRecorded
+            ? {
+                emergencyContactConsentAt:         new Date(),
+                emergencyContactConsentByUserId:   session?.user.id ?? null,
+              }
+            : {}),
           hireDate:         parsed.data.hireDate ?? null,
           employmentStatus: parsed.data.employmentStatus,
           managerId:        parsed.data.managerId ?? null,

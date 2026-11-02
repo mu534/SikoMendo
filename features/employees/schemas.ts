@@ -52,6 +52,11 @@ export const EMERGENCY_CONTACT_RELATIONSHIPS = [
   "Other Relative",
   "Friend",
   "Other",
+  // Task-required additions — kept alongside existing granular values for data compatibility
+  "Parent",
+  "Sibling",
+  "Child",
+  "Domestic Partner",
 ] as const;
 
 export type EmergencyContactRelationship =
@@ -345,11 +350,7 @@ export const employeeSchema = z.object({
       .min(1, "Emergency contact phone is required")
       .refine(isValidPhoneInput, "Enter a valid phone number (e.g. +251 911 234567 or +44 7911 123456)")
   ).transform((v) => normalizeAnyPhone(String(v).trim()) ?? String(v).trim()),
-  // emergencyContactRelationship stores the final resolved string:
-  //   - a named relationship ("Spouse", "Father", etc.) for the standard options
-  //   - the custom text the user typed when "Other" was selected
-  // The form submits the hidden field name "emergencyContactRelationship" with this
-  // resolved value — the "OTHER" sentinel is never persisted.
+ 
   emergencyContactRelationship: z.preprocess(
     (v) => (v ? String(v).trim() : ""),
     z.string()
@@ -361,6 +362,64 @@ export const employeeSchema = z.object({
     .optional()
     .transform((v) => (v && v.trim() !== "" ? v.trim() : null))
     .pipe(z.string().max(200, "Address must be 200 characters or fewer").nullable()),
+  // Extended emergency contact fields
+  emergencyContactAltPhone: z
+    .string()
+    .optional()
+    .transform((v) => (v && v.trim() !== "" ? v.trim() : null))
+    .pipe(
+      z.string()
+        .refine(isValidPhoneInput, "Enter a valid phone number (e.g. +251 911 234567 or +44 7911 123456)")
+        .transform((v) => normalizeAnyPhone(v) ?? v)
+        .nullable()
+    ),
+  emergencyContactEmail: z
+    .string()
+    .optional()
+    .transform((v) => (v && v.trim() !== "" ? v.trim() : null))
+    .pipe(z.string().email("Enter a valid email address").nullable()),
+  emergencyContactAddressCity: z
+    .string()
+    .optional()
+    .transform((v) => (v && v.trim() !== "" ? v.trim() : null))
+    .pipe(z.string().max(100, "City must be 100 characters or fewer").nullable()),
+  emergencyContactAddressRegion: z
+    .string()
+    .optional()
+    .transform((v) => (v && v.trim() !== "" ? v.trim() : null))
+    .pipe(z.string().max(100, "Region must be 100 characters or fewer").nullable()),
+  emergencyContactAddressPostalCode: z
+    .string()
+    .optional()
+    .transform((v) => (v && v.trim() !== "" ? v.trim() : null))
+    .pipe(z.string().max(20, "Postal code must be 20 characters or fewer").nullable()),
+  emergencyContact2Name: z
+    .string()
+    .optional()
+    .transform((v) => (v && v.trim() !== "" ? v.trim() : null))
+    .pipe(z.string().max(100, "Name must be 100 characters or fewer").nullable()),
+  emergencyContact2Phone: z
+    .string()
+    .optional()
+    .transform((v) => (v && v.trim() !== "" ? v.trim() : null))
+    .pipe(
+      z.string()
+        .refine(isValidPhoneInput, "Enter a valid phone number (e.g. +251 911 234567 or +44 7911 123456)")
+        .transform((v) => normalizeAnyPhone(v) ?? v)
+        .nullable()
+    ),
+  emergencyContact2Relationship: z
+    .string()
+    .optional()
+    .transform((v) => (v && v.trim() !== "" ? v.trim() : null))
+    .pipe(z.string().max(100, "Relationship must be 100 characters or fewer").nullable()),
+  emergencyContactConsentRecorded: z.preprocess(
+    (v) => {
+      if (v === true || v === "true" || v === "on" || v === "1") return true;
+      return false;
+    },
+    z.boolean()
+  ),
   departmentId: z.preprocess((v) => (v ? String(v).trim() : ""), z.string().min(1, "Department is required")),
   positionId: z.preprocess((v) => (v ? String(v).trim() : ""), z.string().min(1, "Position is required")),
   hireDate: z.preprocess(
@@ -394,6 +453,20 @@ export const employeeSchema = z.object({
     .pipe(z.array(educationRecordSchema).min(1, "At least one education record is required")),
   userId: optionalString,
   managerId: z.preprocess((v) => (v ? String(v).trim() : ""), z.string().min(1, "Manager (Reports To) is required")),
+}).superRefine((data, ctx) => {
+  // If any primary contact field is present, consent must be recorded
+  const hasContactData =
+    (data.emergencyContactName && data.emergencyContactName.trim() !== "") ||
+    (data.emergencyContactPhone && data.emergencyContactPhone.trim() !== "") ||
+    (data.emergencyContactRelationship && data.emergencyContactRelationship.trim() !== "");
+
+  if (hasContactData && !data.emergencyContactConsentRecorded) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["consentRequired"],
+      message: "You must confirm consent before saving emergency contact information.",
+    });
+  }
 });
 
 export type EmployeeInput = z.infer<typeof employeeSchema>;
@@ -433,6 +506,15 @@ export function employeeFormDataToObject(formData: FormData) {
     emergencyContactPhone: s("emergencyContactPhone"),
     emergencyContactRelationship: s("emergencyContactRelationship"),
     emergencyContactAddress: s("emergencyContactAddress"),
+    emergencyContactAltPhone: s("emergencyContactAltPhone"),
+    emergencyContactEmail: s("emergencyContactEmail"),
+    emergencyContactAddressCity: s("emergencyContactAddressCity"),
+    emergencyContactAddressRegion: s("emergencyContactAddressRegion"),
+    emergencyContactAddressPostalCode: s("emergencyContactAddressPostalCode"),
+    emergencyContact2Name: s("emergencyContact2Name"),
+    emergencyContact2Phone: s("emergencyContact2Phone"),
+    emergencyContact2Relationship: s("emergencyContact2Relationship"),
+    emergencyContactConsentRecorded: s("emergencyContactConsentRecorded"),
     departmentId: s("departmentId"),
     positionId: s("positionId"),
     hireDate: s("hireDate"),

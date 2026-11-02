@@ -60,6 +60,15 @@ export type EmployeeFormValues = {
   emergencyContactPhone?: string | null;
   emergencyContactRelationship?: string | null;
   emergencyContactAddress?: string | null;
+  emergencyContactAltPhone?: string | null;
+  emergencyContactEmail?: string | null;
+  emergencyContactAddressCity?: string | null;
+  emergencyContactAddressRegion?: string | null;
+  emergencyContactAddressPostalCode?: string | null;
+  emergencyContact2Name?: string | null;
+  emergencyContact2Phone?: string | null;
+  emergencyContact2Relationship?: string | null;
+  emergencyContactConsentRecorded?: boolean | null;
   departmentId?: string | null;
   positionId?: string | null;
   managerId?: string | null;
@@ -180,8 +189,10 @@ const OTHER_SENTINEL = "Other";
 
 function RelationshipSelect({
   defaultValue,
+  name = "emergencyContactRelationship",
 }: {
   defaultValue?: string | null;
+  name?: string;
 }) {
   const t = useTranslations("employees");
   const namedOptions = new Set<string>(EMERGENCY_CONTACT_RELATIONSHIPS);
@@ -196,12 +207,13 @@ function RelationshipSelect({
 
   const isOther = selected === OTHER_SENTINEL;
   const resolvedValue = isOther ? customText.trim() : selected;
+  const inputId = `${name}Select`;
 
   return (
     <>
-      <input type="hidden" name="emergencyContactRelationship" value={resolvedValue} />
+      <input type="hidden" name={name} value={resolvedValue} />
       <div className="relative">
-        <Select id="emergencyContactRelationship" value={selected} onChange={(e) => { setSelected(e.target.value); if (e.target.value !== OTHER_SENTINEL) setCustomText(""); }}>
+        <Select id={inputId} value={selected} onChange={(e) => { setSelected(e.target.value); if (e.target.value !== OTHER_SENTINEL) setCustomText(""); }}>
           <option value="">{t("form.selectRelationship")}</option>
           {EMERGENCY_CONTACT_RELATIONSHIPS.map((r) => (
             <option key={r} value={r}>{t(`relationships.${r}` as Parameters<typeof t>[0])}</option>
@@ -210,8 +222,8 @@ function RelationshipSelect({
       </div>
       {isOther && (
         <FieldGroup className="mt-3">
-          <Label htmlFor="emergencyContactRelationshipOther">{t("form.emergencyContactRelationship")}<RequiredMark /></Label>
-          <Input id="emergencyContactRelationshipOther" value={customText} onChange={(e) => setCustomText(e.target.value)} required />
+          <Label htmlFor={`${name}Other`}>{t("form.emergencyContactRelationship")}<RequiredMark /></Label>
+          <Input id={`${name}Other`} value={customText} onChange={(e) => setCustomText(e.target.value)} required />
         </FieldGroup>
       )}
     </>
@@ -528,22 +540,113 @@ export function EmployeeForm({
         {/* ── Section 3: Emergency Contact ─────────────────────────────── */}
         <Card className="p-6">
           <SectionHeader icon={Phone} title={t("form.emergencyContact")} />
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+
+          {/* ── 3a: Primary Contact ────────────────────────────────────── */}
+          <div className="mb-6">
+            <h4 className="mb-4 text-sm font-semibold text-ink-900/70">{t("form.primaryContact")}</h4>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <FieldGroup>
+                <Label htmlFor="emergencyContactName">{t("form.emergencyContactName")}<RequiredMark /></Label>
+                <Input id="emergencyContactName" name="emergencyContactName" required maxLength={100} defaultValue={employee?.emergencyContactName ?? ""} />
+              </FieldGroup>
+              <FieldGroup>
+                <Label htmlFor="emergencyContactRelationship">{t("form.emergencyContactRelationship")}<RequiredMark /></Label>
+                <RelationshipSelect defaultValue={employee?.emergencyContactRelationship} name="emergencyContactRelationship" />
+              </FieldGroup>
+              <FieldGroup>
+                <Label htmlFor="emergencyContactPhone">{t("form.emergencyContactPhone")}<RequiredMark /></Label>
+                <PhoneInput name="emergencyContactPhone" defaultValue={employee?.emergencyContactPhone} required />
+              </FieldGroup>
+              <FieldGroup>
+                <Label htmlFor="emergencyContactAltPhone">
+                  {t("form.emergencyContactAltPhone")} <span className="text-xs font-normal text-ink-900/40">({t("form.optional")})</span>
+                </Label>
+                <PhoneInput name="emergencyContactAltPhone" defaultValue={employee?.emergencyContactAltPhone} />
+              </FieldGroup>
+              <FieldGroup>
+                <Label htmlFor="emergencyContactEmail">
+                  {t("form.emergencyContactEmail")} <span className="text-xs font-normal text-ink-900/40">({t("form.optional")})</span>
+                </Label>
+                <Input id="emergencyContactEmail" name="emergencyContactEmail" type="email" defaultValue={employee?.emergencyContactEmail ?? ""} />
+              </FieldGroup>
+            </div>
+          </div>
+
+          {/* ── 3b: Contact Address ────────────────────────────────────── */}
+          <div className="mb-6 border-t border-ink-900/8 pt-5">
+            <h4 className="mb-4 text-sm font-semibold text-ink-900/70">{t("form.contactAddress")}</h4>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <FieldGroup className="sm:col-span-2">
+                <Label htmlFor="emergencyContactAddress">
+                  {t("form.emergencyContactAddress")} <span className="text-xs font-normal text-ink-900/40">({t("form.optional")})</span>
+                </Label>
+                <Input id="emergencyContactAddress" name="emergencyContactAddress" defaultValue={employee?.emergencyContactAddress ?? ""} />
+              </FieldGroup>
+              <FieldGroup>
+                <Label htmlFor="emergencyContactAddressCity">
+                  {t("form.city")} <span className="text-xs font-normal text-ink-900/40">({t("form.optional")})</span>
+                </Label>
+                <Input id="emergencyContactAddressCity" name="emergencyContactAddressCity" maxLength={100} defaultValue={employee?.emergencyContactAddressCity ?? ""} />
+              </FieldGroup>
+              <FieldGroup>
+                <Label htmlFor="emergencyContactAddressRegion">
+                  {t("form.region")} <span className="text-xs font-normal text-ink-900/40">({t("form.optional")})</span>
+                </Label>
+                <Input id="emergencyContactAddressRegion" name="emergencyContactAddressRegion" maxLength={100} defaultValue={employee?.emergencyContactAddressRegion ?? ""} />
+              </FieldGroup>
+              <FieldGroup>
+                <Label htmlFor="emergencyContactAddressPostalCode">
+                  {t("form.postalCode")} <span className="text-xs font-normal text-ink-900/40">({t("form.optional")})</span>
+                </Label>
+                <Input id="emergencyContactAddressPostalCode" name="emergencyContactAddressPostalCode" maxLength={20} defaultValue={employee?.emergencyContactAddressPostalCode ?? ""} />
+              </FieldGroup>
+            </div>
+          </div>
+
+          {/* ── 3c: Secondary Contact ──────────────────────────────────── */}
+          <div className="mb-6 border-t border-ink-900/8 pt-5">
+            <h4 className="mb-4 text-sm font-semibold text-ink-900/70">{t("form.secondaryContact")} <span className="text-xs font-normal text-ink-900/40">({t("form.optional")})</span></h4>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <FieldGroup>
+                <Label htmlFor="emergencyContact2Name">
+                  {t("form.secondaryContactName")} <span className="text-xs font-normal text-ink-900/40">({t("form.optional")})</span>
+                </Label>
+                <Input id="emergencyContact2Name" name="emergencyContact2Name" maxLength={100} defaultValue={employee?.emergencyContact2Name ?? ""} />
+              </FieldGroup>
+              <FieldGroup>
+                <Label htmlFor="emergencyContact2Relationship">
+                  {t("form.secondaryContactRelationship")} <span className="text-xs font-normal text-ink-900/40">({t("form.optional")})</span>
+                </Label>
+                <RelationshipSelect defaultValue={employee?.emergencyContact2Relationship} name="emergencyContact2Relationship" />
+              </FieldGroup>
+              <FieldGroup>
+                <Label htmlFor="emergencyContact2Phone">
+                  {t("form.secondaryContactPhone")} <span className="text-xs font-normal text-ink-900/40">({t("form.optional")})</span>
+                </Label>
+                <PhoneInput name="emergencyContact2Phone" defaultValue={employee?.emergencyContact2Phone} />
+              </FieldGroup>
+            </div>
+          </div>
+
+          {/* ── 3d: Consent & Authorization ───────────────────────────── */}
+          <div className="border-t border-ink-900/8 pt-5">
+            <h4 className="mb-4 text-sm font-semibold text-ink-900/70">{t("form.consentTitle")}</h4>
             <FieldGroup>
-              <Label htmlFor="emergencyContactName">{t("form.emergencyContactName")}<RequiredMark /></Label>
-              <Input id="emergencyContactName" name="emergencyContactName" required maxLength={100} defaultValue={employee?.emergencyContactName ?? ""} />
-            </FieldGroup>
-            <FieldGroup>
-              <Label htmlFor="emergencyContactRelationship">{t("form.emergencyContactRelationship")}<RequiredMark /></Label>
-              <RelationshipSelect defaultValue={employee?.emergencyContactRelationship} />
-            </FieldGroup>
-            <FieldGroup>
-              <Label htmlFor="emergencyContactPhone">{t("form.emergencyContactPhone")}<RequiredMark /></Label>
-              <PhoneInput name="emergencyContactPhone" defaultValue={employee?.emergencyContactPhone} required />
-            </FieldGroup>
-            <FieldGroup>
-              <Label htmlFor="emergencyContactAddress">{t("form.emergencyContactAddress")} <span className="text-xs font-normal text-ink-900/40">({tC("optional")})</span></Label>
-              <Input id="emergencyContactAddress" name="emergencyContactAddress" defaultValue={employee?.emergencyContactAddress ?? ""} />
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="emergencyContactConsentRecorded"
+                  value="true"
+                  defaultChecked={employee?.emergencyContactConsentRecorded === true}
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border border-ink-900/25 accent-brand-700 focus:ring-2 focus:ring-brand-600/20"
+                />
+                <span className="text-sm text-ink-900/80">{t("form.consentCheckboxLabel")}</span>
+              </label>
+              <p className="mt-2 text-xs text-ink-900/45">{t("form.consentNote")}</p>
+              {state && !(state as { success: boolean }).success &&
+                (state as { error?: { message: string } }).error?.message?.includes("consent") && (
+                <FieldError>{t("form.consentRequired")}</FieldError>
+              )}
             </FieldGroup>
           </div>
         </Card>

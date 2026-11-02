@@ -361,7 +361,24 @@
       "emergencyContactPhone": "Contact phone",
       "emergencyContactRelationship": "Relationship",
       "emergencyContactAddress": "Contact address",
-      "selectRelationship": "Select relationship"
+      "selectRelationship": "Select relationship",
+      "primaryContact": "Primary Emergency Contact",
+      "secondaryContact": "Secondary Emergency Contact",
+      "contactAddress": "Contact Address",
+      "emergencyContactAltPhone": "Alternative Phone",
+      "emergencyContactEmail": "Email Address",
+      "city": "City / Town",
+      "region": "Region / State",
+      "postalCode": "Postal Code",
+      "secondaryContactName": "Full Name",
+      "secondaryContactRelationship": "Relationship to Employee",
+      "secondaryContactPhone": "Phone Number",
+      "consentTitle": "Consent & Authorization",
+      "consentCheckboxLabel": "The employee has confirmed that permission was obtained from the emergency contacts to provide their personal information to the organization and that HR may contact them in a medical or workplace emergency.",
+      "consentNote": "This records the HR Officer's confirmation. It is not a verified digital signature.",
+      "consentRequired": "You must confirm consent before saving emergency contact information.",
+      "consentRecordedBy": "Consent recorded by HR on",
+      "optional": "optional"
     },
     "relationships": {
       "Spouse": "Spouse",
@@ -374,7 +391,11 @@
       "Guardian": "Guardian",
       "Other Relative": "Other Relative",
       "Friend": "Friend",
-      "Other": "Other"
+      "Other": "Other",
+      "Parent": "Parent",
+      "Sibling": "Sibling",
+      "Child": "Child",
+      "Domestic Partner": "Domestic Partner"
     },
     "education": {
       "title": "Education",
