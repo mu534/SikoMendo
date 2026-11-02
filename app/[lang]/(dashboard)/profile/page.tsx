@@ -79,6 +79,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 export default async function ProfilePage() {
   const t = await getTranslations("profile");
+  const tE = await getTranslations("employees");
   const session = await requireSession();
   const { user } = session;
 
@@ -325,12 +326,12 @@ export default async function ProfilePage() {
                 </p>
               </div>
               <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
-                <ReadField label="Employee ID" value={employee.employeeId} />
-                <ReadField label="Department" value={employee.department?.name ?? '—'} />
-                <ReadField label="Position" value={employee.position?.name ?? '—'} />
-                <ReadField label="Employment Type" value={employee.employmentType?.replace(/_/g, " ")} />
+                <ReadField label={tE("overview.employeeId")} value={employee.employeeId} />
+                <ReadField label={tE("overview.department")} value={employee.department?.name ?? '—'} />
+                <ReadField label={tE("overview.position")} value={employee.position?.name ?? '—'} />
+                <ReadField label={tE("overview.employmentType")} value={employee.employmentType?.replace(/_/g, " ")} />
                 <ReadField
-                  label="Employment Status"
+                  label={tE("overview.status")}
                   value={
                     <Badge tone={statusTone} className="mt-0.5">
                       {employee.employmentStatus.replace(/_/g, " ")}
@@ -338,51 +339,49 @@ export default async function ProfilePage() {
                   }
                 />
                 <ReadField
-                  label="Date Hired"
+                  label={tE("overview.hireDate")}
                   value={formatDateWithEthiopian(employee.hireDate)}
                 />
                 {employee.manager && (
                   <ReadField
-                    label="Reports To"
+                    label={tE("overview.manager")}
                     value={`${employee.manager.firstName} ${employee.manager.lastName}`}
                     className="sm:col-span-2"
                   />
                 )}
                 {employee.gender && (
-                  <ReadField label="Gender" value={employee.gender} />
+                  <ReadField label={tE("overview.gender")} value={employee.gender} />
                 )}
                 {employee.maritalStatus && (
-                  <ReadField label="Marital Status" value={employee.maritalStatus} />
+                  <ReadField label={tE("overview.maritalStatus")} value={employee.maritalStatus} />
                 )}
                 {employee.dateOfBirth && (
                   <ReadField
-                    label="Date of Birth"
+                    label={tE("overview.dateOfBirth")}
                     value={formatDateWithEthiopian(employee.dateOfBirth)}
                   />
                 )}
                 {employee.educations && employee.educations.length > 0 && (
                   <>
                     {employee.educations.map((edu, idx) => {
-                      const EDUCATION_LABEL: Record<string, string> = {
-                        PRIMARY: "Primary", SECONDARY: "Secondary", HIGH_SCHOOL: "High School",
-                        CERTIFICATE: "Certificate", DIPLOMA: "Diploma",
-                        BACHELOR: "Bachelor's Degree", MASTER: "Master's Degree",
-                        PHD: "Doctoral Degree (PhD)", OTHER: "Other",
-                      };
                       return (
                         <div key={edu.id} className={idx > 0 ? "mt-2 border-t border-ink-900/8 pt-2" : ""}>
                           <ReadField
-                            label="Education Level"
-                            value={EDUCATION_LABEL[edu.educationLevel] ?? edu.educationLevel}
+                            label={tE("education.educationLevel")}
+                            value={
+                              (["HIGH_SCHOOL","CERTIFICATE","DIPLOMA","BACHELOR","MASTER","PHD","OTHER"] as const).includes(edu.educationLevel as "HIGH_SCHOOL")
+                                ? tE(`education.levels.${edu.educationLevel as "HIGH_SCHOOL"|"CERTIFICATE"|"DIPLOMA"|"BACHELOR"|"MASTER"|"PHD"|"OTHER"}`)
+                                : edu.educationLevel
+                            }
                           />
                           {edu.fieldOfStudy && (
-                            <ReadField label="Field of Study" value={edu.fieldOfStudy} />
+                            <ReadField label={tE("education.fieldOfStudy")} value={edu.fieldOfStudy} />
                           )}
                           {edu.institutionName && (
-                            <ReadField label="Institution" value={edu.institutionName} />
+                            <ReadField label={tE("education.institutionName")} value={edu.institutionName} />
                           )}
                           {edu.graduationYear != null && (
-                            <ReadField label="Graduation Year (G.C.)" value={String(edu.graduationYear)} />
+                            <ReadField label={tE("education.graduationYearGC")} value={String(edu.graduationYear)} />
                           )}
                         </div>
                       );

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CheckCircle2, Circle, ArrowRight, UserPlus, LogOut, Briefcase } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { formatDate } from "@/lib/utils";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -144,11 +145,13 @@ function LifecycleTimeline({
   onboardingRecord,
   offboardingRecord,
   hireDate,
+  title,
 }: {
   employmentHistory: HistoryRow[];
   onboardingRecord: OnboardingRecord;
   offboardingRecord: OffboardingRecord;
   hireDate: Date | null;
+  title: string;
 }) {
   type TimelineEvent = {
     date: Date;
@@ -249,7 +252,7 @@ function LifecycleTimeline({
 
   return (
     <Card>
-      <CardHeader title="Lifecycle Timeline" />
+      <CardHeader title={title} />
       <ul className="px-5 py-4">
         {events.map((ev, i) => {
           const Icon = ev.icon;
@@ -282,7 +285,7 @@ function LifecycleTimeline({
   );
 }
 
-export function LifecyclePanel({
+export async function LifecyclePanel({
   employeeId,
   employmentStatus,
   checklist,
@@ -310,27 +313,17 @@ export function LifecyclePanel({
   hireDate: Date | null;
 }) {
   const isOnboarding = employmentStatus === "ONBOARDING";
-  const isOffboarding =
-    offboardingRecord !== null && !offboardingRecord.completedAt;
+  const t = await getTranslations("lifecycle");
 
   return (
     <div className="space-y-5">
-      {/* Onboarding progress compact card — shown while in onboarding */}
       {isOnboarding && (
-        <OnboardingProgressCard
-          employeeId={employeeId}
-          checklist={checklist}
-          canManage={canManage}
-        />
+        <OnboardingProgressCard employeeId={employeeId} checklist={checklist} canManage={canManage} />
       )}
 
-      {/* Full onboarding + offboarding panels */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Card>
-          <CardHeader
-            title="Onboarding"
-            description="Pre-boarding checklist and activation."
-          />
+          <CardHeader title={t("onboarding.title")} description={t("description")} />
           <div className="p-5">
             <OnboardingPanel
               employeeId={employeeId}
@@ -343,10 +336,7 @@ export function LifecyclePanel({
         </Card>
 
         <Card>
-          <CardHeader
-            title="Offboarding"
-            description="Departure workflow and archiving."
-          />
+          <CardHeader title={t("offboarding.title")} description={t("description")} />
           <div className="p-5">
             <OffboardingPanel
               employeeId={employeeId}
@@ -360,12 +350,12 @@ export function LifecyclePanel({
         </Card>
       </div>
 
-      {/* Timeline */}
       <LifecycleTimeline
         employmentHistory={employmentHistory}
         onboardingRecord={onboardingRecord}
         offboardingRecord={offboardingRecord}
         hireDate={hireDate}
+        title={t("timeline.title")}
       />
     </div>
   );

@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useEffect, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import {
   ShieldCheck,
   ShieldOff,
@@ -50,11 +51,10 @@ function CreateAccountForm({
 }) {
   const router = useRouter();
   const [state, formAction, isPending] = useActionState(createEmployeeLoginAccount, null);
-  const [credentials, setCredentials] = useState<{
-    username: string;
-    password: string;
-  } | null>(null);
+  const [credentials, setCredentials] = useState<{ username: string; password: string } | null>(null);
   const [copied, setCopied] = useState<"username" | "password" | null>(null);
+  const t = useTranslations("users");
+  const tC = useTranslations("common");
 
   useEffect(() => {
     if (state?.success) {
@@ -83,42 +83,27 @@ function CreateAccountForm({
       <div className="space-y-4">
         <div className="flex items-start gap-2 rounded-xl border border-gold-400/30 bg-gold-400/10 px-4 py-3">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-gold-600" />
-          <p className="text-xs text-ink-900/70">
-            Account created. Share these credentials securely — the password is shown
-            once and will never be displayed again. The user must change it on first sign-in.
-          </p>
+          <p className="text-xs text-ink-900/70">{t("actions.resetPassword")}</p>
         </div>
 
         <div className="space-y-3 rounded-xl border border-ink-900/8 bg-sand-50 p-4">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-ink-900/45">Username</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-ink-900/45">{t("form.username")}</p>
             <div className="mt-1 flex items-center gap-2">
               <p className="font-mono text-sm font-medium text-ink-900">{credentials.username}</p>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => copyToClipboard(credentials.username, "username")}
-              >
+              <Button type="button" variant="ghost" size="sm" onClick={() => copyToClipboard(credentials.username, "username")}>
                 <Copy className="h-3.5 w-3.5" />
-                {copied === "username" ? "Copied!" : "Copy"}
+                {copied === "username" ? tC("confirm") : tC("save")}
               </Button>
             </div>
           </div>
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-ink-900/45">
-              Temporary password
-            </p>
+            <p className="text-xs font-medium uppercase tracking-wide text-ink-900/45">{t("form.password")}</p>
             <div className="mt-1 flex items-center gap-2">
               <p className="font-mono text-sm font-medium text-ink-900">{credentials.password}</p>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => copyToClipboard(credentials.password, "password")}
-              >
+              <Button type="button" variant="ghost" size="sm" onClick={() => copyToClipboard(credentials.password, "password")}>
                 <Copy className="h-3.5 w-3.5" />
-                {copied === "password" ? "Copied!" : "Copy"}
+                {copied === "password" ? tC("confirm") : tC("save")}
               </Button>
             </div>
           </div>
@@ -145,25 +130,16 @@ function CreateAccountForm({
       )}
 
       <FieldGroup>
-        <Label htmlFor="emp-role">System Role</Label>
+        <Label htmlFor="emp-role">{t("form.role")}</Label>
         <Select id="emp-role" name="role" defaultValue="EMPLOYEE">
           {ROLES.map((r) => (
-            <option key={r} value={r}>
-              {roleLabel(r)}
-            </option>
+            <option key={r} value={r}>{roleLabel(r)}</option>
           ))}
         </Select>
-        <p className="text-xs text-ink-900/45">
-          System role controls access to HRMIS features — it is independent of the
-          employee&apos;s job position or title. Most employees use the{" "}
-          <span className="font-medium text-ink-900">Employee</span> role. Assign{" "}
-          <span className="font-medium text-ink-900">General Manager</span> only to the
-          organisation&apos;s central manager who needs org-wide HRMIS access.
-        </p>
       </FieldGroup>
 
       <Button type="submit" disabled={isPending} size="sm">
-        {isPending ? "Creating…" : "Create login account"}
+        {isPending ? tC("loading") : t("form.createAccount")}
       </Button>
     </form>
   );
@@ -183,9 +159,11 @@ function LinkedAccountPanel({
   const [newPassword, setNewPassword] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const t = useTranslations("users");
+  const tC = useTranslations("common");
 
   function handleSuspend() {
-    if (!confirm("Suspend this account? The employee will not be able to sign in.")) return;
+    if (!confirm(t("confirmSuspend"))) return;
     setError(null);
     startTransition(async () => {
       const result = await suspendUserAccount(user.id);
@@ -195,7 +173,7 @@ function LinkedAccountPanel({
   }
 
   function handleReactivate() {
-    if (!confirm("Reactivate this account?")) return;
+    if (!confirm(t("confirmReactivate"))) return;
     setError(null);
     startTransition(async () => {
       const result = await reactivateUserAccount(user.id);
@@ -205,7 +183,7 @@ function LinkedAccountPanel({
   }
 
   function handleResetPassword() {
-    if (!confirm("Generate a new temporary password? The current password will stop working immediately.")) return;
+    if (!confirm(t("confirmResetPassword"))) return;
     setError(null);
     startTransition(async () => {
       const result = await resetUserPassword(user.id);
@@ -239,23 +217,19 @@ function LinkedAccountPanel({
       {/* Account facts */}
       <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div>
-          <dt className="text-xs font-medium uppercase tracking-wide text-ink-900/45">Username</dt>
-          <dd className="mt-1 font-mono text-sm font-medium text-ink-900">
-            {user.username ?? "—"}
-          </dd>
+          <dt className="text-xs font-medium uppercase tracking-wide text-ink-900/45">{t("form.username")}</dt>
+          <dd className="mt-1 font-mono text-sm font-medium text-ink-900">{user.username ?? tC("na")}</dd>
         </div>
         <div>
-          <dt className="text-xs font-medium uppercase tracking-wide text-ink-900/45">Role</dt>
-          <dd className="mt-1">
-            <Badge tone="brand">{roleLabel(user.role)}</Badge>
-          </dd>
+          <dt className="text-xs font-medium uppercase tracking-wide text-ink-900/45">{t("form.role")}</dt>
+          <dd className="mt-1"><Badge tone="brand">{roleLabel(user.role)}</Badge></dd>
         </div>
         <div>
-          <dt className="text-xs font-medium uppercase tracking-wide text-ink-900/45">Status</dt>
+          <dt className="text-xs font-medium uppercase tracking-wide text-ink-900/45">{tC("status")}</dt>
           <dd className="mt-1 flex items-center gap-1.5">
             {user.banned
-              ? <><ShieldOff className="h-3.5 w-3.5 text-gold-600" /><Badge tone="warning">Suspended</Badge></>
-              : <><ShieldCheck className="h-3.5 w-3.5 text-emerald-600" /><Badge tone="success">Active</Badge></>}
+              ? <><ShieldOff className="h-3.5 w-3.5 text-gold-600" /><Badge tone="warning">{t("descriptionSuspended")}</Badge></>
+              : <><ShieldCheck className="h-3.5 w-3.5 text-emerald-600" /><Badge tone="success">{tC("active")}</Badge></>}
           </dd>
         </div>
       </dl>
@@ -271,19 +245,15 @@ function LinkedAccountPanel({
         <div className="space-y-2 rounded-xl border border-ink-900/8 bg-sand-50 p-4">
           <div className="flex items-start gap-2">
             <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-gold-600" />
-            <p className="text-xs text-ink-900/70">
-              Shown once — share securely. The user will be prompted to set a new password.
-            </p>
+            <p className="text-xs text-ink-900/70">{t("actions.resetPassword")}</p>
           </div>
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-ink-900/45">
-              New temporary password
-            </p>
+            <p className="text-xs font-medium uppercase tracking-wide text-ink-900/45">{t("form.password")}</p>
             <div className="mt-1 flex items-center gap-2">
               <p className="font-mono text-sm text-ink-900">{newPassword}</p>
               <Button type="button" variant="ghost" size="sm" onClick={copyPassword}>
                 <Copy className="h-3.5 w-3.5" />
-                {copied ? "Copied!" : "Copy"}
+                {copied ? tC("confirm") : tC("save")}
               </Button>
             </div>
           </div>
@@ -298,43 +268,26 @@ function LinkedAccountPanel({
             className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:underline"
           >
             <ExternalLink className="h-3.5 w-3.5" />
-            Manage account
+            {t("actions.edit")}
           </a>
 
           {!newPassword && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={isPending}
-              onClick={handleResetPassword}
-            >
+            <Button type="button" variant="outline" size="sm" disabled={isPending} onClick={handleResetPassword}>
               <KeyRound className="h-4 w-4" />
-              Reset password
+              {t("actions.resetPassword")}
             </Button>
           )}
 
           {user.banned ? (
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              disabled={isPending}
-              onClick={handleReactivate}
-            >
+            <Button type="button" variant="secondary" size="sm" disabled={isPending} onClick={handleReactivate}>
               <ShieldCheck className="h-4 w-4" />
-              Reactivate
+              {t("actions.reactivate")}
             </Button>
           ) : (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={isPending}
-              onClick={handleSuspend}
+            <Button type="button" variant="outline" size="sm" disabled={isPending} onClick={handleSuspend}
             >
               <ShieldOff className="h-4 w-4" />
-              Suspend
+              {t("actions.suspend")}
             </Button>
           )}
         </div>
@@ -346,6 +299,8 @@ function LinkedAccountPanel({
 // ── Public component ──────────────────────────────────────────────────────────
 
 export function SystemAccountPanel({ employeeId, employeeCode, linkedUser, canManage }: Props) {
+  const t = useTranslations("users");
+  const tC = useTranslations("common");
   return (
     <Card className="p-6">
       <div className="mb-5 flex items-center justify-between border-b border-ink-900/8 pb-4">
@@ -353,10 +308,10 @@ export function SystemAccountPanel({ employeeId, employeeCode, linkedUser, canMa
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
             <ShieldCheck className="h-4 w-4" />
           </div>
-          <h3 className="font-display text-base font-semibold text-ink-900">System Account</h3>
+          <h3 className="font-display text-base font-semibold text-ink-900">{t("title")}</h3>
         </div>
         {!linkedUser && (
-          <span className="text-xs text-ink-900/45 italic">No account linked</span>
+          <span className="text-xs text-ink-900/45 italic">{tC("notSet")}</span>
         )}
       </div>
 

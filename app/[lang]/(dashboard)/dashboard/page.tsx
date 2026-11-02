@@ -33,7 +33,6 @@ import { StatCard, Card, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { ButtonLink } from "@/components/ui/button";
-import { LEAVE_TYPE_LABELS } from "@/features/leave/schemas";
 import { formatDateTime } from "@/lib/utils";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { AuditLog } from "@prisma/client";
@@ -315,6 +314,7 @@ async function EmployeeDashboard({
   const t = await getTranslations("dashboard");
   const tC = await getTranslations("common");
   const tN = await getTranslations("notifications");
+  const tLeave = await getTranslations("leave");
 
   return (
     <div className="space-y-6">
@@ -416,7 +416,7 @@ async function EmployeeDashboard({
                       {(balances ?? []).map((b) => (
                         <div key={b.leaveType}>
                           <dt className="text-xs font-medium uppercase tracking-wide text-ink-900/45">
-                            {LEAVE_TYPE_LABELS[b.leaveType]}
+                            {tLeave(`types.${b.leaveType}`)}
                           </dt>
                           <dd className="mt-0.5 text-xl font-semibold text-ink-900">
                             {b.remaining === null ? "∞" : b.remaining}

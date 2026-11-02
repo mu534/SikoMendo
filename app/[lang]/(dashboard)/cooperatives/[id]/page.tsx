@@ -401,9 +401,9 @@ export default async function CooperativeDetailPage({
                   <ReadField label={t("form.cooperativeName")} value={cooperative.name} />
                   <ReadField label={t("form.cooperativeId")} value={cooperative.cooperativeId} mono />
                   <ReadField label={t("form.cooperativeType")} value={cooperative.cooperativeType} />
-                  <ReadField label="Status" value={cooperative.isActive ? "Active" : "Inactive"} />
-                  <ReadField label="District / Aanaa" value={cooperative.district} />
-                  <ReadField label="Ganda" value={cooperative.kebele} />
+                  <ReadField label={tC("status")} value={cooperative.isActive ? "Active" : "Inactive"} />
+                  <ReadField label={t("form.district")} value={cooperative.district} />
+                  <ReadField label={t("form.kebele")} value={cooperative.kebele} />
                   <ReadField label={t("form.location")} value={cooperative.location} />
                   <ReadField
                     label={t("form.dateJoinedUnion")}
@@ -520,7 +520,7 @@ export default async function CooperativeDetailPage({
                         : null
                     }
                   />
-                  <ReadField label="Business Type / Gosa Hojii" value={cooperative.businessType} />
+                  <ReadField label={t("form.businessType")} value={cooperative.businessType} />
                 </dl>
               </Card>
 

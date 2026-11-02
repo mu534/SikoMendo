@@ -93,8 +93,8 @@ export default async function BackupRestorePage() {
       {/* ── Backup history ───────────────────────────────────────── */}
       <Card>
         <CardHeader
-          title="Backup History"
-          description={rows.length === 0 ? "No backups created yet." : `${rows.length} backup${rows.length === 1 ? "" : "s"} on record.`}
+          title={t("backup.historyTitle")}
+          description={rows.length === 0 ? t("backup.noBackups") : t("backup.backupCount", { count: rows.length })}
         />
 
         <div className="overflow-x-auto">

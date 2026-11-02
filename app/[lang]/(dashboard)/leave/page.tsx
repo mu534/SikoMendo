@@ -12,7 +12,6 @@ import {
 } from "@/features/leave/queries";
 import { LeaveStatusBadge } from "@/features/leave/leave-status-badge";
 import {
-  LEAVE_TYPE_LABELS,
   LEAVE_TYPES,
   LEAVE_STATUSES,
   LEAVE_STATUS_LABELS,
@@ -155,9 +154,9 @@ async function AllLeaveRequests({
           <div className="w-36 shrink-0">
             <Select name="type" defaultValue={leaveType}>
               <option value="">{t("filters.allTypes")}</option>
-              {LEAVE_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {LEAVE_TYPE_LABELS[t]}
+              {LEAVE_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {t(`types.${type}`)}
                 </option>
               ))}
             </Select>
@@ -255,7 +254,7 @@ async function AllLeaveRequests({
                     {/* Leave type + ID */}
                     <TD>
                       <p className="font-medium text-ink-900/85">
-                        {LEAVE_TYPE_LABELS[leave.leaveType]}
+                        {t(`types.${leave.leaveType}`)}
                       </p>
                       <p className="text-xs text-ink-900/40">{leave.leaveId}</p>
                     </TD>
@@ -359,7 +358,7 @@ async function MyLeaveRequests({
           <div className="grid grid-cols-3 gap-4 sm:grid-cols-6">
             {balances.map((b) => (
               <div key={b.leaveType}>
-                <p className="text-xs text-ink-900/50">{LEAVE_TYPE_LABELS[b.leaveType]}</p>
+                <p className="text-xs text-ink-900/50">{t(`types.${b.leaveType}`)}</p>
                 <p className="mt-0.5 text-lg font-semibold text-ink-900">
                   {b.remaining === null ? "∞" : b.remaining}
                   {b.entitled !== null && (
@@ -407,7 +406,7 @@ async function MyLeaveRequests({
                       <TR key={leave.id}>
                         <TD>
                           <p className="font-medium text-ink-900/85">
-                            {LEAVE_TYPE_LABELS[leave.leaveType]}
+                            {t(`types.${leave.leaveType}`)}
                           </p>
                           <p className="text-xs text-ink-900/40">{leave.leaveId}</p>
                         </TD>

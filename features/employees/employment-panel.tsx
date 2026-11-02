@@ -1,19 +1,12 @@
 import Link from "next/link";
 import { Briefcase, ArrowRight, Plus } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { formatDate } from "@/lib/utils";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { SectionHeader } from "./section-header";
 import { EmploymentHistoryPanel } from "@/features/employment-history/employment-history-panel";
-
-const EMPLOYMENT_TYPE_LABEL: Record<string, string> = {
-  PERMANENT:  "Permanent",
-  CONTRACT:   "Contract",
-  TEMPORARY:  "Temporary",
-  PROBATION:  "Probation",
-  INTERNSHIP: "Internship",
-};
 
 type HistoryRow = {
   id: string;
@@ -29,7 +22,7 @@ type HistoryRow = {
 type DepartmentOption = { id: string; name: string };
 type PositionOption = { id: string; name: string; departmentId: string };
 
-export function EmploymentPanel({
+export async function EmploymentPanel({
   employeeId,
   department,
   position,
@@ -60,6 +53,9 @@ export function EmploymentPanel({
   linkedUser?: { id: string; role: string } | null;
   canChangeRole?: boolean;
 }) {
+  const t = await getTranslations("employees");
+  const tC = await getTranslations("common");
+
   const statusTone =
     employmentStatus === "ACTIVE" ? "success" :
     employmentStatus === "ONBOARDING" ? "brand" :
@@ -68,66 +64,50 @@ export function EmploymentPanel({
 
   return (
     <div className="space-y-6">
-      {/* ── Current Employment ─────────────────────────────────────────── */}
       <Card className="p-5">
-        <SectionHeader icon={Briefcase} title="Current Employment" />
+        <SectionHeader icon={Briefcase} title={t("form.employmentDetails")} />
         <div className="grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-3">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-ink-900/40">Department</p>
-            <p className="mt-1 text-sm font-medium text-ink-900">{department?.name ?? "—"}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-ink-900/40">{t("overview.department")}</p>
+            <p className="mt-1 text-sm font-medium text-ink-900">{department?.name ?? tC("na")}</p>
           </div>
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-ink-900/40">Position</p>
-            <p className="mt-1 text-sm font-medium text-ink-900">{position?.name ?? "—"}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-ink-900/40">{t("overview.position")}</p>
+            <p className="mt-1 text-sm font-medium text-ink-900">{position?.name ?? tC("na")}</p>
           </div>
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-ink-900/40">Manager</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-ink-900/40">{t("overview.manager")}</p>
             {manager ? (
-              <Link
-                href={`/employees/${manager.id}`}
-                className="mt-1 block text-sm font-medium text-brand-700 hover:underline"
-              >
+              <Link href={`/employees/${manager.id}`} className="mt-1 block text-sm font-medium text-brand-700 hover:underline">
                 {manager.firstName} {manager.lastName}
               </Link>
             ) : (
-              <p className="mt-1 text-sm text-ink-900/40">—</p>
+              <p className="mt-1 text-sm text-ink-900/40">{tC("na")}</p>
             )}
           </div>
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-ink-900/40">Employment Type</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-ink-900/40">{t("overview.employmentType")}</p>
             <p className="mt-1 text-sm font-medium text-ink-900">
-              {EMPLOYMENT_TYPE_LABEL[employmentType ?? ""] ?? "—"}
+              {employmentType ? t(`types.${employmentType as "PERMANENT"|"CONTRACT"|"TEMPORARY"|"PROBATION"|"INTERNSHIP"}`) : tC("na")}
             </p>
           </div>
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-ink-900/40">Hire Date</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-ink-900/40">{t("overview.hireDate")}</p>
             <p className="mt-1 text-sm font-medium text-ink-900">{formatDate(hireDate)}</p>
           </div>
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-ink-900/40">Status</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-ink-900/40">{t("overview.status")}</p>
             <div className="mt-1">
               <Badge tone={statusTone}>
-                {employmentStatus.replace(/_/g, " ")}
+                {t(`statuses.${employmentStatus as "ACTIVE"|"ON_LEAVE"|"ONBOARDING"|"RESIGNED"|"RETIRED"|"INACTIVE"|"SUSPENDED"|"TERMINATED"}`)}
               </Badge>
             </div>
           </div>
         </div>
-
-        {canManage && (
-          <p className="mt-5 text-xs text-ink-900/45 border-t border-ink-900/6 pt-4">
-            To change department, position, or employment type, use{" "}
-            <span className="font-medium text-ink-900/70">Record Employment Change</span>{" "}
-            below — this preserves the complete employment history.
-          </p>
-        )}
       </Card>
 
-      {/* ── Employment History ─────────────────────────────────────────── */}
       <Card>
-        <CardHeader
-          title="Employment History"
-          description="Append-only record of department, position, and employment-type changes."
-        />
+        <CardHeader title={t("form.employmentDetails")} description={tC("notes")} />
         <div className="px-5 pb-5">
           <EmploymentHistoryPanel
             employeeId={employeeId}

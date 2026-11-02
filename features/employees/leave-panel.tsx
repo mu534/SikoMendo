@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Calendar, CheckCircle2, Clock, XCircle, MinusCircle } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { formatDate } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -50,7 +51,7 @@ function BalanceBar({ used, entitled }: { used: number; entitled: number | null 
   );
 }
 
-export function LeavePanel({
+export async function LeavePanel({
   balances,
   recentRequests,
   year,
@@ -59,49 +60,41 @@ export function LeavePanel({
   recentRequests: LeaveRequest[];
   year: number;
 }) {
-  // Only show leave types that have any usage or a configured entitlement
+  const t = await getTranslations("leave");
+  const tC = await getTranslations("common");
+
   const relevantBalances = balances.filter((b) => b.used > 0 || b.entitled !== null);
 
   return (
     <div className="space-y-5">
-      {/* Leave balance summary */}
       <Card className="p-5">
-        <SectionHeader icon={Calendar} title={`Leave Balances — ${year}`} />
+        <SectionHeader icon={Calendar} title={t("balanceTitle", { year })} />
 
         {relevantBalances.length === 0 ? (
-          <p className="text-sm text-ink-900/40">No leave entitlements configured.</p>
+          <p className="text-sm text-ink-900/40">{t("noBalance")}</p>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {relevantBalances.map((b) => {
               const remaining = b.remaining;
               const overused = remaining !== null && remaining < 0;
               return (
-                <div
-                  key={b.leaveType}
-                  className="rounded-xl border border-ink-900/8 bg-white p-4"
-                >
+                <div key={b.leaveType} className="rounded-xl border border-ink-900/8 bg-white p-4">
                   <p className="text-xs font-medium text-ink-900/55">
-                    {LEAVE_TYPE_LABEL[b.leaveType] ?? b.leaveType}
+                    {t(`types.${b.leaveType as "ANNUAL"|"SICK"|"EMERGENCY"|"MATERNITY"|"PATERNITY"|"UNPAID"}`)}
                   </p>
                   {b.entitled === null ? (
                     <p className="mt-1 text-sm text-ink-900/70">
-                      <span className="font-semibold text-ink-900">{b.used}</span> days used
-                      <span className="ml-2 text-xs text-ink-900/40">(unlimited)</span>
+                      <span className="font-semibold text-ink-900">{b.used}</span> {tC("total")}
                     </p>
                   ) : (
                     <>
                       <p className="mt-1 text-sm text-ink-900/70">
                         <span className={`font-semibold ${overused ? "text-red-600" : "text-ink-900"}`}>
-                          {remaining !== null ? Math.max(0, remaining) : "—"}
+                          {remaining !== null ? Math.max(0, remaining) : tC("na")}
                         </span>
-                        <span className="text-ink-900/40"> / {b.entitled} days remaining</span>
+                        <span className="text-ink-900/40"> / {b.entitled}</span>
                       </p>
                       <BalanceBar used={b.used} entitled={b.entitled} />
-                      {overused && (
-                        <p className="mt-1 text-xs text-red-500">
-                          {Math.abs(remaining!)} day{Math.abs(remaining!) !== 1 ? "s" : ""} over limit
-                        </p>
-                      )}
                     </>
                   )}
                 </div>
@@ -111,25 +104,25 @@ export function LeavePanel({
         )}
       </Card>
 
-      {/* Recent leave requests */}
       <Card>
         <div className="flex items-center justify-between border-b border-ink-900/8 px-5 py-4">
-          <h3 className="font-display text-base font-semibold text-ink-900">Recent Requests</h3>
+          <h3 className="font-display text-base font-semibold text-ink-900">{t("title")}</h3>
           <Link href="/leave" className="text-xs font-medium text-brand-700 hover:underline">
-            View all
+            {tC("viewAll")}
           </Link>
         </div>
 
         {recentRequests.length === 0 ? (
           <EmptyState
             icon={<Calendar className="h-7 w-7" />}
-            title="No leave requests"
-            description="This employee has not submitted any leave requests."
+            title={t("noRequests")}
+            description={t("noRequestsDesc")}
           />
         ) : (
           <ul className="divide-y divide-ink-900/6">
             {recentRequests.map((req) => {
-              const meta = STATUS_META[req.status] ?? { tone: "neutral" as const, label: req.status };
+              const statusKey = req.status as "PENDING"|"APPROVED"|"REJECTED"|"CANCELLED";
+              const tone = { APPROVED:"success", PENDING:"warning", REJECTED:"danger", CANCELLED:"neutral" }[statusKey] as "success"|"warning"|"danger"|"neutral";
               const isSingleDay = req.totalDays === 1;
               const dateRange = isSingleDay
                 ? formatDate(req.startDate)
@@ -140,24 +133,16 @@ export function LeavePanel({
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium text-ink-900">
-                        {LEAVE_TYPE_LABEL[req.leaveType] ?? req.leaveType}
+                        {t(`types.${req.leaveType as "ANNUAL"|"SICK"|"EMERGENCY"|"MATERNITY"|"PATERNITY"|"UNPAID"}`)}
                       </p>
                       <span className="text-xs text-ink-900/35">{req.leaveId}</span>
                     </div>
-                    <p className="mt-0.5 text-xs text-ink-900/50">
-                      {dateRange}
-                      {" · "}
-                      {req.totalDays} day{req.totalDays !== 1 ? "s" : ""}
-                    </p>
+                    <p className="mt-0.5 text-xs text-ink-900/50">{dateRange} · {req.totalDays}</p>
                     {req.reason && (
-                      <p className="mt-0.5 text-xs text-ink-900/40 truncate max-w-[280px]">
-                        {req.reason}
-                      </p>
+                      <p className="mt-0.5 text-xs text-ink-900/40 truncate max-w-[280px]">{req.reason}</p>
                     )}
                   </div>
-                  <Badge tone={meta.tone} className="shrink-0">
-                    {meta.label}
-                  </Badge>
+                  <Badge tone={tone} className="shrink-0">{t(`statuses.${statusKey}`)}</Badge>
                 </li>
               );
             })}

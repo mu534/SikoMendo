@@ -28,6 +28,8 @@
     "noResults": "No results found",
     "optional": "Optional",
     "required": "Required",
+    "createdAt": "Created At",
+    "updatedAt": "Updated At",
     "yes": "Yes",
     "no": "No",
     "confirm": "Confirm",
@@ -383,6 +385,7 @@
       "institutionType": "Institution type",
       "institutionName": "Institution name",
       "graduationYear": "Graduation year",
+      "graduationYearGC": "Graduation Year (G.C.)",
       "qualificationStatus": "Qualification status",
       "selectLevel": "Select level",
       "selectInstitutionType": "Select institution type",
@@ -607,6 +610,18 @@
       "unlimited": "Unlimited",
       "save": "Save policy",
       "saving": "Saving…"
+    },
+    "detail": {
+      "backToLeave": "Back to leave requests",
+      "requestDetails": "Request details",
+      "decision": "Decision",
+      "appliedDate": "Applied Date",
+      "supportingDocument": "Supporting Document",
+      "viewDocument": "View document",
+      "decisionDate": "Decision Date",
+      "approver": "Approver",
+      "rejectionReason": "Rejection Reason",
+      "pendingCancelHint": "This request is still pending. You can cancel it any time before it's decided."
     }
   },
 
@@ -693,6 +708,9 @@
     "addDepartment": "Add Department",
     "editDepartment": "Edit Department",
     "noDepartments": "No departments yet.",
+    "detail": {
+      "title": "Department Details"
+    },
     "columns": {
       "department": "Department",
       "positions": "Positions",
@@ -963,7 +981,10 @@
     "backup": {
       "createBackup": "Create backup",
       "creatingBackup": "Creating backup…",
-      "description": "Download a full backup of all your HR data."
+      "description": "Download a full backup of all your HR data.",
+      "historyTitle": "Backup History",
+      "noBackups": "No backups created yet.",
+      "backupCount": "{count, plural, one {# backup on record.} other {# backups on record.}}"
     }
   },
 
@@ -1034,6 +1055,9 @@
   "lifecycle": {
     "title": "Employee Lifecycle",
     "description": "Manage employee onboarding and offboarding processes.",
+    "timeline": {
+      "title": "Lifecycle Timeline"
+    },
     "onboarding": {
       "title": "Onboarding",
       "inProgress": "In Progress",

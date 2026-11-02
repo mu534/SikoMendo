@@ -7,7 +7,7 @@ import { Input, Label, Select, Textarea, FieldGroup, FieldError } from "@/compon
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { submitLeaveRequest } from "./actions";
-import { LEAVE_TYPES, LEAVE_TYPE_LABELS } from "./schemas";
+import { LEAVE_TYPES } from "./schemas";
 import type { LeaveBalanceEntry } from "./queries";
 import { validateLeaveDocumentFile, LEAVE_DOCUMENT_MAX_BYTES, formatBytes } from "@/lib/file-limits";
 
@@ -70,7 +70,7 @@ export function LeaveRequestForm({ balances = [] }: { balances?: LeaveBalanceEnt
           >
             <option value="" disabled>{t("form.selectLeaveType")}</option>
             {LEAVE_TYPES.map((type) => (
-              <option key={type} value={type}>{LEAVE_TYPE_LABELS[type]}</option>
+              <option key={type} value={type}>{t(`types.${type}`)}</option>
             ))}
           </Select>
           {selectedBalance && (

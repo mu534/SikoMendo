@@ -2,6 +2,7 @@
 
 import { useActionState, useRef, useEffect, useState } from "react";
 import { Upload } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { uploadEmployeeDocument } from "./actions";
 import { Input, Select, FieldGroup, Label } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";

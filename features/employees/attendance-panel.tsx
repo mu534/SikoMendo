@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Clock, CheckCircle2, AlertCircle, XCircle, Coffee } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { formatDate } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,24 +25,12 @@ type MonthlyCounts = {
   excused: number;
 };
 
-const STATUS_META: Record<
-  string,
-  { label: string; tone: "success" | "warning" | "danger" | "neutral" | "brand"; icon: React.ElementType }
-> = {
-  PRESENT:  { label: "Present",   tone: "success",  icon: CheckCircle2 },
-  LATE:     { label: "Late",      tone: "warning",  icon: AlertCircle  },
-  HALF_DAY: { label: "Half Day",  tone: "warning",  icon: Coffee       },
-  ABSENT:   { label: "Absent",    tone: "danger",   icon: XCircle      },
-  ON_LEAVE: { label: "On Leave",  tone: "brand",    icon: Clock        },
-  EXCUSED:  { label: "Excused",   tone: "neutral",  icon: CheckCircle2 },
-};
-
 function formatTime(dt: Date | null): string {
   if (!dt) return "—";
   return new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit" }).format(new Date(dt));
 }
 
-export function AttendancePanel({
+export async function AttendancePanel({
   records,
   counts,
   monthLabel,
@@ -52,26 +41,39 @@ export function AttendancePanel({
   monthLabel: string;
   employeeId: string;
 }) {
+  const t = await getTranslations("attendance");
+  const tC = await getTranslations("common");
+
+  const statusMeta = {
+    PRESENT:  { tone: "success" as const, icon: CheckCircle2 },
+    LATE:     { tone: "warning" as const, icon: AlertCircle  },
+    HALF_DAY: { tone: "warning" as const, icon: Coffee       },
+    ABSENT:   { tone: "danger"  as const, icon: XCircle      },
+    ON_LEAVE: { tone: "brand"   as const, icon: Clock        },
+    EXCUSED:  { tone: "neutral" as const, icon: CheckCircle2 },
+  };
+
   const totalRecorded = Object.values(counts).reduce((a, b) => a + b, 0);
+
+  const countRows = [
+    { key: "present",  label: t("statuses.PRESENT"),  color: "text-emerald-600" },
+    { key: "late",     label: t("statuses.LATE"),     color: "text-gold-600"   },
+    { key: "halfDay",  label: t("statuses.HALF_DAY"), color: "text-gold-500"   },
+    { key: "absent",   label: t("statuses.ABSENT"),   color: "text-red-500"    },
+    { key: "onLeave",  label: t("statuses.ON_LEAVE"), color: "text-brand-600"  },
+    { key: "excused",  label: t("statuses.EXCUSED"),  color: "text-ink-900/50" },
+  ];
 
   return (
     <div className="space-y-5">
-      {/* Month summary */}
       <Card className="p-5">
-        <SectionHeader icon={Clock} title={`Attendance — ${monthLabel}`} />
+        <SectionHeader icon={Clock} title={`${t("title")} — ${monthLabel}`} />
 
         {totalRecorded === 0 ? (
-          <p className="text-sm text-ink-900/40">No attendance recorded this month.</p>
+          <p className="text-sm text-ink-900/40">{t("noAttendance")}</p>
         ) : (
           <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
-            {[
-              { key: "present",  label: "Present",   color: "text-emerald-600" },
-              { key: "late",     label: "Late",       color: "text-gold-600"   },
-              { key: "halfDay",  label: "Half Day",   color: "text-gold-500"   },
-              { key: "absent",   label: "Absent",     color: "text-red-500"    },
-              { key: "onLeave",  label: "On Leave",   color: "text-brand-600"  },
-              { key: "excused",  label: "Excused",    color: "text-ink-900/50" },
-            ].map(({ key, label, color }) => (
+            {countRows.map(({ key, label, color }) => (
               <div key={key} className="rounded-xl border border-ink-900/6 bg-sand-50 px-3 py-3 text-center">
                 <p className={`font-display text-2xl font-semibold ${color}`}>
                   {counts[key as keyof MonthlyCounts]}
@@ -83,28 +85,21 @@ export function AttendancePanel({
         )}
       </Card>
 
-      {/* Recent records */}
       <Card>
         <div className="flex items-center justify-between border-b border-ink-900/8 px-5 py-4">
-          <h3 className="font-display text-base font-semibold text-ink-900">Recent Records</h3>
-          <Link
-            href={`/attendance/mine`}
-            className="text-xs font-medium text-brand-700 hover:underline"
-          >
-            View all
+          <h3 className="font-display text-base font-semibold text-ink-900">{t("title")}</h3>
+          <Link href={`/attendance/mine`} className="text-xs font-medium text-brand-700 hover:underline">
+            {tC("viewAll")}
           </Link>
         </div>
 
         {records.length === 0 ? (
-          <EmptyState
-            icon={<Clock className="h-7 w-7" />}
-            title="No attendance records"
-            description="No attendance has been recorded for this employee yet."
-          />
+          <EmptyState icon={<Clock className="h-7 w-7" />} title={t("noAttendance")} description={t("description")} />
         ) : (
           <ul className="divide-y divide-ink-900/6">
             {records.slice(0, 10).map((r) => {
-              const meta = STATUS_META[r.status] ?? { label: r.status, tone: "neutral" as const, icon: Clock };
+              const meta = statusMeta[r.status as keyof typeof statusMeta] ?? { tone: "neutral" as const, icon: Clock };
+              const statusLabel = t(`statuses.${r.status as "PRESENT"|"ABSENT"|"LATE"|"HALF_DAY"|"EXCUSED"|"ON_LEAVE"}`);
               const Icon = meta.icon;
 
               return (
@@ -121,19 +116,17 @@ export function AttendancePanel({
                     </div>
                     <div>
                       <p className="text-sm font-medium text-ink-900">{formatDate(r.date)}</p>
-                      {r.notes && (
-                        <p className="text-xs text-ink-900/45 truncate max-w-[200px]">{r.notes}</p>
-                      )}
+                      {r.notes && <p className="text-xs text-ink-900/45 truncate max-w-[200px]">{r.notes}</p>}
                     </div>
                   </div>
                   <div className="flex items-center gap-4 text-right">
                     <div className="hidden sm:block">
                       <p className="text-xs text-ink-900/45">
-                        {r.checkIn ? formatTime(r.checkIn) : "—"}
+                        {r.checkIn ? formatTime(r.checkIn) : tC("na")}
                         {r.checkOut ? ` – ${formatTime(r.checkOut)}` : ""}
                       </p>
                     </div>
-                    <Badge tone={meta.tone}>{meta.label}</Badge>
+                    <Badge tone={meta.tone}>{statusLabel}</Badge>
                   </div>
                 </li>
               );

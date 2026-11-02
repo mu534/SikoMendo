@@ -14,6 +14,7 @@
  */
 
 import { useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { Select, FieldError } from "@/components/ui/field";
 import {
   OPERATORS,
@@ -75,6 +76,8 @@ export function PhoneInput({
   const [state,     setState]     = useState<PhoneState>(() => parseInitial(defaultValue));
   const [error,     setError]     = useState<string | null>(null);
   const [touched,   setTouched]   = useState(false);
+  const tV = useTranslations("validation");
+  const tC = useTranslations("common");
 
   const operator = OPERATORS.find((o) => o.id === state.operatorId) ?? OPERATORS[0]!;
   const isOther  = state.operatorId === "OTHER";
@@ -95,24 +98,19 @@ export function PhoneInput({
     const op = s.operatorId;
     if (op === "OTHER") {
       const raw = s.intlNumber.trim();
-      if (!raw) return required ? "Phone number is required" : null;
-      if (!isValidInternationalPhone(raw)) {
-        return "Enter a valid international number starting with + and country code (e.g. +44 7911 123456)";
-      }
+      if (!raw) return required ? tV("required") : null;
+      if (!isValidInternationalPhone(raw)) return tV("invalidPhone");
       return null;
     }
-    // Ethiopian
-    if (!s.prefix) return "Select a prefix";
-    if (!s.subscriber.trim()) return required ? "Enter the remaining digits" : null;
+    if (!s.prefix) return tV("selectValidOption");
+    if (!s.subscriber.trim()) return required ? tV("required") : null;
 
     const pfxEntry = operator.prefixes.find((p) => p.prefix === s.prefix);
     const expected = pfxEntry?.subscriberDigits ?? 7;
     const digits   = digitsOnly(s.subscriber);
-    if (digits.length !== expected) {
-      return `Enter ${expected} digits after the prefix (e.g. ${state.prefix} ${"X".repeat(expected)})`;
-    }
+    if (digits.length !== expected) return tV("invalidFormat");
     const normalized = normalizeEthiopianPhone(`${s.prefix}${digits}`);
-    if (!normalized) return "Invalid phone number";
+    if (!normalized) return tV("invalidPhone");
     return null;
   }
 
@@ -244,10 +242,9 @@ export function PhoneInput({
             </div>
           </div>
 
-          {/* Live preview of the assembled number */}
           {assembledValue && !error && (
             <p className="mt-1 text-xs text-ink-900/40">
-              Saves as: <span className="font-mono">{assembledValue}</span>
+              {tC("save")}: <span className="font-mono">{assembledValue}</span>
             </p>
           )}
           <p className="mt-0.5 text-xs text-ink-900/35">

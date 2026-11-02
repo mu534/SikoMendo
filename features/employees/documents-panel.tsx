@@ -8,6 +8,7 @@ import {
   Eye,
   Trash2,
 } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { formatDate, formatBytes } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -153,7 +154,7 @@ function DocumentCard({
   );
 }
 
-export function DocumentsPanel({
+export async function DocumentsPanel({
   employeeId,
   documents,
   canManage,
@@ -162,19 +163,29 @@ export function DocumentsPanel({
   documents: Document[];
   canManage: boolean;
 }) {
+  const t = await getTranslations("employees.documents");
+  const tC = await getTranslations("common");
+
+  const DOCUMENT_GROUPS_I18N = [
+    { key: "identity",   label: t("types.ID_DOCUMENT"),   icon: Shield,      types: ["ID_DOCUMENT"] },
+    { key: "employment", label: t("types.CONTRACT"),       icon: Briefcase,   types: ["CONTRACT"] },
+    { key: "education",  label: t("types.CERTIFICATE"),   icon: GraduationCap, types: ["CERTIFICATE","RESUME"] },
+    { key: "other",      label: t("types.OTHER"),          icon: Folder,      types: ["OTHER"] },
+  ];
+
   if (documents.length === 0 && !canManage) {
     return (
       <EmptyState
         icon={<FileText className="h-8 w-8" />}
-        title="No documents"
-        description="No HR documents have been added for this employee."
+        title={t("noDocuments")}
+        description={t("noDocuments")}
       />
     );
   }
 
   return (
     <div className="space-y-5">
-      {DOCUMENT_GROUPS.map((group) => {
+      {DOCUMENT_GROUPS_I18N.map((group) => {
         const groupDocs = documents.filter((d) => group.types.includes(d.type));
         if (groupDocs.length === 0 && !canManage) return null;
 
@@ -182,7 +193,6 @@ export function DocumentsPanel({
 
         return (
           <div key={group.key}>
-            {/* Group heading */}
             <div className="mb-2.5 flex items-center gap-2">
               <div className="flex h-6 w-6 items-center justify-center rounded-md bg-brand-50 text-brand-700">
                 <GroupIcon className="h-3.5 w-3.5" aria-hidden="true" />
@@ -199,17 +209,12 @@ export function DocumentsPanel({
 
             {groupDocs.length === 0 ? (
               <div className="rounded-xl border border-dashed border-ink-900/12 px-4 py-3">
-                <p className="text-xs text-ink-900/35">No {group.label.toLowerCase()} uploaded.</p>
+                <p className="text-xs text-ink-900/35">{tC("noResults")}</p>
               </div>
             ) : (
               <ul className="space-y-2">
                 {groupDocs.map((doc) => (
-                  <DocumentCard
-                    key={doc.id}
-                    doc={doc}
-                    canManage={canManage}
-                    employeeId={employeeId}
-                  />
+                  <DocumentCard key={doc.id} doc={doc} canManage={canManage} employeeId={employeeId} />
                 ))}
               </ul>
             )}
@@ -217,7 +222,6 @@ export function DocumentsPanel({
         );
       })}
 
-      {/* Upload form */}
       {canManage && (
         <div className="border-t border-ink-900/8 pt-4">
           <DocumentUploadForm employeeId={employeeId} />

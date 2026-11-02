@@ -11,7 +11,6 @@ import { LeaveStatusBadge } from "@/features/leave/leave-status-badge";
 import { LeaveDecisionForm } from "@/features/leave/leave-decision-form";
 import { cancelLeaveRequest } from "@/features/leave/actions";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
-import { LEAVE_TYPE_LABELS } from "@/features/leave/schemas";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { formatDateWithEthiopian } from "@/lib/ethiopian-calendar";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -22,6 +21,7 @@ export default async function LeaveDetailPage({ params }: { params: Promise<{ la
   const { lang, id } = await params;
 
   const t = await getTranslations("leave");
+  const tC = await getTranslations("common");
 
   const leave = await getLeaveRequestById(id);
   if (!leave) notFound();
@@ -55,7 +55,7 @@ export default async function LeaveDetailPage({ params }: { params: Promise<{ la
         <div>
           <Link href={`/${lang}/leave`} className="mb-2 inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:underline">
             <ArrowLeft className="h-4 w-4" />
-            Back to leave requests
+            {t("detail.backToLeave")}
           </Link>
           <h2 className="font-display text-xl font-semibold text-ink-900">{leave.leaveId}</h2>
         </div>
@@ -65,9 +65,9 @@ export default async function LeaveDetailPage({ params }: { params: Promise<{ la
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <Card>
-            <CardHeader title="Request details" />
+            <CardHeader title={t("detail.requestDetails")} />
             <div className="grid grid-cols-1 gap-x-6 gap-y-5 p-6 sm:grid-cols-2">
-              <Field label="Employee">
+              <Field label={t("columns.employee")}>
                 <div className="flex items-center gap-3">
                   <Avatar name={`${leave.employee.firstName} ${leave.employee.lastName}`} imageUrl={leave.employee.profileImageUrl} size="sm" />
                   <div>
@@ -78,16 +78,16 @@ export default async function LeaveDetailPage({ params }: { params: Promise<{ la
                   </div>
                 </div>
               </Field>
-              <Field label="Leave Type">{LEAVE_TYPE_LABELS[leave.leaveType]}</Field>
-              <Field label="Start Date">{formatDateWithEthiopian(leave.startDate)}</Field>
-              <Field label="End Date">{formatDateWithEthiopian(leave.endDate)}</Field>
-              <Field label="Total Days">{leave.totalDays}</Field>
-              <Field label="Applied Date">{formatDate(leave.appliedDate)}</Field>
-              <Field label="Reason" full>
+              <Field label={t("columns.leaveType")}>{t(`types.${leave.leaveType}`)}</Field>
+              <Field label={t("form.startDate")}>{formatDateWithEthiopian(leave.startDate)}</Field>
+              <Field label={t("form.endDate")}>{formatDateWithEthiopian(leave.endDate)}</Field>
+              <Field label={t("columns.days")}>{leave.totalDays}</Field>
+              <Field label={t("detail.appliedDate")}>{formatDate(leave.appliedDate)}</Field>
+              <Field label={t("form.reason")} full>
                 <p className="whitespace-pre-wrap text-sm text-ink-900/80">{leave.reason}</p>
               </Field>
               {leave.documentUrl && (
-                <Field label="Supporting Document" full>
+                <Field label={t("detail.supportingDocument")} full>
                   <a
                     href={
                       leave.documentKey
@@ -99,7 +99,7 @@ export default async function LeaveDetailPage({ params }: { params: Promise<{ la
                     className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:underline"
                   >
                     <FileText className="h-3.5 w-3.5" />
-                    View document
+                    {t("detail.viewDocument")}
                   </a>
                 </Field>
               )}
@@ -107,20 +107,20 @@ export default async function LeaveDetailPage({ params }: { params: Promise<{ la
           </Card>
 
           <Card>
-            <CardHeader title="Decision" />
+            <CardHeader title={t("detail.decision")} />
             <div className="grid grid-cols-1 gap-x-6 gap-y-5 p-6 sm:grid-cols-2">
-              <Field label="Status">
+              <Field label={t("columns.status")}>
                 <LeaveStatusBadge status={leave.status} />
               </Field>
-              <Field label="Decision Date">{leave.decisionDate ? formatDate(leave.decisionDate) : "—"}</Field>
-              <Field label="Approver">{leave.approver?.name ?? "—"}</Field>
+              <Field label={t("detail.decisionDate")}>{leave.decisionDate ? formatDate(leave.decisionDate) : "—"}</Field>
+              <Field label={t("detail.approver")}>{leave.approver?.name ?? "—"}</Field>
               {leave.status === "REJECTED" && (
-                <Field label="Rejection Reason" full>
+                <Field label={t("detail.rejectionReason")} full>
                   <p className="whitespace-pre-wrap text-sm text-ink-900/80">{leave.rejectionReason}</p>
                 </Field>
               )}
-              <Field label="Created At">{formatDateTime(leave.createdAt)}</Field>
-              <Field label="Updated At">{formatDateTime(leave.updatedAt)}</Field>
+              <Field label={tC("createdAt")}>{formatDateTime(leave.createdAt)}</Field>
+              <Field label={tC("updatedAt")}>{formatDateTime(leave.updatedAt)}</Field>
             </div>
           </Card>
         </div>
@@ -130,7 +130,7 @@ export default async function LeaveDetailPage({ params }: { params: Promise<{ la
           {canCancel && (
             <Card className="p-6">
               <p className="mb-3 text-sm text-ink-900/60">
-                This request is still pending. You can cancel it any time before it&apos;s decided.
+                {t("detail.pendingCancelHint")}
               </p>
               <form
                 action={async () => {

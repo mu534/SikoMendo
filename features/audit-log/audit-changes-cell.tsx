@@ -12,6 +12,7 @@
  */
 
 import { ChevronDown } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -25,15 +26,15 @@ interface Props {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function str(v: unknown): string {
+function strWithLabels(v: unknown, yesLabel: string, noLabel: string): string {
   if (v === null || v === undefined) return "—";
-  if (typeof v === "boolean") return v ? "Yes" : "No";
+  if (typeof v === "boolean") return v ? yesLabel : noLabel;
   if (typeof v === "number") return String(v);
   if (typeof v === "string") return v || "—";
   return JSON.stringify(v);
 }
 
-function fmtDate(v: unknown): string {
+function fmtDate(v: unknown, str: (v: unknown) => string): string {
   if (!v || typeof v !== "string") return str(v);
   // yyyy-mm-dd or ISO strings
   const d = new Date(v);
@@ -51,7 +52,7 @@ function humanKey(key: string): string {
 
 // ── Per-(entity+action) summary line ─────────────────────────────────────────
 
-function summaryLine(action: string, entity: string, c: Changes): string {
+function summaryLine(action: string, entity: string, c: Changes, str: (v: unknown) => string): string {
   if (!c) {
     // Actions with empty changes object
     const noData: Record<string, string> = {
@@ -132,7 +133,7 @@ function summaryLine(action: string, entity: string, c: Changes): string {
 
   // Employment History
   if (entity === "EmploymentHistory" && action === "CREATE") {
-    const date   = c.effectiveDate ? fmtDate(c.effectiveDate) : null;
+    const date   = c.effectiveDate ? fmtDate(c.effectiveDate, str) : null;
     const reason = str(c.changeReason);
     return date ? `Effective ${date} – ${reason}` : reason;
   }
@@ -140,13 +141,13 @@ function summaryLine(action: string, entity: string, c: Changes): string {
   // Contract
   if (entity === "Contract" && action === "CREATE") {
     const type  = str(c.contractType).replace(/_/g, " ");
-    const start = c.startDate ? fmtDate(c.startDate) : null;
+    const start = c.startDate ? fmtDate(c.startDate, str) : null;
     return `${type}${start ? ` from ${start}` : ""}`;
   }
 
   // Attendance
   if (entity === "Attendance" && action === "UPSERT") {
-    const date   = c.date ? fmtDate(c.date) : "—";
+    const date   = c.date ? fmtDate(c.date, str) : "—";
     const status = str(c.status).replace(/_/g, " ");
     return `${date} – ${status}`;
   }
@@ -212,7 +213,7 @@ interface DetailRow {
   value: string;
 }
 
-function detailRows(action: string, entity: string, c: Changes): DetailRow[] {
+function detailRows(action: string, entity: string, c: Changes, str: (v: unknown) => string): DetailRow[] {
   if (!c || Object.keys(c).length === 0) return [];
 
   const skipKeys = new Set(["__typename"]);
@@ -232,7 +233,7 @@ function detailRows(action: string, entity: string, c: Changes): DetailRow[] {
   }
 
   if (entity === "EmploymentHistory" && action === "CREATE") {
-    if (c.effectiveDate) rows.push({ label: "Effective date", value: fmtDate(c.effectiveDate) });
+    if (c.effectiveDate) rows.push({ label: "Effective date", value: fmtDate(c.effectiveDate, str) });
     if (c.changeReason)  rows.push({ label: "Reason", value: str(c.changeReason) });
     if (c.employmentType) rows.push({ label: "Employment type", value: str(c.employmentType).replace(/_/g, " ") });
     // Skip IDs — they're shown in the Module/Record column
@@ -258,7 +259,7 @@ function detailRows(action: string, entity: string, c: Changes): DetailRow[] {
   }
 
   if (entity === "Attendance" && action === "UPSERT") {
-    if (c.date)   rows.push({ label: "Date", value: fmtDate(c.date) });
+    if (c.date)   rows.push({ label: "Date", value: fmtDate(c.date, str) });
     if (c.status) rows.push({ label: "Status", value: str(c.status).replace(/_/g, " ") });
     return rows;
   }
@@ -289,7 +290,7 @@ function detailRows(action: string, entity: string, c: Changes): DetailRow[] {
     }
     if (key === "updates" && Array.isArray(val)) continue; // handled above
 
-    const display = dateKeys.has(key) ? fmtDate(val) : str(val);
+    const display = dateKeys.has(key) ? fmtDate(val, str) : str(val);
     rows.push({ label, value: display });
   }
   return rows;
@@ -298,8 +299,14 @@ function detailRows(action: string, entity: string, c: Changes): DetailRow[] {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function AuditChangesCell({ action, entity, changes }: Props) {
-  const summary = summaryLine(action, entity, changes);
-  const rows    = detailRows(action, entity, changes);
+  const tC = useTranslations("common");
+
+  function str(v: unknown): string {
+    return strWithLabels(v, tC("yes"), tC("no"));
+  }
+
+  const summary = summaryLine(action, entity, changes, str);
+  const rows    = detailRows(action, entity, changes, str);
 
   return (
     <details className="group">

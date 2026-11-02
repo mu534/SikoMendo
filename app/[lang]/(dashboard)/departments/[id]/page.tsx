@@ -13,6 +13,7 @@ import { getTranslations } from "next-intl/server";
 
 export default async function DepartmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const t = await getTranslations("departments");
+  const tC = await getTranslations("common");
   const session = await requireSession();
   if (!can(session.user.role, "VIEW_DEPARTMENTS")) notFound();
   const { id } = await params;
@@ -42,7 +43,7 @@ export default async function DepartmentDetailPage({ params }: { params: Promise
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-1">
           <Card>
-            <CardHeader title="Department Details" />
+            <CardHeader title={t("detail.title")} />
             <div className="p-6 pt-5">
               {canManageDepartment ? (
                 <>
