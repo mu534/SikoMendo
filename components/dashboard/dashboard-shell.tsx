@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { Header } from "@/components/dashboard/header";
@@ -34,10 +34,10 @@ export function DashboardShell({
     if (item.kind === "group") {
       // Check children first for more specific match
       return item.children.some(
-        (child) => pathname.includes(child.href.split("?")[0])
-      );
+        (child) => pathname === child.href.split("?")[0]
+      ) || pathname.startsWith(item.activePrefix + "/") || pathname === item.activePrefix;
     }
-    return pathname.includes(item.href);
+    return pathname === item.href || pathname.startsWith(item.href + "/");
   });
 
   // Derive the page title from the active nav item's translation key,
@@ -45,8 +45,9 @@ export function DashboardShell({
   let pageTitleKey = "nav.dashboard";
   if (activeItem) {
     if (activeItem.kind === "group") {
+      // Use exact match for child title lookup so /employees/new wins over /employees
       const activeChild = activeItem.children.find((child) =>
-        pathname.includes(child.href.split("?")[0])
+        pathname === child.href.split("?")[0]
       );
       pageTitleKey = activeChild?.labelKey ?? activeItem.labelKey;
     } else {

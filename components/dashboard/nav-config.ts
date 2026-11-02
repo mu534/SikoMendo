@@ -59,6 +59,7 @@ export const NAV_ITEMS: AnyNavItem[] = [
     children: [
       { href: "/users",           labelKey: "nav.allAccounts",       icon: Users,  requires: "MANAGE_USERS" },
       { href: "/users/suspended", labelKey: "nav.suspendedAccounts", icon: UserX,  requires: "MANAGE_USERS" },
+      { href: "/users/new",       labelKey: "nav.newUser",           icon: UserPlus, requires: "MANAGE_USERS" },
     ],
   },
 
@@ -115,8 +116,9 @@ export const NAV_ITEMS: AnyNavItem[] = [
     icon: CalendarOff,
     activePrefix: "/leave",
     children: [
-      { href: "/leave",        labelKey: "nav.leaveRequests", icon: CalendarOff },
-      { href: "/leave/policy", labelKey: "nav.leavePolicy",   icon: ShieldCheck, requires: "MANAGE_LEAVE_POLICY" },
+      { href: "/leave",        labelKey: "nav.leaveRequests",    icon: CalendarOff },
+      { href: "/leave/new",    labelKey: "nav.newLeaveRequest",  icon: CalendarOff },
+      { href: "/leave/policy", labelKey: "nav.leavePolicy",      icon: ShieldCheck, requires: "MANAGE_LEAVE_POLICY" },
     ],
   },
   { href: "/my-documents", labelKey: "nav.myDocuments", icon: FileText },
