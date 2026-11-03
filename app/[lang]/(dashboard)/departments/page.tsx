@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Building2, Users, Briefcase, ChevronRight, LayoutGrid } from "lucide-react";
+import { Building2, Users, Briefcase, ChevronRight, LayoutGrid, UserCheck } from "lucide-react";
 import { requirePermission } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { listDepartments } from "@/features/departments/queries";
@@ -170,6 +170,19 @@ export default async function DepartmentsPage() {
                     <span className="font-semibold text-ink-900">{dept._count.employees}</span>
                     {dept._count.employees === 1 ? "Employee" : "Employees"}
                   </div>
+                </div>
+
+                {/* Department manager row */}
+                <div className="mt-2 flex items-center gap-1.5 text-xs text-ink-900/55">
+                  <UserCheck className="h-3.5 w-3.5 text-ink-900/35" />
+                  {dept.manager ? (
+                    <span>
+                      <span className="font-medium text-ink-900">{dept.manager.firstName} {dept.manager.lastName}</span>
+                      <span className="text-ink-900/40"> · {dept.manager.employeeId}</span>
+                    </span>
+                  ) : (
+                    <span className="italic text-ink-900/35">No manager assigned</span>
+                  )}
                 </div>
               </div>
 

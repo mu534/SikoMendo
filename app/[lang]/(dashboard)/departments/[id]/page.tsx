@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, UserCheck } from "lucide-react";
 import { requireSession } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { getDepartmentById } from "@/features/departments/queries";
@@ -38,6 +38,30 @@ export default async function DepartmentDetailPage({ params }: { params: Promise
           </Badge>
         </div>
         <p className="mt-1 text-sm text-ink-900/60">{department._count.employees} employee(s) in this department.</p>
+
+        {/* Manager info */}
+        <div className="mt-2 flex items-center gap-2">
+          <UserCheck className="h-4 w-4 shrink-0 text-ink-900/40" />
+          {department.manager ? (
+            <span className="text-sm text-ink-900/70">
+              Department Manager:{" "}
+              <Link href={`/employees/${department.manager.id}`} className="font-medium text-brand-700 hover:underline">
+                {department.manager.firstName} {department.manager.lastName}
+              </Link>
+              <span className="ml-1 text-ink-900/40">({department.manager.employeeId})</span>
+              {department.manager.position?.name && (
+                <span className="ml-1 text-ink-900/40">· {department.manager.position.name}</span>
+              )}
+            </span>
+          ) : (
+            <span className="text-sm italic text-ink-900/40">
+              No Department Manager assigned.
+              {canManageDepartment && (
+                <> Use the <Link href="/users/new" className="text-brand-700 hover:underline">New Manager Account</Link> page to assign one.</>
+              )}
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

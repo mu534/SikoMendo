@@ -3,7 +3,18 @@ import prisma from "@/lib/prisma";
 
 export async function listDepartments() {
   return prisma.department.findMany({
-    include: { _count: { select: { employees: true, positions: true } } },
+    include: {
+      _count: { select: { employees: true, positions: true } },
+      manager: {
+        select: {
+          id: true,
+          employeeId: true,
+          firstName: true,
+          lastName: true,
+          position: { select: { name: true } },
+        },
+      },
+    },
     orderBy: { name: "asc" },
   });
 }
@@ -26,6 +37,15 @@ export async function getDepartmentById(id: string) {
         orderBy: { name: "asc" },
       },
       _count: { select: { employees: true } },
+      manager: {
+        select: {
+          id: true,
+          employeeId: true,
+          firstName: true,
+          lastName: true,
+          position: { select: { name: true } },
+        },
+      },
     },
   });
 }
