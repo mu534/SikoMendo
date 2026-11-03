@@ -44,6 +44,13 @@ export type ManagerOption    = {
   position?: { name: string } | null;
 };
 
+export type DepartmentWithManager = {
+  id: string;
+  name: string;
+  managerId: string | null;
+  manager: ManagerOption | null;
+};
+
 export type EmployeeFormValues = {
   id?: string;
   employeeId?: string;
@@ -278,6 +285,7 @@ export function EmployeeForm({
   departments = [],
   positions = [],
   managers = [],
+  departmentsWithManagers,
   onSaveSuccess,
 }: {
   action: (
@@ -288,6 +296,8 @@ export function EmployeeForm({
   departments?: DepartmentOption[];
   positions?: PositionOption[];
   managers?: ManagerOption[];
+  /** When provided (create mode), manager is derived from the selected department instead of the managers array. */
+  departmentsWithManagers?: DepartmentWithManager[];
   onSaveSuccess?: () => void;
 }) {
   const router = useRouter();
@@ -533,7 +543,52 @@ export function EmployeeForm({
 
             <FieldGroup className="sm:col-span-2">
               <Label htmlFor="managerId">{t("form.manager")}<RequiredMark /></Label>
-              <ManagerCombobox managers={managers} defaultValue={employee?.managerId} name="managerId" required />
+              {!isEdit && departmentsWithManagers ? (
+                (() => {
+                  const selectedDeptManager = selectedDeptId
+                    ? (departmentsWithManagers.find((d) => d.id === selectedDeptId)?.manager ?? null)
+                    : null;
+                  if (!selectedDeptId) {
+                    // No department chosen yet — show disabled combobox placeholder
+                    return (
+                      <>
+                        <input type="hidden" name="managerId" value="" />
+                        <div className="rounded-lg border border-ink-900/15 bg-sand-50 px-3 py-2.5 text-sm text-ink-900/40">
+                          {t("form.selectDepartmentFirst")}
+                        </div>
+                      </>
+                    );
+                  }
+                  if (selectedDeptManager) {
+                    return (
+                      <>
+                        <input type="hidden" name="managerId" value={selectedDeptManager.id} />
+                        <div className="rounded-lg border border-ink-900/10 bg-sand-50 px-3 py-2.5">
+                          <p className="text-sm font-medium text-ink-900">
+                            {selectedDeptManager.firstName} {selectedDeptManager.lastName}
+                          </p>
+                          <p className="text-xs text-ink-900/45">
+                            {selectedDeptManager.employeeId}
+                            {selectedDeptManager.position?.name ? ` · ${selectedDeptManager.position.name}` : ""}
+                          </p>
+                          <p className="mt-1 text-xs text-ink-900/50">{t("form.managerAutoAssigned")}</p>
+                        </div>
+                      </>
+                    );
+                  }
+                  // Department selected but no manager assigned
+                  return (
+                    <>
+                      <input type="hidden" name="managerId" value="" />
+                      <div role="alert" className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+                        {t("form.noDeptManagerWarning")}
+                      </div>
+                    </>
+                  );
+                })()
+              ) : (
+                <ManagerCombobox managers={managers} defaultValue={employee?.managerId} name="managerId" required />
+              )}
             </FieldGroup>
           </div>
         </Card>

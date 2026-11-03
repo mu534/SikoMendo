@@ -29,3 +29,28 @@ export async function getDepartmentById(id: string) {
     },
   });
 }
+
+/**
+ * Returns active departments with their designated manager employee (if any).
+ * Used by the New Employee form to resolve the manager for a selected department.
+ */
+export async function listActiveDepartmentsWithManagers() {
+  return prisma.department.findMany({
+    where: { isActive: true },
+    select: {
+      id: true,
+      name: true,
+      managerId: true,
+      manager: {
+        select: {
+          id: true,
+          employeeId: true,
+          firstName: true,
+          lastName: true,
+          position: { select: { name: true } },
+        },
+      },
+    },
+    orderBy: { name: "asc" },
+  });
+}

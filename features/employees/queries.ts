@@ -145,6 +145,33 @@ export async function getSubordinateIds(managerId: string): Promise<string[]> {
   return all;
 }
 
+/**
+ * Returns the designated Department Manager employee for a given department,
+ * or null if none is assigned.
+ *
+ * Used by the New Employee form to populate the manager selector based on the
+ * selected department. Only one DEPT_MANAGER can be assigned per department
+ * (enforced by Department.managerId @unique).
+ */
+export async function getDepartmentManager(departmentId: string) {
+  const dept = await prisma.department.findUnique({
+    where: { id: departmentId },
+    select: {
+      managerId: true,
+      manager: {
+        select: {
+          id: true,
+          employeeId: true,
+          firstName: true,
+          lastName: true,
+          position: { select: { name: true } },
+        },
+      },
+    },
+  });
+  return dept?.manager ?? null;
+}
+
 /** Employees this one could be assigned to report to — excludes themselves and anyone already reporting to them. */
 export async function listAssignableManagers(employeeId: string) {
   const subordinateIds = await getSubordinateIds(employeeId);

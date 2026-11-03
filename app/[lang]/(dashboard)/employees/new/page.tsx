@@ -3,8 +3,8 @@ import { ArrowLeft, UserPlus } from "lucide-react";
 import { requirePermission } from "@/lib/session";
 import { createEmployee } from "@/features/employees/actions";
 import { EmployeeForm } from "@/features/employees/employee-form";
-import { generateNextEmployeeId, listAssignableManagers } from "@/features/employees/queries";
-import { listActiveDepartments } from "@/features/departments/queries";
+import { generateNextEmployeeId } from "@/features/employees/queries";
+import { listActiveDepartmentsWithManagers } from "@/features/departments/queries";
 import { listActivePositions } from "@/features/positions/queries";
 import { getTranslations } from "next-intl/server";
 
@@ -13,11 +13,10 @@ export default async function NewEmployeePage() {
 
   const t = await getTranslations("employees");
 
-  const [nextId, departments, positions, managers] = await Promise.all([
+  const [nextId, departmentsWithManagers, positions] = await Promise.all([
     generateNextEmployeeId(),
-    listActiveDepartments(),
+    listActiveDepartmentsWithManagers(),
     listActivePositions(),
-    listAssignableManagers("new"),
   ]);
 
   return (
@@ -55,9 +54,10 @@ export default async function NewEmployeePage() {
 
       <EmployeeForm
         action={createEmployee}
-        departments={departments}
+        departments={departmentsWithManagers}
         positions={positions}
-        managers={managers}
+        managers={[]}
+        departmentsWithManagers={departmentsWithManagers}
       />
     </div>
   );

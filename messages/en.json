@@ -360,6 +360,8 @@
       "selectDepartment": "Select department",
       "selectPosition": "Select position",
       "selectManager": "Select manager",
+      "noDeptManagerWarning": "No Department Manager is assigned to this department. An administrator must assign one before you can register employees.",
+      "managerAutoAssigned": "Automatically assigned from the department's designated Department Manager.",
       "selectShift": "No shift (use policy defaults)",
       "emergencyContactName": "Contact name",
       "emergencyContactPhone": "Contact phone",

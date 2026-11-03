@@ -355,6 +355,8 @@
       "selectDepartment": "Kutaa hojii filadhu",
       "selectPosition": "Sadarkaa hojii filadhu",
       "selectManager": "Hogganaa filadhu",
+      "noDeptManagerWarning": "Hogganaan Kutaa Hojii kutaa kanaaf hin ramadamne. Too'ataan hangaasni ramaduu qaba.",
+      "managerAutoAssigned": "Hogganaa Kutaa Hojii irraa ofumaa ramadama.",
       "selectShift": "Jijjiirama sa'aatii hin qabu (qindaa'inoota durtii fayyadami)",
       "emergencyContactName": "Maqaa quunnamtii",
       "emergencyContactPhone": "Bilbila quunnamtii",
