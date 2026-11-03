@@ -282,7 +282,7 @@ export type EducationRecordInput = z.infer<typeof educationRecordSchema>;
 
 // ── Main employee schema ───────────────────────────────────────────────────
 
-const employeeSchemaObject = z.object({
+export const employeeSchemaObject = z.object({
   firstName: z.preprocess(
     (v) => (v ? String(v).trim() : ""),
     z.string()
@@ -455,7 +455,7 @@ const employeeSchemaObject = z.object({
   managerId: z.preprocess((v) => (v ? String(v).trim() : ""), z.string().min(1, "Manager (Reports To) is required")),
 });
 
-function validateEmployeeConsent(data: { emergencyContactName?: string; emergencyContactConsentRecorded: boolean }, ctx: z.RefinementCtx) {
+export function validateEmployeeConsent(data: { emergencyContactName?: string; emergencyContactConsentRecorded: boolean }, ctx: z.RefinementCtx) {
   // Consent is required if a contact name has been entered — that is the
   // indicator a contact record is being added.
   const hasContactData = Boolean(data.emergencyContactName?.trim());

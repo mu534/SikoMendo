@@ -3,7 +3,7 @@ import Papa from "papaparse";
 import { z } from "zod";
 import { type EmploymentType, type MaritalStatus, type Gender, type InstitutionType, type QualificationStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { employeeSchema, EDUCATION_LEVELS } from "./schemas";
+import { employeeSchemaObject, validateEmployeeConsent, EDUCATION_LEVELS } from "./schemas";
 import { generateNextEmployeeId } from "./queries";
 import { assertPositionInDepartment } from "@/lib/employee-access";
 import type { EducationLevel } from "@prisma/client";
@@ -11,12 +11,12 @@ import type { EducationLevel } from "@prisma/client";
 // ── Local schema for CSV import ────────────────────────────────────────────
 // Same as employeeSchema but managerId is optional — CSV rows may omit it.
 // Empty value → null (DB allows null for managerId; onDelete: SetNull).
-const importEmployeeSchema = employeeSchema.safeExtend({
+const importEmployeeSchema = employeeSchemaObject.extend({
   managerId: z.preprocess(
     (v) => (v ? String(v).trim() : ""),
     z.string().optional().transform((v) => (v && v.length > 0 ? v : null))
   ),
-});
+}).superRefine(validateEmployeeConsent);
 
 type ImportEmployeeInput = z.infer<typeof importEmployeeSchema>;
 
