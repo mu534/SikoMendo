@@ -66,6 +66,7 @@ export async function listUsers({ q, role, status, page }: UserListFilters) {
             firstName:  true,
             lastName:   true,
             deletedAt:  true,
+            managedDepartment: { select: { id: true, name: true } },
           },
         },
       },

@@ -141,7 +141,14 @@ export default async function UsersPage({
                     </TD>
 
                     <TD>
-                      <Badge tone="brand">{roleLabel(user.role)}</Badge>
+                      <div className="flex flex-col gap-0.5">
+                        <Badge tone="brand">{roleLabel(user.role)}</Badge>
+                        {user.role === "DEPT_MANAGER" && user.employee?.managedDepartment && (
+                          <span className="text-xs text-ink-900/50">
+                            {user.employee.managedDepartment.name}
+                          </span>
+                        )}
+                      </div>
                     </TD>
 
                     <TD>
