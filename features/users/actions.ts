@@ -6,12 +6,16 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { getServerSession } from "@/lib/session";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
-import { createUserSchema, updateUserSchema, createManagerAccountSchema } from "./schemas";
+import { createUserSchema, updateUserSchema, createManagerAccountSchema, createManagerWithEmployeeSchema } from "./schemas";
 import { generateTempPassword } from "@/lib/credentials";
 import { createNotification } from "@/lib/notifications";
 import { generateUsernameFromName } from "@/lib/username-utils";
 import { uploadToCloudinary } from "@/lib/cloudinary";
-import { assertSingleGeneralManager, assertSingleManagerPerDepartment } from "@/lib/employee-access";
+import { assertSingleGeneralManager, assertSingleManagerPerDepartment, assertPositionInDepartment } from "@/lib/employee-access";
+import { generateNextEmployeeId } from "@/features/employees/queries";
+import { getActiveGeneralManager } from "./queries";
+import { normalizeAnyPhone } from "@/features/employees/schemas";
+import type { Gender, MaritalStatus, EmploymentType } from "@prisma/client";
 
 function getPhotoFile(formData: FormData): File | null {
   const file = formData.get("photo");
@@ -516,5 +520,226 @@ export async function createManagerAccount(
     revalidatePath(`/employees/${employee.id}`);
 
     return { userId: user.id, username, password: tempPassword };
+  });
+}
+
+/**
+ * Creates a manager's Employee record AND their login account together in a
+ * single atomic flow.
+ *
+ * Used by the /users/new page when no eligible employees exist yet — this
+ * unblocks the chicken-and-egg scenario where the first General Manager or
+ * Department Manager cannot be created because neither an employee record nor
+ * a manager account exists yet.
+ *
+ * Transaction design:
+ *   1. Employee + EmploymentHistory + OnboardingRecord are created inside a
+ *      Prisma $transaction so they are all-or-nothing.
+ *   2. auth.api.createUser() is called OUTSIDE the transaction (it uses its own
+ *      DB connection). If it throws, the already-committed Employee row is
+ *      compensated with a prisma.employee.delete() (compensating rollback).
+ *   3. Post-auth Prisma writes (user.update, employee.update, department.update)
+ *      are also outside the transaction; any failure triggers the same
+ *      compensating delete of both the Employee and the partially-created User.
+ *
+ * Returns { userId, username, password } on success. The temporary password is
+ * never persisted in plaintext.
+ */
+export async function createManagerWithEmployee(
+  _prevState: unknown,
+  formData: FormData
+): Promise<ActionResult<{ userId: string; username: string; password: string }>> {
+  const session = await getServerSession();
+
+  return withPermission(session, "MANAGE_USERS", async () => {
+    // ── 1. Parse & validate ──────────────────────────────────────────────────
+    const parsed = createManagerWithEmployeeSchema.safeParse({
+      managerType:    formData.get("managerType"),
+      firstName:      formData.get("firstName"),
+      middleName:     formData.get("middleName"),
+      lastName:       formData.get("lastName"),
+      phone:          formData.get("phone"),
+      email:          formData.get("email") || undefined,
+      gender:         formData.get("gender"),
+      dateOfBirth:    formData.get("dateOfBirth"),
+      maritalStatus:  formData.get("maritalStatus"),
+      hireDate:       formData.get("hireDate"),
+      employmentType: formData.get("employmentType"),
+      positionId:     formData.get("positionId"),
+      departmentId:   formData.get("departmentId") || undefined,
+    });
+    if (!parsed.success) {
+      throw new Error(parsed.error.issues[0]?.message ?? "Invalid input.");
+    }
+    const data = parsed.data;
+    const { managerType } = data;
+    const departmentId = managerType === "DEPT_MANAGER" ? data.departmentId : undefined;
+
+    // ── 2. Role-specific uniqueness guards ───────────────────────────────────
+    if (managerType === "MANAGER") {
+      await assertSingleGeneralManager();
+    }
+    if (managerType === "DEPT_MANAGER") {
+      if (!departmentId) {
+        throw new Error("A department must be selected when creating a Department Manager.");
+      }
+      await assertSingleManagerPerDepartment(departmentId);
+      // Validate that the chosen position belongs to the selected department
+      await assertPositionInDepartment(data.positionId, departmentId);
+    }
+
+    // ── 3. For DEPT_MANAGER: resolve General Manager's employee ID ────────────
+    let generalManagerEmployeeId: string | null = null;
+    if (managerType === "DEPT_MANAGER") {
+      const gm = await getActiveGeneralManager();
+      if (!gm?.employee) {
+        throw new Error(
+          "A General Manager must be created before a Department Manager can be assigned."
+        );
+      }
+      generalManagerEmployeeId = gm.employee.id;
+    }
+
+    // ── 4. Generate the next Employee ID (outside transaction — uses a sequence)
+    const employeeId = await generateNextEmployeeId();
+    const username = employeeId.toLowerCase();
+    const internalEmail = `${username}@internal.sikomendo.local`;
+
+    // ── 5. Username / email collision guard (pre-transaction) ────────────────
+    const [existingUsername, existingEmail] = await Promise.all([
+      prisma.user.findUnique({ where: { username } }),
+      prisma.user.findUnique({ where: { email: internalEmail } }),
+    ]);
+    if (existingUsername) throw new Error(`Username "${username}" is already in use.`);
+    if (existingEmail) throw new Error("An account with this Employee ID already exists.");
+
+    const tempPassword = generateTempPassword();
+    const fullName = [data.firstName, data.middleName, data.lastName]
+      .filter(Boolean)
+      .join(" ");
+
+    // ── 6. Prisma transaction: Employee + EmploymentHistory + OnboardingRecord ─
+    //
+    // For the General Manager, EmploymentHistory requires a non-null departmentId.
+    // We look up the position's owning department to satisfy that constraint.
+    const employee = await prisma.$transaction(async (tx) => {
+      // Resolve the position's department for EmploymentHistory (always needed)
+      const posRow = await tx.position.findUnique({
+        where:  { id: data.positionId },
+        select: { departmentId: true },
+      });
+      if (!posRow) throw new Error("The selected position does not exist.");
+
+      // The effective department for the Employee row
+      const empDepartmentId = managerType === "DEPT_MANAGER" ? (departmentId ?? null) : null;
+      // The department ID used for the EmploymentHistory row (must be non-null)
+      const histDepartmentId =
+        managerType === "DEPT_MANAGER" ? (departmentId as string) : posRow.departmentId;
+
+      const created = await tx.employee.create({
+        data: {
+          employeeId,
+          firstName:      data.firstName,
+          middleName:     data.middleName ?? null,
+          lastName:       data.lastName,
+          email:          data.email ?? null,
+          phone:          data.phone ?? null,
+          gender:         data.gender as Gender,
+          dateOfBirth:    data.dateOfBirth ?? null,
+          maritalStatus:  data.maritalStatus as MaritalStatus,
+          hireDate:       data.hireDate ?? null,
+          employmentType: data.employmentType as EmploymentType,
+          // Managers start ACTIVE — they are not going through a normal onboarding checklist
+          employmentStatus: "ACTIVE",
+          departmentId:   empDepartmentId,
+          positionId:     data.positionId,
+          // GM has no reporting manager; DM reports to the GM
+          managerId:      generalManagerEmployeeId,
+        },
+      });
+
+      await tx.employmentHistory.create({
+        data: {
+          employeeId:     created.id,
+          departmentId:   histDepartmentId,
+          positionId:     data.positionId,
+          employmentType: data.employmentType as EmploymentType,
+          effectiveDate:  data.hireDate ?? new Date(),
+          changeReason:
+            managerType === "MANAGER"
+              ? "Initial hire as General Manager"
+              : "Initial hire as Department Manager",
+        },
+      });
+
+      await tx.onboardingRecord.create({
+        data: {
+          employeeId:      created.id,
+          responsibleHrId: session?.user.id ?? null,
+        },
+      });
+
+      return created;
+    });
+
+    // ── 7. Create auth account (outside transaction — compensate on failure) ──
+    let createdUser: { id: string } | null = null;
+    try {
+      const { user } = await auth.api.createUser({
+        headers: await headers(),
+        body: { name: fullName, email: internalEmail, password: tempPassword },
+      });
+      createdUser = user;
+
+      // Set username, role, and force a password change on first sign-in
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          username,
+          displayUsername:    username,
+          role:               managerType as import("@prisma/client").Role,
+          mustChangePassword: true,
+        },
+      });
+
+      // Link the user to the employee record
+      await prisma.employee.update({
+        where: { id: employee.id },
+        data:  { userId: user.id },
+      });
+
+      // For DEPT_MANAGER: set the department's manager pointer
+      if (managerType === "DEPT_MANAGER" && departmentId) {
+        await prisma.department.update({
+          where: { id: departmentId },
+          data:  { managerId: employee.id },
+        });
+      }
+    } catch (err) {
+      // Compensating rollback: remove the employee row to avoid orphaned records
+      await prisma.employee.delete({ where: { id: employee.id } }).catch(() => {});
+      // Remove the user row if it was partially created
+      if (createdUser) {
+        await prisma.user.delete({ where: { id: createdUser.id } }).catch(() => {});
+      }
+      throw err;
+    }
+
+    // ── 8. Audit log + cache invalidation ────────────────────────────────────
+    await logAudit(
+      "CREATE",
+      createdUser.id,
+      {
+        username,
+        role: managerType,
+        linkedEmployeeId: employeeId,
+        departmentId: departmentId ?? null,
+      },
+      session?.user.id
+    );
+    revalidatePath("/users");
+    revalidatePath("/employees");
+
+    return { userId: createdUser.id, username, password: tempPassword };
   });
 }

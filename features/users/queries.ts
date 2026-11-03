@@ -136,3 +136,44 @@ export async function getActiveDepartments() {
     orderBy: { name: "asc" },
   });
 }
+
+/**
+ * Returns the active General Manager's linked User+Employee record, or null if
+ * no General Manager has been created yet.
+ *
+ * Used by the new-manager page to:
+ *   (a) decide whether General Manager creation should be offered,
+ *   (b) auto-assign managerId when creating a Department Manager.
+ */
+export async function getActiveGeneralManager() {
+  return prisma.user.findFirst({
+    where: { role: "MANAGER", banned: false },
+    select: {
+      id:   true,
+      name: true,
+      employee: {
+        select: { id: true, firstName: true, lastName: true, employeeId: true },
+      },
+    },
+  });
+}
+
+/**
+ * Returns all active departments with their active positions, for the cascading
+ * department → position selector on the new-manager form (DEPT_MANAGER mode).
+ */
+export async function getDepartmentsWithPositions() {
+  return prisma.department.findMany({
+    where:   { isActive: true },
+    select: {
+      id: true,
+      name: true,
+      positions: {
+        where:   { isActive: true },
+        select:  { id: true, name: true },
+        orderBy: { name: "asc" },
+      },
+    },
+    orderBy: { name: "asc" },
+  });
+}
