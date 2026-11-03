@@ -14,6 +14,7 @@ enum Role {
   ADMIN
   HR_OFFICER
   MANAGER
+  DEPT_MANAGER
   EMPLOYEE
 }
 
@@ -294,6 +295,9 @@ model Employee {
   manager       Employee?  @relation("ReportsTo", fields: [managerId], references: [id], onDelete: SetNull)
   directReports Employee[] @relation("ReportsTo")
 
+  // Department manager back-relation (one employee can manage at most one dept)
+  managedDepartment Department? @relation("DepartmentManager")
+
   employmentHistory EmploymentHistory[]
   contracts         Contract[]
   educations        Education[]
@@ -343,6 +347,11 @@ model Department {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  // Department manager — the one DEPT_MANAGER for this department.
+  // SetNull on delete so removing the manager employee doesn't cascade-delete the department.
+  managerId String?  @unique
+  manager   Employee? @relation("DepartmentManager", fields: [managerId], references: [id], onDelete: SetNull)
 
   positions         Position[]
   employees         Employee[]

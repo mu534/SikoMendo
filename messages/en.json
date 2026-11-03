@@ -71,6 +71,7 @@
       "ADMIN": "Administrator",
       "HR_OFFICER": "HR Officer",
       "MANAGER": "Manager",
+      "DEPT_MANAGER": "Department Manager",
       "EMPLOYEE": "Employee"
     }
   },

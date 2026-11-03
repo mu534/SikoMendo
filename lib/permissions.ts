@@ -1,12 +1,13 @@
-export const ROLES = ["ADMIN", "HR_OFFICER", "MANAGER", "EMPLOYEE"] as const;
+export const ROLES = ["ADMIN", "HR_OFFICER", "MANAGER", "DEPT_MANAGER", "EMPLOYEE"] as const;
 
 export type Role = (typeof ROLES)[number];
 
 export const ROLE_LABELS: Record<Role, string> = {
-  ADMIN:      "Administrator",
-  HR_OFFICER: "HR Officer",
-  MANAGER:    "General Manager",
-  EMPLOYEE:   "Employee",
+  ADMIN:        "Administrator",
+  HR_OFFICER:   "HR Officer",
+  MANAGER:      "General Manager",
+  DEPT_MANAGER: "Department Manager",
+  EMPLOYEE:     "Employee",
 };
 
 export function roleLabel(role: string | undefined | null): string {
@@ -138,6 +139,21 @@ export const PERMISSIONS: Record<Role, Action[]> = {
     "MANAGE_OWN_LEAVE",
     "MANAGE_LEAVE_POLICY",
     "VIEW_DEPARTMENTS",
+  ],
+  DEPT_MANAGER: [
+    "VIEW_EMPLOYEES",
+    "VIEW_DEPARTMENTS",
+    "VIEW_ATTENDANCE",
+    "VIEW_ATTENDANCE_MONITOR",
+    "SELF_ATTENDANCE",
+    "VIEW_REPORTS",
+    "GENERATE_REPORTS",
+    "VIEW_OWN_PROFILE",
+    "UPDATE_OWN_INFO",
+    "MANAGE_OWN_LEAVE",
+    "VIEW_ALL_LEAVE",
+    "MANAGE_LEAVE",
+    "VIEW_LIFECYCLE",
   ],
   EMPLOYEE: [
     "VIEW_OWN_PROFILE",

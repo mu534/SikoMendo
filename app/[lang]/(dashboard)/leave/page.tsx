@@ -71,7 +71,7 @@ async function AllLeaveRequests({
   // Only other roles that might have MANAGE_LEAVE in the future would be scoped.
   // Currently MANAGE_LEAVE is MANAGER-only, so this block is effectively a no-op
   // for the GM, but left here for clarity and future-proofing.
-  if (role !== "MANAGER" && role !== "ADMIN" && role !== "HR_OFFICER") {
+  if (role !== "MANAGER" && role !== "ADMIN" && role !== "HR_OFFICER" && role !== "DEPT_MANAGER") {
     const managerEmployee = await prisma.employee.findUnique({
       where: { userId },
       select: { id: true },

@@ -19,6 +19,7 @@ import {
   assertStatusChangeAllowed,
   LIFECYCLE_CONTROLLED_STATUSES,
   DIRECTLY_EDITABLE_STATUSES,
+  getEmployeeDetailTabPermissions,
 } from "./employee-access";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -36,6 +37,10 @@ describe("resolveViewerCapability", () => {
 
   it("MANAGER returns FULL (General Manager has org-wide access)", () => {
     expect(resolveViewerCapability("MANAGER")).toBe("FULL");
+  });
+
+  it("DEPT_MANAGER returns SCOPED (can see their dept employees but not org-wide)", () => {
+    expect(resolveViewerCapability("DEPT_MANAGER")).toBe("SCOPED");
   });
 
   it("EMPLOYEE returns NONE", () => {
@@ -128,5 +133,35 @@ describe("validateManagerAssignment — self-assignment", () => {
   it("does not throw when managerId is null", async () => {
     await expect(validateManagerAssignment("emp-1", null)).resolves.toBeUndefined();
     await expect(validateManagerAssignment("emp-1", undefined)).resolves.toBeUndefined();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Employee detail tab permissions — DEPT_MANAGER cases (P0-2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("getEmployeeDetailTabPermissions — DEPT_MANAGER", () => {
+  it("DEPT_MANAGER can view overview", () => {
+    expect(getEmployeeDetailTabPermissions("DEPT_MANAGER").canViewOverview).toBe(true);
+  });
+
+  it("DEPT_MANAGER cannot view contracts", () => {
+    expect(getEmployeeDetailTabPermissions("DEPT_MANAGER").canViewContracts).toBe(false);
+  });
+
+  it("DEPT_MANAGER cannot view system account", () => {
+    expect(getEmployeeDetailTabPermissions("DEPT_MANAGER").canViewSystemAccount).toBe(false);
+  });
+
+  it("DEPT_MANAGER can view documents", () => {
+    expect(getEmployeeDetailTabPermissions("DEPT_MANAGER").canViewDocuments).toBe(true);
+  });
+
+  it("DEPT_MANAGER can view lifecycle", () => {
+    expect(getEmployeeDetailTabPermissions("DEPT_MANAGER").canViewLifecycle).toBe(true);
+  });
+
+  it("DEPT_MANAGER can view history", () => {
+    expect(getEmployeeDetailTabPermissions("DEPT_MANAGER").canViewHistory).toBe(true);
   });
 });

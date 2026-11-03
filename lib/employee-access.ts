@@ -35,6 +35,7 @@ export type ViewerCapability = "FULL" | "SCOPED" | "NONE";
  */
 export function resolveViewerCapability(role: string | undefined): ViewerCapability {
   if (role === "ADMIN" || role === "HR_OFFICER" || role === "MANAGER") return "FULL";
+  if (role === "DEPT_MANAGER") return "SCOPED";
   return "NONE";
 }
 
@@ -45,6 +46,7 @@ export function resolveViewerCapability(role: string | undefined): ViewerCapabil
  * - ADMIN / HR_OFFICER: access any employee, full data including contracts and user account.
  * - MANAGER (General Manager): org-wide access; receives documents (read-only) and
  *   employment history but NOT contracts or user/security info (those are Admin/HR only).
+ * - DEPT_MANAGER: scoped to their department's employees; no contracts or user/security info.
  * - EMPLOYEE / unknown: access denied → always returns null.
  *
  * Callers must treat null as "not found" — do not reveal whether the employee
@@ -79,6 +81,38 @@ export async function getEmployeeByIdForViewer(
           orderBy: { effectiveDate: "desc" },
         },
         contracts: { orderBy: { startDate: "desc" } },
+      },
+    });
+  }
+
+  // DEPT_MANAGER: scoped — only employees in their department.
+  // No contracts or user/security info.
+  if (session.user.role === "DEPT_MANAGER") {
+    // Find the department this DEPT_MANAGER manages.
+    const deptManagerEmployee = await prisma.employee.findUnique({
+      where: { userId: session.user.id },
+      select: { managedDepartment: { select: { id: true } } },
+    });
+    const managedDeptId = deptManagerEmployee?.managedDepartment?.id;
+    if (!managedDeptId) return null;
+
+    // Only expose the target employee if they belong to this manager's department.
+    return prisma.employee.findUnique({
+      where: { id: employeeId, departmentId: managedDeptId },
+      include: {
+        department: { select: { id: true, name: true } },
+        position:   { select: { id: true, name: true, departmentId: true } },
+        manager:    { select: { id: true, firstName: true, lastName: true, employeeId: true } },
+        educations: { orderBy: { createdAt: "asc" } },
+        employmentHistory: {
+          include: {
+            department: { select: { name: true } },
+            position:   { select: { name: true } },
+          },
+          orderBy: { effectiveDate: "desc" },
+        },
+        documents: { where: { deletedAt: null }, orderBy: { createdAt: "desc" } },
+        // Intentionally omitted: user (security info), contracts
       },
     });
   }
@@ -406,16 +440,18 @@ export async function assertRestoreSafe(employeeId: string): Promise<{ keepStatu
 export function getEmployeeDetailTabPermissions(role: string | undefined) {
   const isFullViewer = role === "ADMIN" || role === "HR_OFFICER";
   const isManager    = role === "MANAGER";
+  const isDeptManager = role === "DEPT_MANAGER";
 
   return {
-    canViewOverview:      isFullViewer || isManager,
-    canViewHistory:       isFullViewer || isManager, // read-only for manager (no role change)
+    canViewOverview:      isFullViewer || isManager || isDeptManager,
+    canViewHistory:       isFullViewer || isManager || isDeptManager, // read-only for manager/dept-manager
     canViewContracts:     isFullViewer,              // sensitive — admin/HR only
-    canViewDocuments:     isFullViewer || isManager, // managers: read-only
-    canViewLifecycle:     isFullViewer || isManager,
+    canViewDocuments:     isFullViewer || isManager || isDeptManager, // dept-manager: read-only
+    canViewLifecycle:     isFullViewer || isManager || isDeptManager,
     canViewSystemAccount: isFullViewer && role === "ADMIN", // admin only
     isFullViewer,
     isManager,
+    isDeptManager,
   } as const;
 }
 

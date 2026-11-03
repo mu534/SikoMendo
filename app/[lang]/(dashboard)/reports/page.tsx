@@ -21,7 +21,7 @@ export default async function GenerateReportPage() {
   // The server action re-validates scope regardless of what the client sends.
   let employees: { id: string; employeeId: string; firstName: string; lastName: string }[] = [];
 
-  if (role === "MANAGER") {
+  if (role === "MANAGER" || role === "DEPT_MANAGER") {
     const ownEmployee = await prisma.employee.findUnique({
       where: { userId },
       select: { id: true },
@@ -81,12 +81,12 @@ export default async function GenerateReportPage() {
       </div>
 
       {/* Scope note for Managers */}
-      {role === "MANAGER" && employees.length === 0 && (
+      {(role === "MANAGER" || role === "DEPT_MANAGER") && employees.length === 0 && (
         <p className="max-w-2xl rounded-xl border border-gold-400/30 bg-gold-400/10 px-4 py-3 text-sm text-ink-900/70">
           {t("managerNoEmployeeNote")}
         </p>
       )}
-      {role === "MANAGER" && employees.length > 0 && (
+      {(role === "MANAGER" || role === "DEPT_MANAGER") && employees.length > 0 && (
         <p className="max-w-2xl text-xs text-ink-900/45">
           {t("managerScopeNote", { count: employees.length })}
         </p>
