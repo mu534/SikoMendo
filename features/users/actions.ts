@@ -6,12 +6,12 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { getServerSession } from "@/lib/session";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
-import { createUserSchema, updateUserSchema } from "./schemas";
+import { createUserSchema, updateUserSchema, createManagerAccountSchema } from "./schemas";
 import { generateTempPassword } from "@/lib/credentials";
 import { createNotification } from "@/lib/notifications";
 import { generateUsernameFromName } from "@/lib/username-utils";
 import { uploadToCloudinary } from "@/lib/cloudinary";
-import { assertSingleGeneralManager } from "@/lib/employee-access";
+import { assertSingleGeneralManager, assertSingleManagerPerDepartment } from "@/lib/employee-access";
 
 function getPhotoFile(formData: FormData): File | null {
   const file = formData.get("photo");
@@ -384,5 +384,137 @@ export async function forcePasswordChangeForUser(userId: string): Promise<Action
     await logAudit("FORCE_PASSWORD_CHANGE", userId, {}, session?.user.id);
     revalidatePath(`/users/${userId}`);
     return { id: userId };
+  });
+}
+
+/**
+ * Creates a login account for an employee and assigns them the MANAGER or
+ * DEPT_MANAGER role.
+ *
+ * - MANAGER: enforces the single-general-manager rule.
+ * - DEPT_MANAGER: requires a departmentId; enforces the single-dept-manager
+ *   rule, then writes Department.managerId = employee.id after account creation.
+ *
+ * Username is derived server-side from the employee's Employee ID (e.g.
+ * "EMP-0001" → "emp-0001") — the client never supplies the username, preventing
+ * spoofing.
+ *
+ * Returns credentials (userId, username, temporary password) once on success;
+ * the temp password is never persisted in plaintext.
+ */
+export async function createManagerAccount(
+  _prevState: unknown,
+  formData: FormData
+): Promise<ActionResult<{ userId: string; username: string; password: string }>> {
+  const session = await getServerSession();
+
+  return withPermission(session, "MANAGE_USERS", async () => {
+    const parsed = createManagerAccountSchema.safeParse({
+      employeeId:   formData.get("employeeId"),
+      role:         formData.get("role"),
+      departmentId: formData.get("departmentId") || undefined,
+    });
+    if (!parsed.success) {
+      throw new Error(parsed.error.issues[0]?.message ?? "Invalid input.");
+    }
+
+    const { employeeId, role, departmentId } = parsed.data;
+
+    // ── Role-specific uniqueness guards ─────────────────────────────────────
+    if (role === "MANAGER") {
+      await assertSingleGeneralManager();
+    }
+
+    if (role === "DEPT_MANAGER") {
+      if (!departmentId) {
+        throw new Error("A department must be selected when creating a Department Manager account.");
+      }
+      await assertSingleManagerPerDepartment(departmentId);
+    }
+
+    // ── Load employee ────────────────────────────────────────────────────────
+    const employee = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: {
+        id:         true,
+        employeeId: true,
+        firstName:  true,
+        middleName: true,
+        lastName:   true,
+        userId:     true,
+      },
+    });
+    if (!employee) throw new Error("Employee not found.");
+    if (employee.userId) throw new Error("This employee already has a login account.");
+
+    // ── Derive username from Employee ID ─────────────────────────────────────
+    // Better Auth's username plugin normalises to lowercase on sign-in lookup,
+    // so the stored value must already be lowercase.
+    const username = employee.employeeId.toLowerCase();
+
+    // Guard against the (unlikely) case where a username derived from an
+    // Employee ID is already taken by a different account.
+    const existingByUsername = await prisma.user.findUnique({ where: { username } });
+    if (existingByUsername) {
+      throw new Error(`Username "${username}" is already in use.`);
+    }
+
+    // Deterministic internal email — never shown in UI, never used for login.
+    const internalEmail = `${username}@internal.sikomendo.local`;
+    const existingByEmail = await prisma.user.findUnique({ where: { email: internalEmail } });
+    if (existingByEmail) {
+      throw new Error("An account with this Employee ID already exists.");
+    }
+
+    const fullName = [employee.firstName, employee.middleName, employee.lastName]
+      .filter(Boolean)
+      .join(" ");
+
+    const tempPassword = generateTempPassword();
+
+    // ── Create the auth record ────────────────────────────────────────────────
+    const { user } = await auth.api.createUser({
+      headers: await headers(),
+      body: { name: fullName, email: internalEmail, password: tempPassword },
+    });
+
+    // ── Set username, role, and force-change on first sign-in ─────────────────
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        username,
+        displayUsername: username,
+        role:            role as import("@prisma/client").Role,
+        mustChangePassword: true,
+      },
+    });
+
+    // ── Link employee ─────────────────────────────────────────────────────────
+    await prisma.employee.update({
+      where: { id: employee.id },
+      data:  { userId: user.id },
+    });
+
+    // ── Assign department manager role (DEPT_MANAGER only) ────────────────────
+    if (role === "DEPT_MANAGER" && departmentId) {
+      await prisma.department.update({
+        where: { id: departmentId },
+        data:  { managerId: employee.id },
+      });
+    }
+
+    // ── Audit log ─────────────────────────────────────────────────────────────
+    await logAudit(
+      "CREATE",
+      user.id,
+      { username, role, linkedEmployeeId: employee.employeeId, departmentId: departmentId ?? null },
+      session?.user.id
+    );
+
+    // ── Revalidate affected pages ─────────────────────────────────────────────
+    revalidatePath("/users");
+    revalidatePath(`/employees/${employee.id}`);
+
+    return { userId: user.id, username, password: tempPassword };
   });
 }

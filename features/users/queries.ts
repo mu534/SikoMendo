@@ -93,3 +93,45 @@ export async function getUserById(id: string) {
     },
   });
 }
+
+/**
+ * Returns employees that do not yet have a login account, are not archived,
+ * and are in an employment status that warrants an account (ACTIVE or ONBOARDING).
+ *
+ * Used by the new-user page to populate the employee picker for manager account
+ * creation. Ordered alphabetically by first name then last name.
+ */
+export async function getEmployeesWithoutAccount() {
+  return prisma.employee.findMany({
+    where: {
+      userId:           null,
+      deletedAt:        null,
+      employmentStatus: { in: ["ACTIVE", "ONBOARDING"] },
+    },
+    select: {
+      id:           true,
+      employeeId:   true,
+      firstName:    true,
+      middleName:   true,
+      lastName:     true,
+      departmentId: true,
+      department:   { select: { id: true, name: true } },
+      position:     { select: { id: true, name: true } },
+    },
+    orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+  });
+}
+
+/**
+ * Returns all active departments, ordered alphabetically by name.
+ *
+ * Used by the new-user page to populate the department selector when creating
+ * a DEPT_MANAGER account.
+ */
+export async function getActiveDepartments() {
+  return prisma.department.findMany({
+    where:   { isActive: true },
+    select:  { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+}

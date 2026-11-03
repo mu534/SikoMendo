@@ -493,7 +493,53 @@ export async function assertSingleGeneralManager(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 11. Leave authorization helper (P3-8)
+// 11. Department Manager uniqueness guard (P3-6)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Ensures there is at most ONE active Department Manager per department.
+ *
+ * Must be called before assigning the DEPT_MANAGER role to any user account
+ * when a departmentId is also being assigned.
+ *
+ * @param departmentId   The department that would receive a new DEPT_MANAGER.
+ * @param excludeUserId  The user ID being updated (so we don't count them against
+ *                       themselves on an update operation). Pass undefined on create.
+ *
+ * @throws Error with a user-facing message if a Department Manager already exists
+ *         for that department.
+ */
+export async function assertSingleManagerPerDepartment(
+  departmentId: string,
+  excludeUserId?: string
+): Promise<void> {
+  const existing = await prisma.user.findFirst({
+    where: {
+      role: "DEPT_MANAGER",
+      banned: false,
+      employee: { departmentId, deletedAt: null },
+      ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
+    },
+    select: { id: true, name: true, username: true },
+  });
+
+  if (existing) {
+    // Also resolve the department name for a clear error message
+    const department = await prisma.department.findUnique({
+      where: { id: departmentId },
+      select: { name: true },
+    });
+    const deptName = department?.name ?? departmentId;
+    const managerLabel = existing.name ?? existing.username ?? existing.id;
+    throw new Error(
+      `There is already an active Department Manager for "${deptName}" (${managerLabel}). ` +
+      `Another Department Manager cannot be assigned until the existing one is deactivated.`
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 12. Leave authorization helper (P3-8)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
