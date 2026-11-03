@@ -774,7 +774,8 @@
     "titleSuspended": "Suspended Accounts",
     "description": "Manage system user accounts and access.",
     "descriptionSuspended": "Accounts that have been suspended and cannot sign in.",
-    "newUser": "New User",
+    "newUser": "New Manager Account",
+    "newUserDescription": "Create a login account for an existing employee and assign them the General Manager or Department Manager role.",
     "noUsers": "No users found.",
     "noSuspendedUsers": "No suspended accounts.",
     "columns": {
@@ -797,11 +798,21 @@
       "role": "Role",
       "selectRole": "Select role",
       "linkEmployee": "Link to employee",
-      "selectEmployee": "No employee linked",
+      "selectEmployee": "Select employee",
+      "noEmployeesAvailable": "No eligible employees available. All active and onboarding employees already have accounts.",
+      "accountSettings": "Account Settings",
+      "derivedUsername": "Username is automatically set to the employee's ID (lowercase) and cannot be changed.",
+      "roleManager": "General Manager",
+      "roleManagerDesc": "Organisation-wide manager. Only one General Manager can be active at a time.",
+      "roleDeptManager": "Department Manager",
+      "roleDeptManagerDesc": "Manages a single department. Only one Department Manager per department is allowed.",
+      "selectDepartment": "Select department",
       "createAccount": "Create account",
       "creating": "Creating…",
       "saveChanges": "Save changes",
-      "saving": "Saving…"
+      "saving": "Saving…",
+      "credentialsBanner": "Save these credentials now — the temporary password cannot be retrieved after you leave this page. The user must change their password on first sign-in.",
+      "credentialsDone": "Done — go to Users"
     },
     "actions": {
       "edit": "Edit",

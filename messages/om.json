@@ -764,7 +764,8 @@
     "titleSuspended": "Herrega dhaabbate",
     "description": "Herrega fayyadamtootaa fi hayyama seensaa sirnaa bulchi.",
     "descriptionSuspended": "Herrega dhaabbatee seenuu hin dandeenye.",
-    "newUser": "Fayyadamaa Haaraa",
+    "newUser": "Herrega Hogganaa Haaraa",
+    "newUserDescription": "Hojjetaa jiru tokko herrega seensaa uumii gahee Hogganaa Waliigalaa yookaan Hogganaa Kutaa Hojii kennaaf.",
     "noUsers": "Fayyadamaan hin argamne.",
     "noSuspendedUsers": "Herregni dhaabbate hin jiru.",
     "columns": {
@@ -787,11 +788,21 @@
       "role": "Gahee",
       "selectRole": "Gahee filadhu",
       "linkEmployee": "Hojjetaa waliin walqabsiisi",
-      "selectEmployee": "Hojjetaan walqabate hin jiru",
+      "selectEmployee": "Hojjetaa filadhu",
+      "noEmployeesAvailable": "Hojjetaan filatamuu danda'u hin jiru. Hojjettoota hojii irra jiran fi hojii jalqabsiifamaa jiran hundi herrega qabu.",
+      "accountSettings": "Qindaa'ina Herregaa",
+      "derivedUsername": "Maqaan fayyadamaa ofumaan ID hojjetaatii (qubee xixiqqaatiin) ramadama — jijjiiruun hin danda'amu.",
+      "roleManager": "Hogganaa Waliigalaa",
+      "roleManagerDesc": "Hogganaa dhaabbata guutuu. Hogganaan Waliigalaa tokko qofa yeroo tokkotti hojii irra ta'uu danda'a.",
+      "roleDeptManager": "Hogganaa Kutaa Hojii",
+      "roleDeptManagerDesc": "Kutaa hojii tokko hogganaa. Kutaa hojii tokkotti Hogganaan Kutaa Hojii tokko qofa hayyamama.",
+      "selectDepartment": "Kutaa hojii filadhu",
       "createAccount": "Herrega uumi",
       "creating": "Uumaa jira…",
       "saveChanges": "Jijjiirama olkaa'i",
-      "saving": "Olkaa'amaa jira…"
+      "saving": "Olkaa'amaa jira…",
+      "credentialsBanner": "Odeeffannoo seensaa kana amma olkaa'i — jechi icciitii yeroo fuula kana gadhiistee boodana argamuun hin danda'amu. Fayyadamaan yeroo jalqabaa seenu jecha icciitii isaa jijjiiruun isarra eegama.",
+      "credentialsDone": "Xumurame — gara Fayyadamtoota deebi'i"
     },
     "actions": {
       "edit": "Gulaali",
