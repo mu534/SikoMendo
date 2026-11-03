@@ -14,7 +14,6 @@ import { uploadToCloudinary } from "@/lib/cloudinary";
 import { assertSingleGeneralManager, assertSingleManagerPerDepartment, assertPositionInDepartment } from "@/lib/employee-access";
 import { generateNextEmployeeId } from "@/features/employees/queries";
 import { getActiveGeneralManager } from "./queries";
-import { normalizeAnyPhone } from "@/features/employees/schemas";
 import type { Gender, MaritalStatus, EmploymentType } from "@prisma/client";
 
 function getPhotoFile(formData: FormData): File | null {
