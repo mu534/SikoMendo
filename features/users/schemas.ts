@@ -95,7 +95,7 @@ const managerEmployeeBaseSchema = z.object({
       .refine((d) => d === null || d <= new Date(), "Date of birth cannot be in the future")
       .refine(
         (d) => d === null || isOldEnoughToRegister(d),
-        "Employee must be older than 20 years"
+        "The manager must be older than 20 years."
       )
   ),
   maritalStatus: z.preprocess(
@@ -117,10 +117,6 @@ const managerEmployeeBaseSchema = z.object({
     z.enum(["PERMANENT", "CONTRACT", "TEMPORARY", "PROBATION", "INTERNSHIP"], {
       error: "Employment type is required",
     })
-  ),
-  positionId: z.preprocess(
-    (v) => (v ? String(v).trim() : ""),
-    z.string().min(1, "Position is required")
   ),
 });
 

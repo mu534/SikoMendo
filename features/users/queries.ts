@@ -124,14 +124,25 @@ export async function getEmployeesWithoutAccount() {
 }
 
 /**
- * Returns all active departments, ordered alphabetically by name.
+ * Returns active departments that do not already have an active Department Manager.
  *
- * Used by the new-user page to populate the department selector when creating
- * a DEPT_MANAGER account.
+ * A department is considered "available" when:
+ *   - it is active (isActive: true), AND
+ *   - it has no managerId set, OR the linked manager employee is archived
+ *     (deletedAt IS NOT NULL — meaning the DM record has been soft-deleted).
+ *
+ * This prevents assigning a second active Department Manager to the same
+ * department when creating a new DEPT_MANAGER account.
  */
 export async function getActiveDepartments() {
   return prisma.department.findMany({
-    where:   { isActive: true },
+    where: {
+      isActive: true,
+      OR: [
+        { managerId: null },
+        { manager: { deletedAt: { not: null } } },
+      ],
+    },
     select:  { id: true, name: true },
     orderBy: { name: "asc" },
   });

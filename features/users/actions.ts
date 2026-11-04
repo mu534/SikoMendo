@@ -11,7 +11,7 @@ import { generateTempPassword } from "@/lib/credentials";
 import { createNotification } from "@/lib/notifications";
 import { generateUsernameFromName } from "@/lib/username-utils";
 import { uploadToCloudinary } from "@/lib/cloudinary";
-import { assertSingleGeneralManager, assertSingleManagerPerDepartment, assertPositionInDepartment } from "@/lib/employee-access";
+import { assertSingleGeneralManager, assertSingleManagerPerDepartment } from "@/lib/employee-access";
 import { generateNextEmployeeId } from "@/features/employees/queries";
 import { getActiveGeneralManager } from "./queries";
 import type { Gender, MaritalStatus, EmploymentType } from "@prisma/client";
@@ -564,7 +564,6 @@ export async function createManagerWithEmployee(
       maritalStatus:  formData.get("maritalStatus"),
       hireDate:       formData.get("hireDate"),
       employmentType: formData.get("employmentType"),
-      positionId:     formData.get("positionId"),
       departmentId:   formData.get("departmentId") || undefined,
     });
     if (!parsed.success) {
@@ -583,8 +582,6 @@ export async function createManagerWithEmployee(
         throw new Error("A department must be selected when creating a Department Manager.");
       }
       await assertSingleManagerPerDepartment(departmentId);
-      // Validate that the chosen position belongs to the selected department
-      await assertPositionInDepartment(data.positionId, departmentId);
     }
 
     // ── 3. For DEPT_MANAGER: resolve General Manager's employee ID ────────────
@@ -617,23 +614,14 @@ export async function createManagerWithEmployee(
       .filter(Boolean)
       .join(" ");
 
-    // ── 6. Prisma transaction: Employee + EmploymentHistory + OnboardingRecord ─
+    // ── 6. Prisma transaction: Employee + OnboardingRecord ─────────────────────
     //
-    // For the General Manager, EmploymentHistory requires a non-null departmentId.
-    // We look up the position's owning department to satisfy that constraint.
+    // positionId is not collected for managers — they bypass the normal
+    // onboarding workflow.  EmploymentHistory requires a non-null positionId so
+    // that row is intentionally skipped here.
     const employee = await prisma.$transaction(async (tx) => {
-      // Resolve the position's department for EmploymentHistory (always needed)
-      const posRow = await tx.position.findUnique({
-        where:  { id: data.positionId },
-        select: { departmentId: true },
-      });
-      if (!posRow) throw new Error("The selected position does not exist.");
-
       // The effective department for the Employee row
       const empDepartmentId = managerType === "DEPT_MANAGER" ? (departmentId ?? null) : null;
-      // The department ID used for the EmploymentHistory row (must be non-null)
-      const histDepartmentId =
-        managerType === "DEPT_MANAGER" ? (departmentId as string) : posRow.departmentId;
 
       const created = await tx.employee.create({
         data: {
@@ -651,23 +639,8 @@ export async function createManagerWithEmployee(
           // Managers start ACTIVE — they are not going through a normal onboarding checklist
           employmentStatus: "ACTIVE",
           departmentId:   empDepartmentId,
-          positionId:     data.positionId,
           // GM has no reporting manager; DM reports to the GM
           managerId:      generalManagerEmployeeId,
-        },
-      });
-
-      await tx.employmentHistory.create({
-        data: {
-          employeeId:     created.id,
-          departmentId:   histDepartmentId,
-          positionId:     data.positionId,
-          employmentType: data.employmentType as EmploymentType,
-          effectiveDate:  data.hireDate ?? new Date(),
-          changeReason:
-            managerType === "MANAGER"
-              ? "Initial hire as General Manager"
-              : "Initial hire as Department Manager",
         },
       });
 
