@@ -2,44 +2,100 @@
 
 import { useActionState, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Search, ShieldAlert, Copy } from "lucide-react";
-import { createManagerAccount } from "./actions";
+import { Search, ShieldAlert, Copy, Info, AlertTriangle } from "lucide-react";
+import { createManagerAccount, createManagerWithEmployee } from "./actions";
 import { Label, FieldGroup, Select } from "@/components/ui/field";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import type { getEmployeesWithoutAccount, getActiveDepartments } from "./queries";
+import type { listActivePositions } from "@/features/positions/queries";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type Employee = Awaited<ReturnType<typeof getEmployeesWithoutAccount>>[number];
 type Department = Awaited<ReturnType<typeof getActiveDepartments>>[number];
+type Position = Awaited<ReturnType<typeof listActivePositions>>[number];
 
 type Props = {
   employees: Awaited<ReturnType<typeof getEmployeesWithoutAccount>>;
   departments: Awaited<ReturnType<typeof getActiveDepartments>>;
+  positions: Position[];
+  hasGeneralManager: boolean;
 };
+
+// ── Input component (simple wrapper matching project style) ───────────────────
+
+function Input({
+  id,
+  name,
+  type = "text",
+  required,
+  value,
+  onChange,
+  placeholder,
+  className,
+}: {
+  id?: string;
+  name: string;
+  type?: string;
+  required?: boolean;
+  value?: string;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  return (
+    <input
+      id={id}
+      name={name}
+      type={type}
+      required={required}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      className={`w-full rounded-lg border border-ink-900/15 bg-white px-3.5 py-2.5 text-sm text-ink-900 placeholder:text-ink-900/35 focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-600/20 ${className ?? ""}`}
+    />
+  );
+}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function CreateManagerAccountForm({ employees, departments }: Props) {
+export function CreateManagerAccountForm({
+  employees,
+  departments,
+  positions,
+  hasGeneralManager,
+}: Props) {
   const t = useTranslations("users");
   const tC = useTranslations("common");
 
-  const [state, formAction, isPending] = useActionState(createManagerAccount, null);
+  // Derived mode flag
+  const hasEmployees = employees.length > 0;
 
-  // Employee picker state
+  // Two separate action states — one for each mode
+  const [stateA, formActionA, isPendingA] = useActionState(createManagerAccount, null);
+  const [stateB, formActionB, isPendingB] = useActionState(createManagerWithEmployee, null);
+
+  // Select which action/state is active based on mode
+  const state = hasEmployees ? stateA : stateB;
+  const formAction = hasEmployees ? formActionA : formActionB;
+  const isPending = hasEmployees ? isPendingA : isPendingB;
+
+  // ── Mode A: Employee picker state ──────────────────────────────────────────
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
 
-  // Role state
+  // ── Shared role / department state ─────────────────────────────────────────
+  // Mode A uses "role" field; Mode B uses "managerType" field.
+  // We track the same UI state for both via a single variable.
   const [role, setRole] = useState<"MANAGER" | "DEPT_MANAGER">("MANAGER");
   const [departmentId, setDepartmentId] = useState("");
 
-  // Copy state
+  // ── Copy state ─────────────────────────────────────────────────────────────
   const [copied, setCopied] = useState<"username" | "password" | null>(null);
 
-  // Filtered employee list
+  // ── Mode A: Filtered employee list ────────────────────────────────────────
   const filtered =
     query.trim() === ""
       ? employees.slice(0, 12)
@@ -49,6 +105,14 @@ export function CreateManagerAccountForm({ employees, departments }: Props) {
             return full.includes(query.toLowerCase());
           })
           .slice(0, 12);
+
+  // ── Mode B: Filtered positions list ───────────────────────────────────────
+  const filteredPositions =
+    role === "MANAGER"
+      ? positions
+      : departmentId
+      ? positions.filter((p) => p.departmentId === departmentId)
+      : [];
 
   async function copyToClipboard(value: string, field: "username" | "password") {
     try {
@@ -65,7 +129,7 @@ export function CreateManagerAccountForm({ employees, departments }: Props) {
     if (next === "MANAGER") setDepartmentId("");
   }
 
-  // ── Post-submission credential reveal ──────────────────────────────────────
+  // ── Post-submission credential reveal (same for both modes) ────────────────
   if (state?.success === true) {
     const { username, password } = state.data;
     return (
@@ -128,6 +192,285 @@ export function CreateManagerAccountForm({ employees, departments }: Props) {
 
   const error = state?.success === false ? state.error.message : null;
 
+  // ── Account Settings section (shared between Mode A and Mode B) ────────────
+  // Mode A submits `role`; Mode B submits `managerType`.
+  const roleFieldName = hasEmployees ? "role" : "managerType";
+
+  function renderAccountSettings(opts: { showUsernameInput: boolean }) {
+    const isManagerDisabled = !hasEmployees && hasGeneralManager;
+    const showNoDeptManagerWarning =
+      !hasEmployees && role === "DEPT_MANAGER" && !hasGeneralManager;
+
+    return (
+      <div className="space-y-4 border-t border-ink-900/8 pt-5">
+        <h3 className="font-display text-base font-semibold text-ink-900">
+          {t("form.accountSettings")}
+        </h3>
+
+        {/* Username display */}
+        <FieldGroup>
+          <Label>{t("form.username")}</Label>
+          {opts.showUsernameInput ? (
+            <>
+              <div className="w-full rounded-lg border border-ink-900/15 bg-sand-100 px-3.5 py-2.5 text-sm text-ink-900/60 cursor-default font-mono">
+                {selectedEmployee?.employeeId.toLowerCase() ?? ""}
+              </div>
+              <p className="text-xs text-ink-900/50">{t("form.derivedUsername")}</p>
+            </>
+          ) : (
+            <p className="text-sm text-ink-900/60 italic">
+              {t("form.usernameWillBeAssigned")}
+            </p>
+          )}
+        </FieldGroup>
+
+        {/* Role radio cards */}
+        <FieldGroup>
+          <Label>{t("form.role")}</Label>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {/* MANAGER card */}
+            <div
+              className={`relative flex flex-col gap-1 rounded-xl border p-4 transition-colors ${
+                isManagerDisabled
+                  ? "opacity-50 cursor-not-allowed border-ink-900/15 bg-sand-50"
+                  : role === "MANAGER"
+                  ? "cursor-pointer border-brand-500 bg-brand-50"
+                  : "cursor-pointer border-ink-900/15 bg-white hover:bg-sand-50"
+              }`}
+            >
+              <label className={isManagerDisabled ? "cursor-not-allowed" : "cursor-pointer"}>
+                <input
+                  type="radio"
+                  name={roleFieldName}
+                  value="MANAGER"
+                  checked={role === "MANAGER"}
+                  onChange={() => !isManagerDisabled && handleRoleChange("MANAGER")}
+                  disabled={isManagerDisabled}
+                  className="sr-only"
+                />
+                <span className="font-medium text-sm text-ink-900">
+                  {tC("roles.MANAGER")}
+                </span>
+                <span className="block text-xs text-ink-900/55 mt-0.5">
+                  {t("form.roleManagerDesc")}
+                </span>
+              </label>
+              {isManagerDisabled && (
+                <p className="mt-1 text-xs text-amber-700">{t("form.gmAlreadyExists")}</p>
+              )}
+            </div>
+
+            {/* DEPT_MANAGER card */}
+            <label
+              className={`relative flex cursor-pointer flex-col gap-1 rounded-xl border p-4 transition-colors ${
+                role === "DEPT_MANAGER"
+                  ? "border-brand-500 bg-brand-50"
+                  : "border-ink-900/15 bg-white hover:bg-sand-50"
+              }`}
+            >
+              <input
+                type="radio"
+                name={roleFieldName}
+                value="DEPT_MANAGER"
+                checked={role === "DEPT_MANAGER"}
+                onChange={() => handleRoleChange("DEPT_MANAGER")}
+                className="sr-only"
+              />
+              <span className="font-medium text-sm text-ink-900">
+                {tC("roles.DEPT_MANAGER")}
+              </span>
+              <span className="text-xs text-ink-900/55">
+                {t("form.roleDeptManagerDesc")}
+              </span>
+            </label>
+          </div>
+        </FieldGroup>
+
+        {/* noDeptManagerNeedsGM warning */}
+        {showNoDeptManagerWarning && (
+          <div
+            role="alert"
+            className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3"
+          >
+            <AlertTriangle
+              className="mt-0.5 h-4 w-4 shrink-0 text-amber-600"
+              aria-hidden="true"
+            />
+            <p className="text-sm text-amber-800">{t("form.noDeptManagerNeedsGM")}</p>
+          </div>
+        )}
+
+        {/* Department select — shown only for DEPT_MANAGER */}
+        {role === "DEPT_MANAGER" && (
+          <FieldGroup>
+            <Label htmlFor="departmentId">{t("form.selectDepartment")}</Label>
+            <Select
+              id="departmentId"
+              name="departmentId"
+              value={departmentId}
+              onChange={(e) => setDepartmentId(e.target.value)}
+              required={role === "DEPT_MANAGER"}
+            >
+              <option value="">{t("form.selectDepartment")}</option>
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </Select>
+          </FieldGroup>
+        )}
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // MODE B — no employees exist yet: render personal + employment fields
+  // ─────────────────────────────────────────────────────────────────────────
+  if (!hasEmployees) {
+    const showNoDeptManagerWarning = role === "DEPT_MANAGER" && !hasGeneralManager;
+    const submitDisabled = isPending || showNoDeptManagerWarning;
+
+    return (
+      <Card className="max-w-3xl p-6">
+        {/* Info banner */}
+        <div className="mb-6 flex items-start gap-2 rounded-xl border border-brand-400/30 bg-brand-50 px-4 py-3">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" aria-hidden="true" />
+          <p className="text-sm text-brand-900/80">{t("form.newManagerInfo")}</p>
+        </div>
+
+        <form action={formAction} className="space-y-6">
+          {/* ── Section: Personal Information ────────────────────────── */}
+          <div className="space-y-4">
+            <h3 className="font-display text-base font-semibold text-ink-900">
+              {t("form.personalInfo")}
+            </h3>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <FieldGroup>
+                <Label htmlFor="firstName">{t("form.firstName")}</Label>
+                <Input id="firstName" name="firstName" required />
+              </FieldGroup>
+              <FieldGroup>
+                <Label htmlFor="middleName">{t("form.middleName")}</Label>
+                <Input id="middleName" name="middleName" required />
+              </FieldGroup>
+              <FieldGroup>
+                <Label htmlFor="lastName">{t("form.lastName")}</Label>
+                <Input id="lastName" name="lastName" required />
+              </FieldGroup>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FieldGroup>
+                <Label htmlFor="gender">{t("form.gender")}</Label>
+                <Select id="gender" name="gender" required defaultValue="">
+                  <option value="" disabled>{t("form.selectGender")}</option>
+                  <option value="MALE">{t("form.genderMale")}</option>
+                  <option value="FEMALE">{t("form.genderFemale")}</option>
+                </Select>
+              </FieldGroup>
+
+              <FieldGroup>
+                <Label htmlFor="dateOfBirth">{t("form.dateOfBirth")}</Label>
+                <Input id="dateOfBirth" name="dateOfBirth" type="date" required />
+              </FieldGroup>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FieldGroup>
+                <Label htmlFor="maritalStatus">{t("form.maritalStatus")}</Label>
+                <Select id="maritalStatus" name="maritalStatus" required defaultValue="">
+                  <option value="" disabled>{t("form.selectMaritalStatus")}</option>
+                  <option value="SINGLE">{t("form.maritalSingle")}</option>
+                  <option value="MARRIED">{t("form.maritalMarried")}</option>
+                  <option value="DIVORCED">{t("form.maritalDivorced")}</option>
+                  <option value="WIDOWED">{t("form.maritalWidowed")}</option>
+                  <option value="OTHER">{t("form.maritalOther")}</option>
+                </Select>
+              </FieldGroup>
+
+              <FieldGroup>
+                <Label htmlFor="phone">{t("form.phone")}</Label>
+                <Input id="phone" name="phone" type="text" required />
+              </FieldGroup>
+            </div>
+          </div>
+
+          {/* ── Section: Employment Details ──────────────────────────── */}
+          <div className="space-y-4 border-t border-ink-900/8 pt-5">
+            <h3 className="font-display text-base font-semibold text-ink-900">
+              {t("form.employmentDetails")}
+            </h3>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FieldGroup>
+                <Label htmlFor="employmentType">{t("form.employmentType")}</Label>
+                <Select id="employmentType" name="employmentType" required defaultValue="">
+                  <option value="" disabled>{t("form.selectEmploymentType")}</option>
+                  <option value="PERMANENT">Permanent</option>
+                  <option value="CONTRACT">Contract</option>
+                  <option value="TEMPORARY">Temporary</option>
+                  <option value="PROBATION">Probation</option>
+                  <option value="INTERNSHIP">Internship</option>
+                </Select>
+              </FieldGroup>
+
+              <FieldGroup>
+                <Label htmlFor="hireDate">{t("form.hireDate")}</Label>
+                <Input id="hireDate" name="hireDate" type="date" required />
+              </FieldGroup>
+            </div>
+
+            <FieldGroup>
+              <Label htmlFor="positionId">{t("form.position")}</Label>
+              {role === "DEPT_MANAGER" && !departmentId ? (
+                <div className="w-full rounded-lg border border-ink-900/15 bg-sand-100 px-3.5 py-2.5 text-sm text-ink-900/45 cursor-default">
+                  {t("form.selectDepartmentFirst")}
+                </div>
+              ) : (
+                <Select id="positionId" name="positionId" required defaultValue="">
+                  <option value="" disabled>{t("form.selectPosition")}</option>
+                  {filteredPositions.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </FieldGroup>
+          </div>
+
+          {/* ── Section: Account Settings ────────────────────────────── */}
+          {renderAccountSettings({ showUsernameInput: false })}
+
+          {/* ── Error banner ─────────────────────────────────────────── */}
+          {error && (
+            <div
+              role="alert"
+              className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700"
+            >
+              {error}
+            </div>
+          )}
+
+          {/* ── Action buttons ────────────────────────────────────────── */}
+          <div className="flex items-center gap-3 pt-1">
+            <Button type="submit" disabled={submitDisabled}>
+              {isPending ? t("form.creating") : t("form.createAccount")}
+            </Button>
+            <ButtonLink href="/users" variant="ghost">
+              {tC("cancel")}
+            </ButtonLink>
+          </div>
+        </form>
+      </Card>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // MODE A — employees exist: original employee picker flow (UNCHANGED)
+  // ─────────────────────────────────────────────────────────────────────────
   return (
     <Card className="max-w-3xl p-6">
       <form action={formAction} className="space-y-6">
