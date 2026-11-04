@@ -10,6 +10,8 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { EditUserForm } from "./EditUserForm";
 import { AccountSecurityPanel } from "@/features/users/account-security-panel";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
+import { deleteUserAccount } from "@/features/users/actions";
 
 export default async function EditUserPage({
   params,
@@ -89,6 +91,28 @@ export default async function EditUserPage({
           isSuspended={user.banned}
           mustChangePassword={user.mustChangePassword}
         />
+      )}
+
+      {!isSelf && user.role !== "ADMIN" && (
+        <Card className="border-red-200 p-6">
+          <h3 className="mb-2 font-semibold text-red-700">{t("dangerZone")}</h3>
+          <p className="mb-4 text-sm text-ink-900/60">{t("deleteWarning")}</p>
+          <form
+            action={async () => {
+              "use server";
+              await deleteUserAccount(user.id);
+            }}
+          >
+            <ConfirmSubmitButton
+              variant="danger"
+              size="sm"
+              confirmTitle="Delete account?"
+              confirmMessage={`Delete the account for ${user.name}? This cannot be undone. Their employee HR record will be preserved.`}
+            >
+              {t("actions.delete")}
+            </ConfirmSubmitButton>
+          </form>
+        </Card>
       )}
     </div>
   );

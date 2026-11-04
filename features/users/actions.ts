@@ -371,6 +371,102 @@ export async function resetUserPassword(userId: string): Promise<ActionResult<{ 
   });
 }
 
+/**
+ * Permanently deletes a non-ADMIN user account.
+ *
+ * Safety guarantees (all enforced server-side, independent of UI state):
+ * - ADMIN accounts can never be deleted.
+ * - The currently authenticated user cannot delete their own account.
+ * - The linked Employee record is preserved — only the User row and its
+ *   cascades (Session, Account, Notification) are removed.
+ * - Manager references are cleaned up before deletion so no orphaned
+ *   managerId or Department.managerId pointers are left behind.
+ * - An AuditLog entry is written BEFORE the delete so the acting user's
+ *   context is captured even though AuditLog.userId has onDelete: SetNull.
+ */
+export async function deleteUserAccount(
+  userId: string,
+): Promise<ActionResult<{ id: string }>> {
+  const session = await getServerSession();
+
+  return withPermission(session, "MANAGE_USERS", async () => {
+    // ── Load the target user with its linked employee ──────────────────────
+    const target = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id:       true,
+        role:     true,
+        name:     true,
+        username: true,
+        employee: {
+          select: {
+            id:           true,
+            employeeId:   true,
+            directReports: { select: { id: true } },
+          },
+        },
+      },
+    });
+
+    if (!target) throw new Error("User not found.");
+
+    // ── SERVER-SIDE ADMIN BLOCK — never bypass this check ─────────────────
+    if (target.role === "ADMIN") {
+      throw new Error("Administrator accounts cannot be deleted.");
+    }
+
+    // ── Self-delete block ──────────────────────────────────────────────────
+    if (session?.user.id === userId) {
+      throw new Error("You cannot delete your own account.");
+    }
+
+    // ── Clean up manager references tied to this user's employee ──────────
+    if (target.employee) {
+      const empId = target.employee.id;
+
+      // Nullify managerId for all employees who reported to this one
+      await prisma.employee.updateMany({
+        where: { managerId: empId },
+        data:  { managerId: null },
+      });
+
+      // Clear Department.managerId if this employee was a dept manager
+      await prisma.department.updateMany({
+        where: { managerId: empId },
+        data:  { managerId: null },
+      });
+
+      // Unlink the User from the Employee (Employee.userId → null)
+      // This must happen BEFORE prisma.user.delete so the FK is cleared first.
+      await prisma.employee.update({
+        where: { id: empId },
+        data:  { userId: null },
+      });
+    }
+
+    // ── Audit log BEFORE delete — preserves acting user context ───────────
+    await logAudit(
+      "DELETE",
+      userId,
+      {
+        name:              target.name,
+        username:          target.username,
+        role:              target.role,
+        linkedEmployeeId:  target.employee?.employeeId ?? null,
+      },
+      session?.user.id
+    );
+
+    // ── Hard delete the User row ───────────────────────────────────────────
+    // Prisma cascades handle: Session, Account, Notification.
+    // AuditLog.userId and all other User FKs have onDelete: SetNull.
+    await prisma.user.delete({ where: { id: userId } });
+
+    revalidatePath("/users");
+    return { id: userId };
+  });
+}
+
 /** Forces a user to set a new password on their next sign-in, without changing their current one. */
 export async function forcePasswordChangeForUser(userId: string): Promise<ActionResult<{ id: string }>> {
   const session = await getServerSession();

@@ -3,7 +3,7 @@ import { Search, Users as UsersIcon } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { requirePermission } from "@/lib/session";
 import { listUsers } from "@/features/users/queries";
-import { suspendUserAccount, reactivateUserAccount } from "@/features/users/actions";
+import { suspendUserAccount, reactivateUserAccount, deleteUserAccount } from "@/features/users/actions";
 import { roleLabel, ROLES } from "@/lib/permissions";
 import { parsePageParam, parseStringParam, formatDate } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
@@ -201,6 +201,23 @@ export default async function UsersPage({
                               </ConfirmSubmitButton>
                             </form>
                           )
+                        )}
+                        {!isSelf && user.role !== "ADMIN" && (
+                          <form
+                            action={async () => {
+                              "use server";
+                              await deleteUserAccount(user.id);
+                            }}
+                          >
+                            <ConfirmSubmitButton
+                              variant="danger"
+                              size="sm"
+                              confirmMessage={t("confirmDelete")}
+                              confirmTitle="Delete account?"
+                            >
+                              {t("actions.delete")}
+                            </ConfirmSubmitButton>
+                          </form>
                         )}
                       </div>
                     </TD>
