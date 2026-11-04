@@ -158,22 +158,4 @@ export async function getActiveGeneralManager() {
   });
 }
 
-/**
- * Returns all active departments with their active positions, for the cascading
- * department → position selector on the new-manager form (DEPT_MANAGER mode).
- */
-export async function getDepartmentsWithPositions() {
-  return prisma.department.findMany({
-    where:   { isActive: true },
-    select: {
-      id: true,
-      name: true,
-      positions: {
-        where:   { isActive: true },
-        select:  { id: true, name: true },
-        orderBy: { name: "asc" },
-      },
-    },
-    orderBy: { name: "asc" },
-  });
-}
+

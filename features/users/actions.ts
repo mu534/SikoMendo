@@ -682,6 +682,14 @@ export async function createManagerWithEmployee(
     });
 
     // ── 7. Create auth account (outside transaction — compensate on failure) ──
+    //
+    // auth.api.createUser() uses its own DB connection and cannot participate
+    // in a Prisma $transaction. The post-auth Prisma writes ARE wrapped in a
+    // $transaction so that a partial failure (e.g. user.update succeeds but
+    // employee.update fails) still leaves the DB consistent. If ANY post-auth
+    // write fails the transaction is automatically rolled back and the catch
+    // block then compensates by deleting both the employee row and the
+    // partially-created User row (logging a warning if either deletion fails).
     let createdUser: { id: string } | null = null;
     try {
       const { user } = await auth.api.createUser({
@@ -690,36 +698,65 @@ export async function createManagerWithEmployee(
       });
       createdUser = user;
 
-      // Set username, role, and force a password change on first sign-in
-      await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          username,
-          displayUsername:    username,
-          role:               managerType as import("@prisma/client").Role,
-          mustChangePassword: true,
-        },
-      });
-
-      // Link the user to the employee record
-      await prisma.employee.update({
-        where: { id: employee.id },
-        data:  { userId: user.id },
-      });
-
-      // For DEPT_MANAGER: set the department's manager pointer
-      if (managerType === "DEPT_MANAGER" && departmentId) {
-        await prisma.department.update({
-          where: { id: departmentId },
-          data:  { managerId: employee.id },
+      // All post-auth Prisma writes run inside a single transaction so that
+      // a failure in any one of them rolls back the others atomically.
+      await prisma.$transaction(async (tx) => {
+        // Set username, role, and force a password change on first sign-in
+        await tx.user.update({
+          where: { id: user.id },
+          data: {
+            username,
+            displayUsername:    username,
+            role:               managerType as import("@prisma/client").Role,
+            mustChangePassword: true,
+          },
         });
-      }
+
+        // Link the user to the employee record
+        await tx.employee.update({
+          where: { id: employee.id },
+          data:  { userId: user.id },
+        });
+
+        // For DEPT_MANAGER: set the department's manager pointer
+        // Placed inside the same transaction so a failure here never leaves
+        // the DEPT_MANAGER user/employee rows without the Department.managerId
+        // pointer set — the two sources of truth stay in sync or both fail.
+        if (managerType === "DEPT_MANAGER" && departmentId) {
+          await tx.department.update({
+            where: { id: departmentId },
+            data:  { managerId: employee.id },
+          });
+        }
+      });
     } catch (err) {
-      // Compensating rollback: remove the employee row to avoid orphaned records
-      await prisma.employee.delete({ where: { id: employee.id } }).catch(() => {});
-      // Remove the user row if it was partially created
+      // Compensating rollback: remove the employee row to avoid orphaned records.
+      // The $transaction above means that if the post-auth writes failed, the
+      // Prisma state is already clean — we only need to remove the employee row
+      // that was committed before auth.api.createUser was called.
+      const empDeleteError = await prisma.employee
+        .delete({ where: { id: employee.id } })
+        .catch((e: unknown) => e);
+      if (empDeleteError instanceof Error) {
+        console.error(
+          `[createManagerWithEmployee] Compensating employee delete failed for ${employee.id}:`,
+          empDeleteError.message
+        );
+      }
+
+      // Remove the User row if better-auth already created it.
+      // Log a warning if the deletion fails so the partial row is visible
+      // in server logs rather than silently surviving.
       if (createdUser) {
-        await prisma.user.delete({ where: { id: createdUser.id } }).catch(() => {});
+        const userDeleteError = await prisma.user
+          .delete({ where: { id: createdUser.id } })
+          .catch((e: unknown) => e);
+        if (userDeleteError instanceof Error) {
+          console.error(
+            `[createManagerWithEmployee] Compensating user delete failed for ${createdUser.id}:`,
+            userDeleteError.message
+          );
+        }
       }
       throw err;
     }
