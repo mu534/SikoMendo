@@ -766,8 +766,8 @@
     "titleSuspended": "Herrega dhaabbate",
     "description": "Herrega fayyadamtootaa fi hayyama seensaa sirnaa bulchi.",
     "descriptionSuspended": "Herrega dhaabbatee seenuu hin dandeenye.",
-    "newUser": "Herrega Hogganaa Haaraa",
-    "newUserDescription": "Hojjetaa jiru tokko herrega seensaa uumii gahee Hogganaa Waliigalaa yookaan Hogganaa Kutaa Hojii kennaaf.",
+    "newUser": "Hogganaa Haaraa",
+    "newUserDescription": "Hogganaa Waliigalaa yookaan Hogganaa Kutaa Hojii haaraa uumi — galmee hojjetaa fi herrega seensaa isaanii tarkaanfii tokkotti qindaa'u.",
     "noUsers": "Fayyadamaan hin argamne.",
     "noSuspendedUsers": "Herregni dhaabbate hin jiru.",
     "columns": {
@@ -832,18 +832,24 @@
       "selectDepartmentFirst": "Jalqaba kutaa hojii filadhu",
       "usernameWillBeAssigned": "Maqaan fayyadamaa gara ID hojjetaa ramadameen (fkn emp-0001) booda qindaa'a.",
       "gmAlreadyExists": "Hogganaan Waliigalaa tokko duraanis jira. Hogganaan Waliigalaa tokko qofa hayyamama.",
-      "noDeptManagerNeedsGM": "Hogganaan Kutaa Hojii ramadamuuf dura Hogganaan Waliigalaa uumamuu qaba."
+      "noDeptManagerNeedsGM": "Hogganaan Kutaa Hojii ramadamuuf dura Hogganaan Waliigalaa uumamuu qaba.",
+      "dobTooYoung": "Hogganaan waggaa 20 ol ta'uu qaba."
     },
     "actions": {
       "edit": "Gulaali",
       "suspend": "Dhaabi",
       "reactivate": "Deebisii hojii irra oolchi",
       "resetPassword": "Jecha icciitii haaromsi",
-      "view": "Ilaali"
+      "view": "Ilaali",
+      "delete": "Herrega haqi"
     },
     "confirmSuspend": "Herrega kana dhaabuu? Fayyadamaan seenuu hin danda'u.",
     "confirmReactivate": "Herrega kana deebisanii hojii irra oolchuu? Fayyadamaan irra deebi'ee seenuu ni danda'a.",
-    "confirmResetPassword": "Jecha icciitii fayyadamaa kana haaromsuu? Jechi icciitii yeroo ni uumama."
+    "confirmResetPassword": "Jecha icciitii fayyadamaa kana haaromsuu? Jechi icciitii yeroo ni uumama.",
+    "confirmDelete": "Herrega kana haquu? Kun deebifamuu hin danda'u. Galmeen HR hojjetaa ni eegama.",
+    "deleteSuccess": "Herregni milkaa'inaan haqame.",
+    "dangerZone": "Naannoo Balaaf Saaxilame",
+    "deleteWarning": "Herrega kana haqu herrega seensaa fayyadamaa kana ni haqa. Galmeen hojjetaa, argamni hojii, seenaan hayyamaa fi sanadoonni ni eegamu."
   },
   "reports": {
     "title": "Gabaasa Qopheessi",

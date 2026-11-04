@@ -2,16 +2,14 @@ import { getTranslations } from "next-intl/server";
 import { requirePermission } from "@/lib/session";
 import { CreateManagerAccountForm } from "@/features/users/create-user-form";
 import { getEmployeesWithoutAccount, getActiveDepartments, getActiveGeneralManager } from "@/features/users/queries";
-import { listActivePositions } from "@/features/positions/queries";
 
 export default async function NewUserPage() {
   await requirePermission("MANAGE_USERS");
   const t = await getTranslations("users");
 
-  const [employees, departments, positions, generalManager] = await Promise.all([
+  const [employees, departments, generalManager] = await Promise.all([
     getEmployeesWithoutAccount(),
     getActiveDepartments(),
-    listActivePositions(),
     getActiveGeneralManager(),
   ]);
 
@@ -24,7 +22,6 @@ export default async function NewUserPage() {
       <CreateManagerAccountForm
         employees={employees}
         departments={departments}
-        positions={positions}
         hasGeneralManager={generalManager !== null}
       />
     </div>

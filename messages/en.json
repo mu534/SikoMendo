@@ -776,8 +776,8 @@
     "titleSuspended": "Suspended Accounts",
     "description": "Manage system user accounts and access.",
     "descriptionSuspended": "Accounts that have been suspended and cannot sign in.",
-    "newUser": "New Manager Account",
-    "newUserDescription": "Create a login account for an existing employee and assign them the General Manager or Department Manager role.",
+    "newUser": "New Manager",
+    "newUserDescription": "Create a new General Manager or Department Manager — their employee record and login account are set up together in one step.",
     "noUsers": "No users found.",
     "noSuspendedUsers": "No suspended accounts.",
     "columns": {
@@ -842,18 +842,24 @@
       "selectDepartmentFirst": "Select a department first",
       "usernameWillBeAssigned": "Username will be set to the assigned Employee ID (e.g. emp-0001) after creation.",
       "gmAlreadyExists": "A General Manager already exists. Only one General Manager is permitted.",
-      "noDeptManagerNeedsGM": "A General Manager must be created before a Department Manager can be assigned."
+      "noDeptManagerNeedsGM": "A General Manager must be created before a Department Manager can be assigned.",
+      "dobTooYoung": "The manager must be older than 20 years."
     },
     "actions": {
       "edit": "Edit",
       "suspend": "Suspend",
       "reactivate": "Reactivate",
       "resetPassword": "Reset password",
-      "view": "View"
+      "view": "View",
+      "delete": "Delete account"
     },
     "confirmSuspend": "Suspend this account? The user will not be able to sign in.",
     "confirmReactivate": "Reactivate this account? The user will be able to sign in again.",
-    "confirmResetPassword": "Reset this user's password? A temporary password will be generated."
+    "confirmResetPassword": "Reset this user's password? A temporary password will be generated.",
+    "confirmDelete": "Delete this account? This cannot be undone. The employee's HR record will be preserved.",
+    "deleteSuccess": "Account deleted successfully.",
+    "dangerZone": "Danger Zone",
+    "deleteWarning": "Deleting this account will remove the user's login access. Their employee record, attendance, leave history, and documents will be preserved."
   },
 
   "reports": {

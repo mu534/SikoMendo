@@ -7,21 +7,26 @@ import { createManagerAccount, createManagerWithEmployee } from "./actions";
 import { Label, FieldGroup, Select } from "@/components/ui/field";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { roleLabel } from "@/lib/permissions";
 import type { getEmployeesWithoutAccount, getActiveDepartments } from "./queries";
-import type { listActivePositions } from "@/features/positions/queries";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type Employee = Awaited<ReturnType<typeof getEmployeesWithoutAccount>>[number];
 type Department = Awaited<ReturnType<typeof getActiveDepartments>>[number];
-type Position = Awaited<ReturnType<typeof listActivePositions>>[number];
 
 type Props = {
   employees: Awaited<ReturnType<typeof getEmployeesWithoutAccount>>;
   departments: Awaited<ReturnType<typeof getActiveDepartments>>;
-  positions: Position[];
   hasGeneralManager: boolean;
 };
+
+// ── DOB max date: strictly older than 20 means born before today-21y ──────────
+function getMaxDobStr(): string {
+  const today = new Date();
+  const maxDob = new Date(today.getFullYear() - 21, today.getMonth(), today.getDate() - 1);
+  return maxDob.toISOString().split("T")[0];
+}
 
 // ── Input component (simple wrapper matching project style) ───────────────────
 
@@ -34,6 +39,7 @@ function Input({
   onChange,
   placeholder,
   className,
+  max,
 }: {
   id?: string;
   name: string;
@@ -43,6 +49,7 @@ function Input({
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   placeholder?: string;
   className?: string;
+  max?: string;
 }) {
   return (
     <input
@@ -53,6 +60,7 @@ function Input({
       value={value}
       onChange={onChange}
       placeholder={placeholder}
+      max={max}
       className={`w-full rounded-lg border border-ink-900/15 bg-white px-3.5 py-2.5 text-sm text-ink-900 placeholder:text-ink-900/35 focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-600/20 ${className ?? ""}`}
     />
   );
@@ -63,7 +71,6 @@ function Input({
 export function CreateManagerAccountForm({
   employees,
   departments,
-  positions,
   hasGeneralManager,
 }: Props) {
   const t = useTranslations("users");
@@ -105,14 +112,6 @@ export function CreateManagerAccountForm({
             return full.includes(query.toLowerCase());
           })
           .slice(0, 12);
-
-  // ── Mode B: Filtered positions list ───────────────────────────────────────
-  const filteredPositions =
-    role === "MANAGER"
-      ? positions
-      : departmentId
-      ? positions.filter((p) => p.departmentId === departmentId)
-      : [];
 
   async function copyToClipboard(value: string, field: "username" | "password") {
     try {
@@ -249,7 +248,7 @@ export function CreateManagerAccountForm({
                   className="sr-only"
                 />
                 <span className="font-medium text-sm text-ink-900">
-                  {tC("roles.MANAGER")}
+                  {roleLabel("MANAGER")}
                 </span>
                 <span className="block text-xs text-ink-900/55 mt-0.5">
                   {t("form.roleManagerDesc")}
@@ -277,7 +276,7 @@ export function CreateManagerAccountForm({
                 className="sr-only"
               />
               <span className="font-medium text-sm text-ink-900">
-                {tC("roles.DEPT_MANAGER")}
+                {roleLabel("DEPT_MANAGER")}
               </span>
               <span className="text-xs text-ink-900/55">
                 {t("form.roleDeptManagerDesc")}
@@ -373,7 +372,7 @@ export function CreateManagerAccountForm({
 
               <FieldGroup>
                 <Label htmlFor="dateOfBirth">{t("form.dateOfBirth")}</Label>
-                <Input id="dateOfBirth" name="dateOfBirth" type="date" required />
+                <Input id="dateOfBirth" name="dateOfBirth" type="date" required max={getMaxDobStr()} />
               </FieldGroup>
             </div>
 
@@ -422,23 +421,6 @@ export function CreateManagerAccountForm({
               </FieldGroup>
             </div>
 
-            <FieldGroup>
-              <Label htmlFor="positionId">{t("form.position")}</Label>
-              {role === "DEPT_MANAGER" && !departmentId ? (
-                <div className="w-full rounded-lg border border-ink-900/15 bg-sand-100 px-3.5 py-2.5 text-sm text-ink-900/45 cursor-default">
-                  {t("form.selectDepartmentFirst")}
-                </div>
-              ) : (
-                <Select id="positionId" name="positionId" required defaultValue="">
-                  <option value="" disabled>{t("form.selectPosition")}</option>
-                  {filteredPositions.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </Select>
-              )}
-            </FieldGroup>
           </div>
 
           {/* ── Section: Account Settings ────────────────────────────── */}
@@ -641,7 +623,7 @@ export function CreateManagerAccountForm({
                   className="sr-only"
                 />
                 <span className="font-medium text-sm text-ink-900">
-                  {tC("roles.MANAGER")}
+                  {roleLabel("MANAGER")}
                 </span>
                 <span className="text-xs text-ink-900/55">
                   {t("form.roleManagerDesc")}
@@ -665,7 +647,7 @@ export function CreateManagerAccountForm({
                   className="sr-only"
                 />
                 <span className="font-medium text-sm text-ink-900">
-                  {tC("roles.DEPT_MANAGER")}
+                  {roleLabel("DEPT_MANAGER")}
                 </span>
                 <span className="text-xs text-ink-900/55">
                   {t("form.roleDeptManagerDesc")}
