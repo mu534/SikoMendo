@@ -76,15 +76,15 @@ export function UpdateProfileForm({
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <FieldGroup>
-          <Label htmlFor="firstName">{t("personalInfo")} <span className="text-red-500">*</span></Label>
+          <Label htmlFor="firstName">{t("firstName")} <span className="text-red-500">*</span></Label>
           <Input id="firstName" name="firstName" required autoComplete="given-name" defaultValue={firstName ?? fallbackFirst ?? ""} />
         </FieldGroup>
         <FieldGroup>
-          <Label htmlFor="middleName">{t("personalInfo")} <span className="text-red-500">*</span></Label>
+          <Label htmlFor="middleName">{t("middleName")} <span className="text-red-500">*</span></Label>
           <Input id="middleName" name="middleName" required autoComplete="additional-name" defaultValue={middleName ?? fallbackMiddle} />
         </FieldGroup>
         <FieldGroup>
-          <Label htmlFor="lastName">{t("personalInfo")} <span className="text-red-500">*</span></Label>
+          <Label htmlFor="lastName">{t("lastName")} <span className="text-red-500">*</span></Label>
           <Input id="lastName" name="lastName" required autoComplete="family-name" defaultValue={lastName ?? fallbackLast} />
         </FieldGroup>
       </div>

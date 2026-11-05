@@ -12,7 +12,6 @@ import {
   FileBarChart,
   FileText,
   ShieldCheck,
-  UserCircle,
   UserX,
   SlidersHorizontal,
   DatabaseBackup,
@@ -151,6 +150,4 @@ export const NAV_ITEMS: AnyNavItem[] = [
       { href: "/settings/security",     labelKey: "nav.security",       icon: ShieldCheck,   requires: "MANAGE_SETTINGS" },
     ],
   },
-
-  { href: "/profile", labelKey: "nav.myProfile", icon: UserCircle },
 ];
