@@ -141,7 +141,7 @@ async function main() {
         email:         ADMIN.email,
         emailVerified: true,
         role:          ADMIN.role,
-        mustChangePassword: true,   // force password change on first login
+        mustChangePassword: false,  // admin keeps password as-is; only non-admin accounts created via UI get forced change
         accounts: {
           create: {
             id:         cuid(),
