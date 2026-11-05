@@ -157,11 +157,6 @@ model User {
   mustChangePassword Boolean   @default(false)
   passwordChangedAt  DateTime?
 
-  // Cloudinary public_id for the user's own profile picture.
-  // Stored separately from `image` (the URL) so old assets can be cleaned up
-  // from Cloudinary when the picture is replaced or removed.
-  imagePublicId String?
-
   // Language preference: "en" (English) or "om" (Afaan Oromoo)
   locale String @default("en")
 
