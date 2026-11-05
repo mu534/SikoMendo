@@ -10,6 +10,35 @@ export const ROLE_LABELS: Record<Role, string> = {
   EMPLOYEE:     "Employee",
 };
 
+/**
+ * The exact seeded name of the Human Resource department.
+ * Used by resolveEffectiveRoleSync / resolveEffectiveRole to decide whether
+ * a DEPT_MANAGER should be treated as an HR Officer.
+ *
+ * Must match the value in prisma/seed.ts ORG_STRUCTURE exactly.
+ */
+export const HR_DEPARTMENT_NAME = "Human Resource Department" as const;
+
+/**
+ * Pure, synchronous effective-role resolver.
+ *
+ * When a DEPT_MANAGER is assigned to the HR department they receive the same
+ * permissions as an HR Officer. All other roles (and non-HR dept managers)
+ * are returned unchanged — no DB call is needed.
+ *
+ * @param actualRole      The role stored on the User record.
+ * @param isHrDeptManager Whether the user manages the HR department (resolved
+ *                        by the async DB helper resolveEffectiveRole in
+ *                        lib/employee-access.ts).
+ */
+export function resolveEffectiveRoleSync(
+  actualRole: Role,
+  isHrDeptManager: boolean
+): Role {
+  if (actualRole === "DEPT_MANAGER" && isHrDeptManager) return "HR_OFFICER";
+  return actualRole;
+}
+
 export function roleLabel(role: string | undefined | null): string {
   if (!role) return "Unknown";
   return ROLE_LABELS[role as Role] ?? role;
@@ -140,20 +169,19 @@ export const PERMISSIONS: Record<Role, Action[]> = {
     "MANAGE_LEAVE_POLICY",
     "VIEW_DEPARTMENTS",
   ],
+  // Base DEPT_MANAGER set — equivalent to a normal employee.
+  // A DEPT_MANAGER assigned to the HR department receives HR_OFFICER permissions
+  // at runtime via resolveEffectiveRole() — NOT by expanding this list.
+  // Do not add HR/manager-level actions here; use the effective-role mechanism instead.
   DEPT_MANAGER: [
     "VIEW_EMPLOYEES",
     "VIEW_DEPARTMENTS",
     "VIEW_ATTENDANCE",
     "VIEW_ATTENDANCE_MONITOR",
     "SELF_ATTENDANCE",
-    "VIEW_REPORTS",
-    "GENERATE_REPORTS",
     "VIEW_OWN_PROFILE",
     "UPDATE_OWN_INFO",
     "MANAGE_OWN_LEAVE",
-    "VIEW_ALL_LEAVE",
-    "MANAGE_LEAVE",
-    "VIEW_LIFECYCLE",
   ],
   EMPLOYEE: [
     "VIEW_OWN_PROFILE",
@@ -171,5 +199,5 @@ export function can(role: string | undefined, action: Action) {
   return perms.includes(action);
 }
 
-const permissions = { ROLES, PERMISSIONS, can };
+const permissions = { ROLES, PERMISSIONS, can, HR_DEPARTMENT_NAME, resolveEffectiveRoleSync };
 export default permissions;

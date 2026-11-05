@@ -3,6 +3,7 @@ import { Plus, Search, Users, X } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { requireSession } from "@/lib/session";
 import { can, type Role } from "@/lib/permissions";
+import { resolveEffectiveRole } from "@/lib/employee-access";
 import prisma from "@/lib/prisma";
 import {
   listAllLeaveRequests,
@@ -33,8 +34,13 @@ export default async function LeavePage({
   const session = await requireSession();
   const params = await searchParams;
 
-  if (can(session.user.role, "VIEW_ALL_LEAVE")) {
-    const role = session.user.role as Role;
+  const effectiveRole = await resolveEffectiveRole(
+    session.user.id,
+    session.user.role as Role
+  );
+
+  if (can(effectiveRole, "VIEW_ALL_LEAVE")) {
+    const role = effectiveRole as Role;
     return <AllLeaveRequests params={params} role={role} userId={session.user.id} />;
   }
 
@@ -68,10 +74,10 @@ async function AllLeaveRequests({
   let managerEmployeeId: string | undefined;
   let managerHasNoEmployeeRecord = false;
   // MANAGER = General Manager: org-wide authority — do NOT scope to direct reports.
-  // Only other roles that might have MANAGE_LEAVE in the future would be scoped.
-  // Currently MANAGE_LEAVE is MANAGER-only, so this block is effectively a no-op
-  // for the GM, but left here for clarity and future-proofing.
-  if (role !== "MANAGER" && role !== "ADMIN" && role !== "HR_OFFICER" && role !== "DEPT_MANAGER") {
+  // HR_OFFICER: org-wide view — do NOT scope to direct reports.
+  // ADMIN: org-wide — do NOT scope.
+  // Any other role that reaches here (future-proofing) is scoped to direct reports.
+  if (role !== "MANAGER" && role !== "ADMIN" && role !== "HR_OFFICER") {
     const managerEmployee = await prisma.employee.findUnique({
       where: { userId },
       select: { id: true },

@@ -2,7 +2,8 @@ import "server-only";
 import { headers, cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth, type AuthSession } from "@/lib/auth";
-import { can, type Action } from "@/lib/permissions";
+import { can, type Action, type Role } from "@/lib/permissions";
+import { resolveEffectiveRole } from "@/lib/employee-access";
 
 const LOCALES = ["en", "om"] as const;
 type Locale = (typeof LOCALES)[number];
@@ -43,10 +44,14 @@ export async function requireSession(): Promise<AuthSession> {
  * Use in layouts/pages that require a specific permission.
  * Redirects unauthenticated users to sign-in, and signed-in users who lack
  * the permission to their dashboard.
+ *
+ * For DEPT_MANAGER users the effective role is resolved dynamically — an HR
+ * department manager is treated as HR_OFFICER for permission purposes.
  */
 export async function requirePermission(action: Action): Promise<AuthSession> {
   const session = await requireSession();
-  if (!can(session.user.role, action)) {
+  const effectiveRole = await resolveEffectiveRole(session.user.id, session.user.role as Role);
+  if (!can(effectiveRole, action)) {
     const prefix = await getLocalePrefix();
     redirect(`${prefix}/dashboard`);
   }

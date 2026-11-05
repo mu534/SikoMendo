@@ -1,6 +1,7 @@
 import "server-only";
 import type { AuthSession } from "@/lib/auth";
-import { can, type Action } from "@/lib/permissions";
+import { can, type Action, type Role } from "@/lib/permissions";
+import { resolveEffectiveRole } from "@/lib/employee-access";
 import { LocalizedError } from "@/lib/errors";
 
 export type ActionResult<T> =
@@ -20,7 +21,8 @@ export async function withPermission<T>(
   if (!session?.user) {
     return { success: false, error: { message: "You must be signed in.", code: "UNAUTHORIZED" } };
   }
-  if (!can(session.user.role, action)) {
+  const effectiveRole = await resolveEffectiveRole(session.user.id, session.user.role as Role);
+  if (!can(effectiveRole, action)) {
     return { success: false, error: { message: "You don't have permission to do that.", code: "FORBIDDEN" } };
   }
 

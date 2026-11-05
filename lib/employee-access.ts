@@ -9,8 +9,51 @@
  */
 import "server-only";
 import prisma from "@/lib/prisma";
-import { can, type Role } from "@/lib/permissions";
+import { can, type Role, HR_DEPARTMENT_NAME, resolveEffectiveRoleSync } from "@/lib/permissions";
 import type { AuthSession } from "@/lib/auth";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 0. Effective-role resolution — dynamic HR dept manager detection
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Returns true when the given user is a DEPT_MANAGER assigned to the HR
+ * department, false in all other cases.
+ *
+ * Only queries the DB for DEPT_MANAGER users; all other roles short-circuit
+ * immediately so there is zero overhead for ADMIN / HR_OFFICER / MANAGER /
+ * EMPLOYEE users.
+ */
+export async function isHrDeptManager(
+  userId: string,
+  actualRole: Role
+): Promise<boolean> {
+  if (actualRole !== "DEPT_MANAGER") return false;
+
+  const employee = await prisma.employee.findUnique({
+    where: { userId },
+    select: { managedDepartment: { select: { name: true } } },
+  });
+
+  return employee?.managedDepartment?.name === HR_DEPARTMENT_NAME;
+}
+
+/**
+ * Resolves the effective role for permission checks.
+ *
+ * A DEPT_MANAGER whose managed department is the HR department receives the
+ * same permissions as an HR_OFFICER. All other roles are returned unchanged.
+ *
+ * Only performs a DB lookup for DEPT_MANAGER users — all other roles are
+ * a no-op O(1) return.
+ */
+export async function resolveEffectiveRole(
+  userId: string,
+  actualRole: Role
+): Promise<Role> {
+  const hrManager = await isHrDeptManager(userId, actualRole);
+  return resolveEffectiveRoleSync(actualRole, hrManager);
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. Scoped employee access (P0-1 / P0-2)

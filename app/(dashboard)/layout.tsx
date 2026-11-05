@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/session";
+import { resolveEffectiveRole } from "@/lib/employee-access";
+import type { Role } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import { getRecentNotifications } from "@/features/notifications/queries";
 import { getOrgSettings } from "@/features/settings/queries";
@@ -16,9 +18,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
     redirect("/force-password-change");
   }
 
-  const [notifications, orgSettings] = await Promise.all([
+  const [notifications, orgSettings, effectiveRole] = await Promise.all([
     getRecentNotifications(session.user.id),
     getOrgSettings(),
+    resolveEffectiveRole(session.user.id, session.user.role as Role),
   ]);
 
   return (
@@ -26,7 +29,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       user={{
         name: session.user.name,
         email: session.user.email,
-        role: session.user.role,
+        role: effectiveRole,
         image: session.user.image,
       }}
       notifications={notifications}

@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Users, Search, UserPlus, Activity, Clock, AlertCircle } from "lucide-react";
 import { requirePermission } from "@/lib/session";
-import { can } from "@/lib/permissions";
+import { can, type Role } from "@/lib/permissions";
+import { resolveEffectiveRole } from "@/lib/employee-access";
 import {
   listEmployees,
   getSubordinateIds,
@@ -40,7 +41,13 @@ export default async function EmployeesPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const session = await requirePermission("VIEW_EMPLOYEES");
-  const canManage = can(session.user.role, "MANAGE_EMPLOYEES");
+
+  const effectiveRole = await resolveEffectiveRole(
+    session.user.id,
+    session.user.role as Role
+  );
+
+  const canManage = can(effectiveRole, "MANAGE_EMPLOYEES");
 
   const t = await getTranslations("employees");
   const tC = await getTranslations("common");
@@ -61,6 +68,24 @@ export default async function EmployeesPage({
       select: { id: true },
     });
     restrictToIds = ownEmployee ? await getSubordinateIds(ownEmployee.id) : [];
+  }
+
+  // Non-HR DEPT_MANAGER: restrict to employees in their managed department
+  if (effectiveRole === "DEPT_MANAGER") {
+    const deptManagerEmployee = await prisma.employee.findUnique({
+      where: { userId: session.user.id },
+      select: { managedDepartment: { select: { id: true } } },
+    });
+    const managedDeptId = deptManagerEmployee?.managedDepartment?.id;
+    if (managedDeptId) {
+      const deptEmployees = await prisma.employee.findMany({
+        where: { departmentId: managedDeptId, deletedAt: null },
+        select: { id: true },
+      });
+      restrictToIds = deptEmployees.map((e) => e.id);
+    } else {
+      restrictToIds = [];
+    }
   }
 
   const [{ items, total, totalPages }, departments, counts] = await Promise.all([

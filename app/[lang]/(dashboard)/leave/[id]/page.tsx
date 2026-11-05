@@ -3,7 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, FileText } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { requireSession } from "@/lib/session";
-import { can } from "@/lib/permissions";
+import { can, type Role } from "@/lib/permissions";
+import { resolveEffectiveRole } from "@/lib/employee-access";
 import { getSignedFileUrl } from "@/lib/cloudinary";
 import prisma from "@/lib/prisma";
 import { getLeaveRequestById } from "@/features/leave/queries";
@@ -26,13 +27,18 @@ export default async function LeaveDetailPage({ params }: { params: Promise<{ la
   const leave = await getLeaveRequestById(id);
   if (!leave) notFound();
 
+  const effectiveRole = await resolveEffectiveRole(
+    session.user.id,
+    session.user.role as Role
+  );
+
   const isOwner = leave.employee.userId === session.user.id;
-  let canViewAll = can(session.user.role, "VIEW_ALL_LEAVE");
+  let canViewAll = can(effectiveRole, "VIEW_ALL_LEAVE");
 
   // A Manager's "view all" is scoped to their own team (matching the leave
   // list), not the whole org — viewing someone else's request directly by
   // URL shouldn't be possible just because they're a manager somewhere else.
-  if (canViewAll && session.user.role === "MANAGER") {
+  if (canViewAll && effectiveRole === "MANAGER") {
     const managerEmployee = await prisma.employee.findUnique({
       where: { userId: session.user.id },
       select: { id: true },
@@ -40,7 +46,7 @@ export default async function LeaveDetailPage({ params }: { params: Promise<{ la
     canViewAll = !!managerEmployee && leave.employee.managerId === managerEmployee.id;
   }
 
-  const canDecide = can(session.user.role, "MANAGE_LEAVE") && canViewAll;
+  const canDecide = can(effectiveRole, "MANAGE_LEAVE") && canViewAll;
 
   if (!isOwner && !canViewAll) {
     redirect(`/${lang}/leave`);

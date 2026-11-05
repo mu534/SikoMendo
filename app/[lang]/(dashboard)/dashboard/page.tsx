@@ -13,7 +13,8 @@ import {
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { requireSession } from "@/lib/session";
-import { can } from "@/lib/permissions";
+import { can, type Role } from "@/lib/permissions";
+import { resolveEffectiveRole } from "@/lib/employee-access";
 import {
   getOrganizationStats,
   getRecentAuditLogs,
@@ -71,7 +72,12 @@ export default async function DashboardPage({
   const { lang } = await params;
   const session = await requireSession();
 
-  if (can(session.user.role, "DASHBOARD_ANALYTICS")) {
+  const effectiveRole = await resolveEffectiveRole(
+    session.user.id,
+    session.user.role as Role
+  );
+
+  if (can(effectiveRole, "DASHBOARD_ANALYTICS")) {
     return <OrganizationDashboard lang={lang} userName={session.user.name} />;
   }
 
