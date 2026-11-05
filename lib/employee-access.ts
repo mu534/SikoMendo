@@ -71,6 +71,10 @@ export type ViewerCapability = "FULL" | "SCOPED" | "NONE";
 /**
  * Derive the viewer's capability from their role.
  *
+ * Pass the **effective** role (from resolveEffectiveRole / resolveEffectiveRoleSync),
+ * not the raw stored role. An HR-dept DEPT_MANAGER has effective role "HR_OFFICER"
+ * and therefore receives FULL access — consistent with all other permission checks.
+ *
  * MANAGER (General Manager) receives FULL access — they have org-wide authority
  * and must be able to view all employee profiles, not just their direct reports.
  * Sensitive tabs (contracts, user/security, lifecycle) are still gated separately
@@ -100,10 +104,17 @@ export async function getEmployeeByIdForViewer(
   session: AuthSession | null
 ) {
   if (!session?.user) return null;
-  const capability = resolveViewerCapability(session.user.role);
+
+  // Resolve the effective role so HR-dept DEPT_MANAGERs get FULL access.
+  const effectiveRole = await resolveEffectiveRole(
+    session.user.id,
+    session.user.role as Role
+  );
+
+  const capability = resolveViewerCapability(effectiveRole);
   if (capability === "NONE") return null;
 
-  const isAdminOrHR = session.user.role === "ADMIN" || session.user.role === "HR_OFFICER";
+  const isAdminOrHR = effectiveRole === "ADMIN" || effectiveRole === "HR_OFFICER";
 
   // ADMIN and HR_OFFICER: unrestricted — all fields including contracts and user account
   if (isAdminOrHR) {
@@ -130,7 +141,7 @@ export async function getEmployeeByIdForViewer(
 
   // DEPT_MANAGER: scoped — only employees in their department.
   // No contracts or user/security info.
-  if (session.user.role === "DEPT_MANAGER") {
+  if (effectiveRole === "DEPT_MANAGER") {
     // Find the department this DEPT_MANAGER manages.
     const deptManagerEmployee = await prisma.employee.findUnique({
       where: { userId: session.user.id },
@@ -476,6 +487,10 @@ export async function assertRestoreSafe(employeeId: string): Promise<{ keepStatu
 
 /**
  * Returns which tabs a viewer role can access on the employee detail page.
+ *
+ * Pass the **effective** role (from resolveEffectiveRole / resolveEffectiveRoleSync),
+ * not the raw stored role. An HR-dept DEPT_MANAGER has effective role "HR_OFFICER"
+ * and is treated as a full viewer.
  *
  * Managers can view documents as read-only — they cannot upload or delete.
  * Upload/delete requires MANAGE_DOCUMENTS which only Admin/HR_Officer hold.

@@ -12,8 +12,8 @@ import {
   UserCircle2,
 } from "lucide-react";
 import { requirePermission } from "@/lib/session";
-import { can } from "@/lib/permissions";
-import { getEmployeeByIdForViewer, getEmployeeDetailTabPermissions } from "@/lib/employee-access";
+import { can, type Role } from "@/lib/permissions";
+import { getEmployeeByIdForViewer, getEmployeeDetailTabPermissions, resolveEffectiveRole } from "@/lib/employee-access";
 import { listAssignableManagers } from "@/features/employees/queries";
 import { updateEmployee, deleteEmployeeDocument } from "@/features/employees/actions";
 import { ProfileTabs } from "@/features/employees/profile-tabs";
@@ -96,24 +96,30 @@ export default async function EmployeeDetailPage({
   const sp = await searchParams;
   const rawTab = typeof sp.tab === "string" ? sp.tab : "overview";
 
+  // Resolve effective role — HR-dept DEPT_MANAGERs get HR_OFFICER capabilities.
+  const effectiveRole = await resolveEffectiveRole(
+    session.user.id,
+    session.user.role as Role
+  );
+
   // P0-1: Scoped query — Manager can only access their own subordinates
   const employee = await getEmployeeByIdForViewer(id, session);
   if (!employee) notFound();
 
-  // P0-2: Determine tab permissions per role
-  const tabPerms = getEmployeeDetailTabPermissions(session.user.role);
+  // P0-2: Determine tab permissions per effective role
+  const tabPerms = getEmployeeDetailTabPermissions(effectiveRole);
 
-  const canManage           = can(session.user.role, "MANAGE_EMPLOYEES");
-  const canManageDocuments  = can(session.user.role, "MANAGE_DOCUMENTS") && tabPerms.canViewDocuments;
-  const canManageHistory    = can(session.user.role, "MANAGE_EMPLOYMENT_HISTORY");
-  const canManageContracts  = can(session.user.role, "MANAGE_CONTRACTS") && tabPerms.canViewContracts;
-  const canManageUsers      = can(session.user.role, "MANAGE_USERS") && tabPerms.canViewSystemAccount;
-  const canChangeRole       = can(session.user.role, "MANAGE_ROLES");
-  const canViewLifecycle    = can(session.user.role, "VIEW_LIFECYCLE") && tabPerms.canViewLifecycle;
-  const canManageOnboarding  = can(session.user.role, "MANAGE_ONBOARDING");
-  const canManageOffboarding = can(session.user.role, "MANAGE_OFFBOARDING");
-  const canViewAttendance   = can(session.user.role, "VIEW_ATTENDANCE");
-  const canViewLeave        = can(session.user.role, "VIEW_ALL_LEAVE") || can(session.user.role, "MANAGE_LEAVE");
+  const canManage           = can(effectiveRole, "MANAGE_EMPLOYEES");
+  const canManageDocuments  = can(effectiveRole, "MANAGE_DOCUMENTS") && tabPerms.canViewDocuments;
+  const canManageHistory    = can(effectiveRole, "MANAGE_EMPLOYMENT_HISTORY");
+  const canManageContracts  = can(effectiveRole, "MANAGE_CONTRACTS") && tabPerms.canViewContracts;
+  const canManageUsers      = can(effectiveRole, "MANAGE_USERS") && tabPerms.canViewSystemAccount;
+  const canChangeRole       = can(effectiveRole, "MANAGE_ROLES");
+  const canViewLifecycle    = can(effectiveRole, "VIEW_LIFECYCLE") && tabPerms.canViewLifecycle;
+  const canManageOnboarding  = can(effectiveRole, "MANAGE_ONBOARDING");
+  const canManageOffboarding = can(effectiveRole, "MANAGE_OFFBOARDING");
+  const canViewAttendance   = can(effectiveRole, "VIEW_ATTENDANCE");
+  const canViewLeave        = can(effectiveRole, "VIEW_ALL_LEAVE") || can(effectiveRole, "MANAGE_LEAVE");
 
   // Build visible tabs for this role
   const visibleTabs: ProfileTab[] = ["overview", "employment"];
