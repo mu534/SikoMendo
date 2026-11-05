@@ -276,6 +276,7 @@ export default async function EmployeesPage({
                         name={fullName}
                         imageUrl={emp.profileImageUrl}
                         size="sm"
+                        version={emp.updatedAt}
                         className="shrink-0"
                       />
                       <div className="min-w-0">

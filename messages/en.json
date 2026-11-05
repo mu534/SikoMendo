@@ -36,6 +36,7 @@
     "all": "All",
     "active": "Active",
     "inactive": "Inactive",
+    "archived": "Archived",
     "status": "Status",
     "actions": "Actions",
     "name": "Name",
@@ -851,15 +852,22 @@
       "reactivate": "Reactivate",
       "resetPassword": "Reset password",
       "view": "View",
-      "delete": "Delete account"
+      "archive": "Archive account",
+      "restore": "Restore account"
     },
     "confirmSuspend": "Suspend this account? The user will not be able to sign in.",
     "confirmReactivate": "Reactivate this account? The user will be able to sign in again.",
     "confirmResetPassword": "Reset this user's password? A temporary password will be generated.",
-    "confirmDelete": "Delete this account? This cannot be undone. The employee's HR record will be preserved.",
-    "deleteSuccess": "Account deleted successfully.",
+    "confirmArchive": "Archive this account? The user will lose login access. Their employee record and HR history will be preserved. This can be undone.",
+    "confirmRestore": "Restore this account? The user will be able to sign in again.",
+    "archiveTitle": "Archive account?",
+    "restoreTitle": "Restore account?",
+    "archiveSuccess": "Account archived successfully.",
+    "restoreSuccess": "Account restored successfully.",
     "dangerZone": "Danger Zone",
-    "deleteWarning": "Deleting this account will remove the user's login access. Their employee record, attendance, leave history, and documents will be preserved."
+    "archiveWarning": "Archiving this account removes the user's login access. Their employee record, attendance, leave history, and documents will be preserved. You can restore this account later.",
+    "restoreWarning": "This account is currently archived. Restoring it will allow the user to sign in again.",
+    "deleteWarning": "Archiving this account will remove the user's login access. Their employee record, attendance, leave history, and documents will be preserved."
   },
 
   "reports": {
@@ -1127,7 +1135,26 @@
     "saveProfile": "Save profile",
     "saving": "Saving…",
     "changePasswordBtn": "Change password",
-    "changingPassword": "Changing password…"
+    "changingPassword": "Changing password…",
+    "profilePicture": "Profile Picture",
+    "uploadPhoto": "Upload Photo",
+    "changePhoto": "Change Photo",
+    "removePhoto": "Remove Photo",
+    "cropYourPhoto": "Crop Your Photo",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "savePhoto": "Save Photo",
+    "cancelCrop": "Cancel",
+    "uploadHint": "JPEG, PNG or WebP · Max 5 MB",
+    "uploading": "Uploading...",
+    "uploadSuccess": "Profile picture updated",
+    "uploadError": "Failed to upload profile picture",
+    "removeSuccess": "Profile picture removed",
+    "removeError": "Failed to remove profile picture",
+    "confirmRemove": "Remove profile picture?",
+    "confirmRemoveDescription": "Your profile picture will be removed. You can upload a new one at any time.",
+    "fileTooLarge": "File size must be under 5 MB",
+    "invalidFileType": "Only JPEG, PNG, and WebP images are accepted"
   },
 
   "lifecycle": {

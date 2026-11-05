@@ -102,6 +102,20 @@ export function CreateManagerAccountForm({
   // ── Copy state ─────────────────────────────────────────────────────────────
   const [copied, setCopied] = useState<"username" | "password" | null>(null);
 
+  // ── Real-time DOB validation ────────────────────────────────────────────────
+  const [dobError, setDobError] = useState<string | null>(null);
+
+  function handleDobChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const value = e.target.value;
+    if (!value) { setDobError(null); return; }
+    const dob = new Date(value);
+    if (isNaN(dob.getTime())) { setDobError(null); return; }
+    const today = new Date();
+    // Strictly older than 20: birth date must be BEFORE today-20y
+    const threshold = new Date(today.getFullYear() - 20, today.getMonth(), today.getDate());
+    setDobError(dob >= threshold ? t("form.dobTooYoung") : null);
+  }
+
   // ── Mode A: Filtered employee list ────────────────────────────────────────
   const filtered =
     query.trim() === ""
@@ -225,7 +239,7 @@ export function CreateManagerAccountForm({
 
         {/* Role radio cards */}
         <FieldGroup>
-          <Label>{t("form.role")}</Label>
+          <Label required>{t("form.role")}</Label>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {/* MANAGER card */}
             <div
@@ -302,7 +316,7 @@ export function CreateManagerAccountForm({
         {/* Department select — shown only for DEPT_MANAGER */}
         {role === "DEPT_MANAGER" && (
           <FieldGroup>
-            <Label htmlFor="departmentId">{t("form.selectDepartment")}</Label>
+            <Label htmlFor="departmentId" required>{t("form.selectDepartment")}</Label>
             <Select
               id="departmentId"
               name="departmentId"
@@ -328,7 +342,7 @@ export function CreateManagerAccountForm({
   // ─────────────────────────────────────────────────────────────────────────
   if (!hasEmployees) {
     const showNoDeptManagerWarning = role === "DEPT_MANAGER" && !hasGeneralManager;
-    const submitDisabled = isPending || showNoDeptManagerWarning;
+    const submitDisabled = isPending || showNoDeptManagerWarning || Boolean(dobError);
 
     return (
       <Card className="max-w-3xl p-6">
@@ -347,22 +361,22 @@ export function CreateManagerAccountForm({
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <FieldGroup>
-                <Label htmlFor="firstName">{t("form.firstName")}</Label>
+                <Label htmlFor="firstName" required>{t("form.firstName")}</Label>
                 <Input id="firstName" name="firstName" required />
               </FieldGroup>
               <FieldGroup>
-                <Label htmlFor="middleName">{t("form.middleName")}</Label>
+                <Label htmlFor="middleName" required>{t("form.middleName")}</Label>
                 <Input id="middleName" name="middleName" required />
               </FieldGroup>
               <FieldGroup>
-                <Label htmlFor="lastName">{t("form.lastName")}</Label>
+                <Label htmlFor="lastName" required>{t("form.lastName")}</Label>
                 <Input id="lastName" name="lastName" required />
               </FieldGroup>
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FieldGroup>
-                <Label htmlFor="gender">{t("form.gender")}</Label>
+                <Label htmlFor="gender" required>{t("form.gender")}</Label>
                 <Select id="gender" name="gender" required defaultValue="">
                   <option value="" disabled>{t("form.selectGender")}</option>
                   <option value="MALE">{t("form.genderMale")}</option>
@@ -371,14 +385,25 @@ export function CreateManagerAccountForm({
               </FieldGroup>
 
               <FieldGroup>
-                <Label htmlFor="dateOfBirth">{t("form.dateOfBirth")}</Label>
-                <Input id="dateOfBirth" name="dateOfBirth" type="date" required max={getMaxDobStr()} />
+                <Label htmlFor="dateOfBirth" required>{t("form.dateOfBirth")}</Label>
+                <Input
+                  id="dateOfBirth"
+                  name="dateOfBirth"
+                  type="date"
+                  required
+                  max={getMaxDobStr()}
+                  onChange={handleDobChange}
+                  className={dobError ? "border-red-400 focus:border-red-500 focus:ring-red-200" : ""}
+                />
+                {dobError && (
+                  <p className="mt-1 text-sm text-red-600" role="alert">{dobError}</p>
+                )}
               </FieldGroup>
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FieldGroup>
-                <Label htmlFor="maritalStatus">{t("form.maritalStatus")}</Label>
+                <Label htmlFor="maritalStatus" required>{t("form.maritalStatus")}</Label>
                 <Select id="maritalStatus" name="maritalStatus" required defaultValue="">
                   <option value="" disabled>{t("form.selectMaritalStatus")}</option>
                   <option value="SINGLE">{t("form.maritalSingle")}</option>
@@ -390,7 +415,7 @@ export function CreateManagerAccountForm({
               </FieldGroup>
 
               <FieldGroup>
-                <Label htmlFor="phone">{t("form.phone")}</Label>
+                <Label htmlFor="phone" required>{t("form.phone")}</Label>
                 <Input id="phone" name="phone" type="text" required />
               </FieldGroup>
             </div>
@@ -404,7 +429,7 @@ export function CreateManagerAccountForm({
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FieldGroup>
-                <Label htmlFor="employmentType">{t("form.employmentType")}</Label>
+                <Label htmlFor="employmentType" required>{t("form.employmentType")}</Label>
                 <Select id="employmentType" name="employmentType" required defaultValue="">
                   <option value="" disabled>{t("form.selectEmploymentType")}</option>
                   <option value="PERMANENT">Permanent</option>
@@ -416,7 +441,7 @@ export function CreateManagerAccountForm({
               </FieldGroup>
 
               <FieldGroup>
-                <Label htmlFor="hireDate">{t("form.hireDate")}</Label>
+                <Label htmlFor="hireDate" required>{t("form.hireDate")}</Label>
                 <Input id="hireDate" name="hireDate" type="date" required />
               </FieldGroup>
             </div>
@@ -604,7 +629,7 @@ export function CreateManagerAccountForm({
 
           {/* Role radio cards */}
           <FieldGroup>
-            <Label>{t("form.role")}</Label>
+            <Label required>{t("form.role")}</Label>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {/* MANAGER card */}
               <label
@@ -659,7 +684,7 @@ export function CreateManagerAccountForm({
           {/* Department select — shown only for DEPT_MANAGER */}
           {role === "DEPT_MANAGER" && (
             <FieldGroup>
-              <Label htmlFor="departmentId">{t("form.selectDepartment")}</Label>
+              <Label htmlFor="departmentId" required>{t("form.selectDepartment")}</Label>
               <Select
                 id="departmentId"
                 name="departmentId"

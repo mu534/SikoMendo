@@ -7,7 +7,7 @@ import type { Prisma } from "@prisma/client";
 export type UserListFilters = {
   q?: string;
   role?: string;
-  /** "active" | "suspended" | "" */
+  /** "active" | "suspended" | "archived" | "" */
   status?: string;
   page: number;
 };
@@ -44,8 +44,12 @@ export async function listUsers({ q, role, status, page }: UserListFilters) {
     andClauses.push({ role: role as Role });
   }
 
-  if (status === "active")    andClauses.push({ banned: false });
-  if (status === "suspended") andClauses.push({ banned: true });
+  if (status === "active")    andClauses.push({ banned: false, deletedAt: null });
+  if (status === "suspended") andClauses.push({ banned: true,  deletedAt: null });
+  if (status === "archived")  andClauses.push({ deletedAt: { not: null } });
+
+  // By default (no status filter) hide archived accounts from the main list
+  if (!status) andClauses.push({ deletedAt: null });
 
   const where: Prisma.UserWhereInput =
     andClauses.length > 0 ? { AND: andClauses } : {};
@@ -158,7 +162,7 @@ export async function getActiveDepartments() {
  */
 export async function getActiveGeneralManager() {
   return prisma.user.findFirst({
-    where: { role: "MANAGER", banned: false },
+    where: { role: "MANAGER", banned: false, deletedAt: null },
     select: {
       id:   true,
       name: true,

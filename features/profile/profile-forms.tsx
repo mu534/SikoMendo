@@ -6,7 +6,6 @@ import { useTranslations } from "next-intl";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { Input, Label, FieldGroup, FieldError } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
-import { PhotoInput } from "@/features/employees/photo-input";
 import {
   updateOwnProfile,
   changeOwnPassword,
@@ -104,7 +103,6 @@ export function UpdateProfileForm({
 
 export function EmployeeContactForm({
   name,
-  image,
   phone,
   email,
   address,
@@ -114,7 +112,6 @@ export function EmployeeContactForm({
   emergencyContactAddress,
 }: {
   name: string;
-  image?: string | null;
   phone?: string | null;
   email?: string | null;
   address?: string | null;
@@ -130,7 +127,6 @@ export function EmployeeContactForm({
   const t = useTranslations("profile");
   const tC = useTranslations("common");
 
-  const currentImage = (state?.success && state.data.image) ? state.data.image : image;
   const didSucceed = state?.success === true;
   const error = state && !state.success ? state.error.message : null;
 
@@ -139,8 +135,6 @@ export function EmployeeContactForm({
       {didSucceed && <RouterRefresher />}
       {didSucceed && <SuccessAlert message={t("contactInfo")} />}
       {error && <ErrorAlert message={error} />}
-
-      <PhotoInput name="photo" currentName={name} currentUrl={currentImage} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <FieldGroup>

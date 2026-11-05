@@ -341,7 +341,7 @@ async function EmployeeDashboard({
           {/* ── Profile + quick links ─────────────────────────── */}
           <Card className="p-5">
             <div className="flex flex-wrap items-center gap-4">
-              <Avatar name={userName} imageUrl={employee.profileImageUrl} size="lg" />
+              <Avatar name={userName} imageUrl={employee.profileImageUrl} size="lg" version={employee.updatedAt} />
               <div className="min-w-0 flex-1">
                 <p className="font-display text-base font-semibold text-ink-900">
                   {userName}

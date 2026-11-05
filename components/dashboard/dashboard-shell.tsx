@@ -57,7 +57,7 @@ export function DashboardShell({
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar role={user.role} mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} org={org} />
+      <Sidebar role={user.role} user={user} mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} org={org} />
 
       {/* lg:pl-64 offsets the fixed sidebar width on desktop */}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden lg:pl-64">

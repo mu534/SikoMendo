@@ -30,17 +30,26 @@ export type CloudinaryAsset = {
  *     attachments, generated reports).
  */
 export async function uploadToCloudinary(
-  file: File,
+  file: File | Buffer,
   folder: string,
-  options?: { resourceType?: "image" | "auto"; access?: "public" | "authenticated" }
+  options?: {
+    resourceType?: "image" | "auto";
+    access?: "public" | "authenticated";
+    /** Optional Cloudinary transformation applied at upload time (eager). */
+    transformation?: Array<Record<string, string | number>>;
+    /** MIME type hint — required when passing a Buffer directly. */
+    mimeType?: string;
+  }
 ): Promise<CloudinaryAsset> {
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const base64 = `data:${file.type};base64,${buffer.toString("base64")}`;
+  const buf = file instanceof Buffer ? file : Buffer.from(await (file as File).arrayBuffer());
+  const mime = file instanceof Buffer ? (options?.mimeType ?? "image/jpeg") : (file as File).type;
+  const base64 = `data:${mime};base64,${buf.toString("base64")}`;
 
   const result: UploadApiResponse = await cloudinary.uploader.upload(base64, {
     folder,
     resource_type: options?.resourceType ?? "auto",
     type: options?.access === "authenticated" ? "authenticated" : "upload",
+    ...(options?.transformation ? { eager: options.transformation } : {}),
   });
 
   return {

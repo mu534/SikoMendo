@@ -142,6 +142,7 @@ export default async function LifecycleDashboardPage() {
                     name={`${emp.firstName} ${emp.lastName}`}
                     imageUrl={emp.profileImageUrl ?? undefined}
                     size="sm"
+                    version={emp.updatedAt}
                   />
                   <div className="min-w-0 flex-1">
                     <Link
@@ -191,6 +192,8 @@ export default async function LifecycleDashboardPage() {
                   <Avatar
                     name={`${emp.firstName} ${emp.lastName}`}
                     size="sm"
+                    imageUrl={emp.profileImageUrl ?? undefined}
+                    version={emp.updatedAt}
                   />
                   <div className="min-w-0 flex-1">
                     <Link
@@ -323,6 +326,7 @@ export default async function LifecycleDashboardPage() {
                     name={`${emp.firstName} ${emp.lastName}`}
                     imageUrl={emp.profileImageUrl ?? undefined}
                     size="sm"
+                    version={emp.updatedAt}
                   />
                   <div className="min-w-0 flex-1">
                     <Link

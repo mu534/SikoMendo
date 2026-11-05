@@ -141,6 +141,7 @@ model User {
   email         String    @unique
   emailVerified Boolean   @default(false)
   image         String?
+  imagePublicId String?
   role          Role      @default(EMPLOYEE)
   banned        Boolean   @default(false)
   banReason     String?
@@ -156,8 +157,17 @@ model User {
   mustChangePassword Boolean   @default(false)
   passwordChangedAt  DateTime?
 
+  // Cloudinary public_id for the user's own profile picture.
+  // Stored separately from `image` (the URL) so old assets can be cleaned up
+  // from Cloudinary when the picture is replaced or removed.
+  imagePublicId String?
+
   // Language preference: "en" (English) or "om" (Afaan Oromoo)
   locale String @default("en")
+
+  // Soft-archive: set when an admin archives the account.
+  // Archived accounts cannot sign in and are hidden from the default list view.
+  deletedAt DateTime?
 
   // Relations
   sessions                Session[]

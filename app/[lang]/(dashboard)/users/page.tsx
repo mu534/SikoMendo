@@ -3,7 +3,7 @@ import { Search, Users as UsersIcon } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { requirePermission } from "@/lib/session";
 import { listUsers } from "@/features/users/queries";
-import { suspendUserAccount, reactivateUserAccount, deleteUserAccount } from "@/features/users/actions";
+import { suspendUserAccount, reactivateUserAccount, deleteUserAccount, restoreUserAccount } from "@/features/users/actions";
 import { roleLabel, ROLES } from "@/lib/permissions";
 import { parsePageParam, parseStringParam, formatDate } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
@@ -76,6 +76,7 @@ export default async function UsersPage({
               <option value="">All statuses</option>
               <option value="active">{tC("active")}</option>
               <option value="suspended">Suspended</option>
+              <option value="archived">{tC("archived")}</option>
             </Select>
           </div>
           <Button type="submit" variant="secondary" size="sm" className="shrink-0">
@@ -109,7 +110,7 @@ export default async function UsersPage({
                   <TR key={user.id}>
                     <TD>
                       <div className="flex items-center gap-3">
-                        <Avatar name={user.name} imageUrl={user.image} size="sm" />
+                        <Avatar name={user.name} imageUrl={user.image} size="sm" version={user.updatedAt} />
                         <div className="min-w-0">
                           <p className="truncate font-medium text-ink-900">{user.name}</p>
                           <p className="text-xs text-ink-900/50">
@@ -152,7 +153,9 @@ export default async function UsersPage({
                     </TD>
 
                     <TD>
-                      {user.banned
+                      {user.deletedAt
+                        ? <Badge tone="neutral">Archived</Badge>
+                        : user.banned
                         ? <Badge tone="warning">Suspended</Badge>
                         : <Badge tone="success">{tC("active")}</Badge>}
                     </TD>
@@ -169,55 +172,76 @@ export default async function UsersPage({
                         >
                           {tC("edit")}
                         </Link>
-                        {!isSelf && (
-                          user.banned ? (
-                            <form
-                              action={async () => {
-                                "use server";
-                                await reactivateUserAccount(user.id);
-                              }}
-                            >
-                              <ConfirmSubmitButton
-                                variant="outline"
-                                size="sm"
-                                confirmMessage={t("confirmReactivate")}
-                              >
-                                {t("actions.reactivate")}
-                              </ConfirmSubmitButton>
-                            </form>
-                          ) : (
-                            <form
-                              action={async () => {
-                                "use server";
-                                await suspendUserAccount(user.id);
-                              }}
-                            >
-                              <ConfirmSubmitButton
-                                variant="outline"
-                                size="sm"
-                                confirmMessage={t("confirmSuspend")}
-                              >
-                                {t("actions.suspend")}
-                              </ConfirmSubmitButton>
-                            </form>
-                          )
-                        )}
-                        {!isSelf && user.role !== "ADMIN" && (
+
+                        {/* Archived accounts: restore only */}
+                        {user.deletedAt ? (
                           <form
                             action={async () => {
                               "use server";
-                              await deleteUserAccount(user.id);
+                              await restoreUserAccount(user.id);
                             }}
                           >
                             <ConfirmSubmitButton
-                              variant="danger"
+                              variant="outline"
                               size="sm"
-                              confirmMessage={t("confirmDelete")}
-                              confirmTitle="Delete account?"
+                              confirmMessage={t("confirmRestore")}
                             >
-                              {t("actions.delete")}
+                              {tC("restore")}
                             </ConfirmSubmitButton>
                           </form>
+                        ) : (
+                          <>
+                            {!isSelf && (
+                              user.banned ? (
+                                <form
+                                  action={async () => {
+                                    "use server";
+                                    await reactivateUserAccount(user.id);
+                                  }}
+                                >
+                                  <ConfirmSubmitButton
+                                    variant="outline"
+                                    size="sm"
+                                    confirmMessage={t("confirmReactivate")}
+                                  >
+                                    {t("actions.reactivate")}
+                                  </ConfirmSubmitButton>
+                                </form>
+                              ) : (
+                                <form
+                                  action={async () => {
+                                    "use server";
+                                    await suspendUserAccount(user.id);
+                                  }}
+                                >
+                                  <ConfirmSubmitButton
+                                    variant="outline"
+                                    size="sm"
+                                    confirmMessage={t("confirmSuspend")}
+                                  >
+                                    {t("actions.suspend")}
+                                  </ConfirmSubmitButton>
+                                </form>
+                              )
+                            )}
+                            {!isSelf && user.role !== "ADMIN" && (
+                              <form
+                                action={async () => {
+                                  "use server";
+                                  await deleteUserAccount(user.id);
+                                }}
+                              >
+                                <ConfirmSubmitButton
+                                  variant="danger"
+                                  size="sm"
+                                  confirmMessage={t("confirmArchive")}
+                                  confirmTitle={t("archiveTitle")}
+                                >
+                                  {t("actions.archive")}
+                                </ConfirmSubmitButton>
+                              </form>
+                            )}
+                          </>
                         )}
                       </div>
                     </TD>

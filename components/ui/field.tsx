@@ -23,8 +23,22 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
 );
 Select.displayName = "Select";
 
-export function Label({ className, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) {
-  return <label className={cn("mb-1.5 block text-sm font-medium text-ink-900", className)} {...props} />;
+export function Label({
+  className,
+  required,
+  children,
+  ...props
+}: React.LabelHTMLAttributes<HTMLLabelElement> & { required?: boolean }) {
+  return (
+    <label className={cn("mb-1.5 block text-sm font-medium text-ink-900", className)} {...props}>
+      {children}
+      {required && (
+        <span className="ml-0.5 text-red-500" aria-hidden="true">
+          *
+        </span>
+      )}
+    </label>
+  );
 }
 
 export function FieldError({ children }: { children?: React.ReactNode }) {

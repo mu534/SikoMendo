@@ -241,6 +241,7 @@ async function AllLeaveRequests({
                           name={`${leave.employee.firstName} ${leave.employee.lastName}`}
                           imageUrl={leave.employee.profileImageUrl}
                           size="sm"
+                          version={leave.employee.updatedAt}
                         />
                         <div className="min-w-0">
                           <p className="truncate font-medium text-ink-900">

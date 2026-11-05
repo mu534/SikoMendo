@@ -141,7 +141,7 @@ export function ReadOnlyRegister({
               return (
                 <div key={emp.id} className="grid grid-cols-1 items-center gap-3 border-b border-ink-900/6 px-6 py-3 last:border-0 sm:grid-cols-[1.8fr_140px_100px_100px_1.2fr]">
                   <div className="flex items-center gap-3">
-                    <Avatar name={fullName} imageUrl={emp.profileImageUrl ?? undefined} size="sm" />
+                    <Avatar name={fullName} imageUrl={emp.profileImageUrl ?? undefined} size="sm" version={emp.updatedAt} />
                     <div>
                       <p className="text-sm font-medium text-ink-900">{fullName}</p>
                       <p className="text-xs text-ink-900/50">{emp.employeeId}{emp.department ? ` · ${emp.department.name}` : ""}</p>

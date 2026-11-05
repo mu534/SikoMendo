@@ -38,6 +38,7 @@ type EmployeeWithAttendance = {
   employeeId: string;
   department: { name: string } | null;
   profileImageUrl: string | null;
+  updatedAt: Date;
   attendances: {
     status: string;
     checkIn: Date | null;
@@ -87,7 +88,7 @@ function EmployeeCell({ employee }: { employee: EmployeeWithAttendance }) {
 
   return (
     <div className="flex items-center gap-3">
-      <Avatar name={fullName} imageUrl={employee.profileImageUrl} size="sm" />
+      <Avatar name={fullName} imageUrl={employee.profileImageUrl} size="sm" version={employee.updatedAt} />
       <div>
         <p className="text-sm font-medium text-ink-900">{fullName}</p>
         <p className="text-xs text-ink-900/50">

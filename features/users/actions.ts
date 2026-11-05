@@ -372,17 +372,24 @@ export async function resetUserPassword(userId: string): Promise<ActionResult<{ 
 }
 
 /**
- * Permanently deletes a non-ADMIN user account.
+ * Soft-archives a non-ADMIN user account (sets deletedAt = now).
+ *
+ * Archiving is preferred over hard-deletion because it:
+ *   - preserves the User row so AuditLog, Report, and other FK back-refs
+ *     remain intact (consistent with the cooperative archive pattern)
+ *   - keeps all linked Employee HR data, attendance, leave, and documents
+ *     fully intact — nothing is touched on the Employee side
+ *   - is reversible if an account was archived by mistake
  *
  * Safety guarantees (all enforced server-side, independent of UI state):
- * - ADMIN accounts can never be deleted.
- * - The currently authenticated user cannot delete their own account.
- * - The linked Employee record is preserved — only the User row and its
- *   cascades (Session, Account, Notification) are removed.
- * - Manager references are cleaned up before deletion so no orphaned
- *   managerId or Department.managerId pointers are left behind.
- * - An AuditLog entry is written BEFORE the delete so the acting user's
- *   context is captured even though AuditLog.userId has onDelete: SetNull.
+ *   - ADMIN accounts can never be archived.
+ *   - The currently authenticated user cannot archive their own account.
+ *   - All active sessions for the target user are terminated immediately.
+ *   - Manager references are cleaned up: employees who reported to this
+ *     user's linked employee have their managerId nullified, and any
+ *     Department whose managerId points to this employee is cleared.
+ *   - An AuditLog entry is written before the archive so the acting user's
+ *     context is captured.
  */
 export async function deleteUserAccount(
   userId: string,
@@ -394,15 +401,15 @@ export async function deleteUserAccount(
     const target = await prisma.user.findUnique({
       where: { id: userId },
       select: {
-        id:       true,
-        role:     true,
-        name:     true,
-        username: true,
+        id:        true,
+        role:      true,
+        name:      true,
+        username:  true,
+        deletedAt: true,
         employee: {
           select: {
-            id:           true,
-            employeeId:   true,
-            directReports: { select: { id: true } },
+            id:         true,
+            employeeId: true,
           },
         },
       },
@@ -412,19 +419,24 @@ export async function deleteUserAccount(
 
     // ── SERVER-SIDE ADMIN BLOCK — never bypass this check ─────────────────
     if (target.role === "ADMIN") {
-      throw new Error("Administrator accounts cannot be deleted.");
+      throw new Error("Administrator accounts cannot be archived.");
     }
 
-    // ── Self-delete block ──────────────────────────────────────────────────
+    // ── Self-archive block ─────────────────────────────────────────────────
     if (session?.user.id === userId) {
-      throw new Error("You cannot delete your own account.");
+      throw new Error("You cannot archive your own account.");
+    }
+
+    // Already archived — idempotent no-op
+    if (target.deletedAt) {
+      return { id: userId };
     }
 
     // ── Clean up manager references tied to this user's employee ──────────
     if (target.employee) {
       const empId = target.employee.id;
 
-      // Nullify managerId for all employees who reported to this one
+      // Nullify managerId for all direct reports
       await prisma.employee.updateMany({
         where: { managerId: empId },
         data:  { managerId: null },
@@ -435,32 +447,65 @@ export async function deleteUserAccount(
         where: { managerId: empId },
         data:  { managerId: null },
       });
-
-      // Unlink the User from the Employee (Employee.userId → null)
-      // This must happen BEFORE prisma.user.delete so the FK is cleared first.
-      await prisma.employee.update({
-        where: { id: empId },
-        data:  { userId: null },
-      });
     }
 
-    // ── Audit log BEFORE delete — preserves acting user context ───────────
+    // ── Audit log BEFORE the archive ──────────────────────────────────────
     await logAudit(
-      "DELETE",
+      "ARCHIVE",
       userId,
       {
-        name:              target.name,
-        username:          target.username,
-        role:              target.role,
-        linkedEmployeeId:  target.employee?.employeeId ?? null,
+        name:             target.name,
+        username:         target.username,
+        role:             target.role,
+        linkedEmployeeId: target.employee?.employeeId ?? null,
       },
       session?.user.id
     );
 
-    // ── Hard delete the User row ───────────────────────────────────────────
-    // Prisma cascades handle: Session, Account, Notification.
-    // AuditLog.userId and all other User FKs have onDelete: SetNull.
-    await prisma.user.delete({ where: { id: userId } });
+    // ── Soft-archive: set deletedAt, ban the account (blocks sign-in),
+    //    and kill all active sessions atomically ───────────────────────────
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: userId },
+        data:  { deletedAt: new Date(), banned: true },
+      }),
+      prisma.session.deleteMany({ where: { userId } }),
+    ]);
+
+    revalidatePath("/users");
+    return { id: userId };
+  });
+}
+
+/**
+ * Restores a previously archived (soft-deleted) user account.
+ * Audit-logged as RESTORE_ACCOUNT.
+ */
+export async function restoreUserAccount(
+  userId: string,
+): Promise<ActionResult<{ id: string }>> {
+  const session = await getServerSession();
+
+  return withPermission(session, "MANAGE_USERS", async () => {
+    const target = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true, name: true, username: true, deletedAt: true },
+    });
+
+    if (!target) throw new Error("User not found.");
+    if (!target.deletedAt) throw new Error("This account is not archived.");
+
+    await prisma.user.update({
+      where: { id: userId },
+      data:  { deletedAt: null, banned: false },
+    });
+
+    await logAudit(
+      "RESTORE_ACCOUNT",
+      userId,
+      { name: target.name, username: target.username, role: target.role },
+      session?.user.id
+    );
 
     revalidatePath("/users");
     return { id: userId };

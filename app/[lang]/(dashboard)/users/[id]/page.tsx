@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { EditUserForm } from "./EditUserForm";
 import { AccountSecurityPanel } from "@/features/users/account-security-panel";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
-import { deleteUserAccount } from "@/features/users/actions";
+import { deleteUserAccount, restoreUserAccount } from "@/features/users/actions";
 
 export default async function EditUserPage({
   params,
@@ -32,7 +32,7 @@ export default async function EditUserPage({
   return (
     <div className="max-w-2xl space-y-6">
       <div className="flex items-start gap-4">
-        <Avatar name={user.name} imageUrl={user.image} size="lg" />
+        <Avatar name={user.name} imageUrl={user.image} size="lg" version={user.updatedAt} />
         <div className="min-w-0">
           <h2 className="font-display text-xl font-semibold text-ink-900">{user.name}</h2>
           {user.username && (
@@ -94,24 +94,49 @@ export default async function EditUserPage({
       )}
 
       {!isSelf && user.role !== "ADMIN" && (
-        <Card className="border-red-200 p-6">
-          <h3 className="mb-2 font-semibold text-red-700">{t("dangerZone")}</h3>
-          <p className="mb-4 text-sm text-ink-900/60">{t("deleteWarning")}</p>
-          <form
-            action={async () => {
-              "use server";
-              await deleteUserAccount(user.id);
-            }}
-          >
-            <ConfirmSubmitButton
-              variant="danger"
-              size="sm"
-              confirmTitle="Delete account?"
-              confirmMessage={`Delete the account for ${user.name}? This cannot be undone. Their employee HR record will be preserved.`}
-            >
-              {t("actions.delete")}
-            </ConfirmSubmitButton>
-          </form>
+        <Card className={user.deletedAt ? "border-amber-200 p-6" : "border-red-200 p-6"}>
+          <h3 className={`mb-2 font-semibold ${user.deletedAt ? "text-amber-700" : "text-red-700"}`}>
+            {t("dangerZone")}
+          </h3>
+          {user.deletedAt ? (
+            <>
+              <p className="mb-4 text-sm text-ink-900/60">{t("restoreWarning")}</p>
+              <form
+                action={async () => {
+                  "use server";
+                  await restoreUserAccount(user.id);
+                }}
+              >
+                <ConfirmSubmitButton
+                  variant="outline"
+                  size="sm"
+                  confirmTitle={t("restoreTitle")}
+                  confirmMessage={`Restore the account for ${user.name}? They will be able to sign in again.`}
+                >
+                  {tC("restore")}
+                </ConfirmSubmitButton>
+              </form>
+            </>
+          ) : (
+            <>
+              <p className="mb-4 text-sm text-ink-900/60">{t("archiveWarning")}</p>
+              <form
+                action={async () => {
+                  "use server";
+                  await deleteUserAccount(user.id);
+                }}
+              >
+                <ConfirmSubmitButton
+                  variant="danger"
+                  size="sm"
+                  confirmTitle={t("archiveTitle")}
+                  confirmMessage={`Archive the account for ${user.name}? Their employee HR record, attendance, leave history, and documents will be preserved. This can be undone.`}
+                >
+                  {t("actions.archive")}
+                </ConfirmSubmitButton>
+              </form>
+            </>
+          )}
         </Card>
       )}
     </div>

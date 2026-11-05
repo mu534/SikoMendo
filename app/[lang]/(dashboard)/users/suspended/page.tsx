@@ -69,7 +69,7 @@ export default async function SuspendedAccountsPage({
                   <TR key={user.id}>
                     <TD>
                       <div className="flex items-center gap-3">
-                        <Avatar name={user.name} imageUrl={user.image} size="sm" />
+                        <Avatar name={user.name} imageUrl={user.image} size="sm" version={user.updatedAt} />
                         <div className="min-w-0">
                           <p className="truncate font-medium text-ink-900">{user.name}</p>
                           <p className="text-xs text-ink-900/50">

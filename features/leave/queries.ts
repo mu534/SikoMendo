@@ -133,6 +133,7 @@ const leaveInclude = {
       firstName: true,
       lastName: true,
       profileImageUrl: true,
+      updatedAt: true,
       department: true,
       userId: true,
       managerId: true,

@@ -359,7 +359,7 @@ export function AttendanceManagementPanel({
                   className="grid grid-cols-1 items-start gap-3 border-b border-ink-900/6 px-6 py-3 last:border-0 sm:grid-cols-[1.8fr_130px_90px_90px_1fr_80px_160px]"
                 >
                   <div className="flex items-center gap-3">
-                    <Avatar name={fullName} imageUrl={emp.profileImageUrl ?? undefined} size="sm" />
+                    <Avatar name={fullName} imageUrl={emp.profileImageUrl ?? undefined} size="sm" version={emp.updatedAt} />
                     <div>
                       <p className="text-sm font-medium text-ink-900">{fullName}</p>
                       <p className="text-xs text-ink-900/50">

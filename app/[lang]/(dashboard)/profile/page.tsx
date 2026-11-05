@@ -5,8 +5,8 @@ import prisma from "@/lib/prisma";
 import { formatDateWithEthiopian } from "@/lib/ethiopian-calendar";
 import { formatDate } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
-import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { ProfilePictureSection } from "@/components/profile/profile-picture-section";
 import {
   UpdateProfileForm,
   ChangePasswordForm,
@@ -92,6 +92,9 @@ export default async function ProfilePage() {
       lastName: true,
       passwordChangedAt: true,
       createdAt: true,
+      image: true,
+      imagePublicId: true,
+      updatedAt: true,
     },
   });
 
@@ -133,10 +136,10 @@ export default async function ProfilePage() {
         <div className="flex flex-col gap-6 p-6 sm:flex-row sm:items-start sm:justify-between">
           {/* Left: avatar + identity */}
           <div className="flex items-start gap-5">
-            <Avatar
-              name={user.name}
-              imageUrl={employee?.profileImageUrl ?? user.image}
-              size="xl"
+            <ProfilePictureSection
+              currentImageUrl={employee?.profileImageUrl ?? userRecord?.image ?? user.image}
+              userName={user.name}
+              updatedAt={employee?.updatedAt ?? userRecord?.updatedAt}
             />
             <div className="min-w-0">
               <h3 className="font-display text-xl font-semibold text-ink-900 sm:text-2xl">
@@ -290,7 +293,6 @@ export default async function ProfilePage() {
               </div>
               <EmployeeContactForm
                 name={user.name}
-                image={employee.profileImageUrl}
                 phone={employee.phone}
                 email={employee.email}
                 address={employee.address}

@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { NAV_ITEMS, type NavGroup, type AnyNavItem } from "@/components/dashboard/nav-config";
 import { can } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
+import { Avatar } from "@/components/ui/avatar";
 import type { OrgBranding } from "@/components/dashboard/dashboard-shell";
 
 // ── CollapsibleGroup ─────────────────────────────────────────────────────────
@@ -90,11 +91,13 @@ function CollapsibleGroup({
 
 export function Sidebar({
   role,
+  user,
   mobileOpen,
   onClose,
   org,
 }: {
   role: string;
+  user: { name: string; image?: string | null };
   mobileOpen: boolean;
   onClose: () => void;
   org: OrgBranding;
@@ -188,8 +191,19 @@ export function Sidebar({
           })}
         </nav>
 
+        {/* User identity row */}
+        <div className="border-t border-brand-800 px-4 py-3">
+          <Link href="/profile" onClick={onClose} className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-brand-800/60 transition-colors">
+            <Avatar name={user.name} imageUrl={user.image} size="sm" className="shrink-0" />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-xs font-semibold text-white/90">{user.name}</span>
+              <span className="block text-[10px] text-brand-200/60">{t("common.myProfile")}</span>
+            </span>
+          </Link>
+        </div>
+
         {/* Footer */}
-        <div className="px-6 py-5 text-xs text-brand-200/60">
+        <div className="px-6 py-4 text-xs text-brand-200/60">
           © {new Date().getFullYear()} {org.orgName}
           <br />
           {org.location}

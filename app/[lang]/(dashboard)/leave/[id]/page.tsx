@@ -69,7 +69,7 @@ export default async function LeaveDetailPage({ params }: { params: Promise<{ la
             <div className="grid grid-cols-1 gap-x-6 gap-y-5 p-6 sm:grid-cols-2">
               <Field label={t("columns.employee")}>
                 <div className="flex items-center gap-3">
-                  <Avatar name={`${leave.employee.firstName} ${leave.employee.lastName}`} imageUrl={leave.employee.profileImageUrl} size="sm" />
+                  <Avatar name={`${leave.employee.firstName} ${leave.employee.lastName}`} imageUrl={leave.employee.profileImageUrl} size="sm" version={leave.employee.updatedAt} />
                   <div>
                     <p className="font-medium text-ink-900">
                       {leave.employee.firstName} {leave.employee.lastName}

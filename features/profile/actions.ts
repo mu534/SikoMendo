@@ -7,7 +7,8 @@ import { withPermission, type ActionResult } from "@/lib/action-utils";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { uploadToCloudinary } from "@/lib/cloudinary";
+import { uploadToCloudinary, deleteFromCloudinary } from "@/lib/cloudinary";
+import { validatePhotoFile, PHOTO_ALLOWED_MIME_TYPES, PHOTO_MAX_BYTES } from "@/lib/file-limits";
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
 
@@ -223,6 +224,229 @@ export async function changeOwnPassword(
         userId: session!.user.id,
       },
     });
+
+    return null;
+  });
+}
+
+// ── Profile picture management ─────────────────────────────────────────────────
+
+/**
+ * Uploads and replaces the authenticated user's profile picture.
+ *
+ * Flow:
+ *  1. Validate auth + permission.
+ *  2. Validate the image blob (MIME, size).
+ *  3. Upload to Cloudinary with a 512×512 fill transformation.
+ *  4. Update user.image + user.imagePublicId in the DB.
+ *  5. Sync to Better Auth + linked Employee record.
+ *  6. Delete the OLD Cloudinary asset (non-fatal).
+ *  7. Revalidate relevant paths.
+ *
+ * Admin role may supply an optional `targetUserId` in formData to manage
+ * another user's picture.  Any other role is restricted to self-updates.
+ */
+export async function updateProfilePicture(
+  formData: FormData
+): Promise<ActionResult<{ imageUrl: string }>> {
+  const session = await getServerSession();
+
+  return withPermission(session, "UPDATE_OWN_INFO", async () => {
+    const selfId = session!.user.id;
+    const rawTargetId = formData.get("targetUserId");
+    const targetUserId =
+      typeof rawTargetId === "string" && rawTargetId.trim()
+        ? rawTargetId.trim()
+        : selfId;
+
+    // Only ADMIN may update other users
+    if (targetUserId !== selfId && session!.user.role !== "ADMIN") {
+      throw new Error("You don't have permission to update another user's profile picture.");
+    }
+
+    // ── Validate image ────────────────────────────────────────────────────────
+    const imageField = formData.get("image");
+    if (!(imageField instanceof Blob)) {
+      throw new Error("No image provided.");
+    }
+
+    // Convert to File for the existing validator
+    const mimeType =
+      imageField instanceof File
+        ? imageField.type
+        : (imageField as Blob).type || "image/jpeg";
+
+    if (!PHOTO_ALLOWED_MIME_TYPES.has(mimeType)) {
+      throw new Error("Only JPEG, PNG, and WebP images are accepted.");
+    }
+    if (imageField.size > PHOTO_MAX_BYTES) {
+      throw new Error("File size must be under 5 MB.");
+    }
+
+    // ── Read current publicId for cleanup ─────────────────────────────────────
+    const currentUser = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { imagePublicId: true },
+    });
+    const oldPublicId = currentUser?.imagePublicId ?? null;
+
+    // ── Upload to Cloudinary ──────────────────────────────────────────────────
+    const buffer = Buffer.from(await imageField.arrayBuffer());
+    const asset = await uploadToCloudinary(buffer, "siko-mendo/profile-pictures", {
+      resourceType: "image",
+      mimeType,
+      transformation: [
+        { width: 512, height: 512, crop: "fill", gravity: "face", quality: "auto", fetch_format: "auto" },
+      ],
+    });
+
+    // ── DB update ─────────────────────────────────────────────────────────────
+    try {
+      await prisma.user.update({
+        where: { id: targetUserId },
+        data: {
+          image: asset.url,
+          imagePublicId: asset.publicId,
+          updatedAt: new Date(),
+        },
+      });
+    } catch (dbErr) {
+      // Rollback: delete the just-uploaded asset so we don't orphan it
+      await deleteFromCloudinary(asset.publicId);
+      throw dbErr;
+    }
+
+    // ── Sync to Better Auth ───────────────────────────────────────────────────
+    try {
+      await auth.api.adminUpdateUser({
+        headers: await headers(),
+        body: { userId: targetUserId, data: { image: asset.url } },
+      });
+    } catch {
+      // Non-fatal: DB is source of truth; auth session refreshes on next request
+    }
+
+    // ── Sync to linked Employee record ────────────────────────────────────────
+    try {
+      const linkedEmployee = await prisma.employee.findUnique({
+        where: { userId: targetUserId },
+        select: { id: true },
+      });
+      if (linkedEmployee) {
+        await prisma.employee.update({
+          where: { id: linkedEmployee.id },
+          data: {
+            profileImageUrl: asset.url,
+            profileImageKey: asset.publicId,
+          },
+        });
+      }
+    } catch {
+      // Non-fatal
+    }
+
+    // ── Delete old Cloudinary asset ───────────────────────────────────────────
+    if (oldPublicId) {
+      await deleteFromCloudinary(oldPublicId);
+    }
+
+    // ── Audit + revalidate ────────────────────────────────────────────────────
+    await prisma.auditLog.create({
+      data: {
+        action: "UPDATE_PROFILE",
+        entity: "User",
+        entityId: targetUserId,
+        changes: { photoChanged: true },
+        userId: selfId,
+      },
+    });
+
+    revalidatePath("/profile");
+    revalidatePath("/employees");
+    revalidatePath("/users");
+
+    return { imageUrl: asset.url };
+  });
+}
+
+/**
+ * Removes the authenticated user's profile picture.
+ *
+ * Flow:
+ *  1. Validate auth + permission.
+ *  2. Read current image + publicId from DB.
+ *  3. Clear image + imagePublicId in the DB (and linked Employee).
+ *  4. Sync to Better Auth.
+ *  5. Delete Cloudinary asset (non-fatal).
+ *  6. Revalidate paths.
+ */
+export async function removeProfilePicture(): Promise<ActionResult<null>> {
+  const session = await getServerSession();
+
+  return withPermission(session, "UPDATE_OWN_INFO", async () => {
+    const userId = session!.user.id;
+
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { imagePublicId: true },
+    });
+    const oldPublicId = currentUser?.imagePublicId ?? null;
+
+    // ── Clear DB ──────────────────────────────────────────────────────────────
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        image: null,
+        imagePublicId: null,
+        updatedAt: new Date(),
+      },
+    });
+
+    // ── Sync to Better Auth ───────────────────────────────────────────────────
+    try {
+      await auth.api.adminUpdateUser({
+        headers: await headers(),
+        body: { userId, data: { image: null } },
+      });
+    } catch {
+      // Non-fatal
+    }
+
+    // ── Sync to linked Employee ───────────────────────────────────────────────
+    try {
+      const linkedEmployee = await prisma.employee.findUnique({
+        where: { userId },
+        select: { id: true },
+      });
+      if (linkedEmployee) {
+        await prisma.employee.update({
+          where: { id: linkedEmployee.id },
+          data: { profileImageUrl: null, profileImageKey: null },
+        });
+      }
+    } catch {
+      // Non-fatal
+    }
+
+    // ── Delete old Cloudinary asset ───────────────────────────────────────────
+    if (oldPublicId) {
+      await deleteFromCloudinary(oldPublicId);
+    }
+
+    // ── Audit + revalidate ────────────────────────────────────────────────────
+    await prisma.auditLog.create({
+      data: {
+        action: "UPDATE_PROFILE",
+        entity: "User",
+        entityId: userId,
+        changes: { photoRemoved: true },
+        userId,
+      },
+    });
+
+    revalidatePath("/profile");
+    revalidatePath("/employees");
+    revalidatePath("/users");
 
     return null;
   });
