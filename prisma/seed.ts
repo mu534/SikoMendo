@@ -1,8 +1,11 @@
 import dotenv from "dotenv";
-dotenv.config({ path: ".env.local" });
+// Load both .env and .env.local so the seed works whether run directly
+// (tsx prisma/seed.ts) or via prisma migrate reset (which may not set NODE_ENV).
+dotenv.config({ path: ".env" });
+dotenv.config({ path: ".env.local", override: true });
 
 import prisma from "../lib/prisma";
-import bcrypt from "bcryptjs";
+import { hashPassword } from "@better-auth/utils/password";
 
 // ── Admin account ─────────────────────────────────────────────────────────────
 // This account is ALWAYS seeded and is never removed by a database reset.
@@ -13,7 +16,7 @@ const ADMIN = {
   username: "admin",
   name:     "System Administrator",
   email:    "admin@sikomendo.local",
-  password: "Admin@1234",   // temporary — must be changed on first login
+  password: "Admin@1234",   
   role:     "ADMIN" as const,
 };
 
@@ -129,7 +132,7 @@ async function main() {
     });
     console.log(`  ✓ Admin account "${ADMIN.username}" already exists — skipped.`);
   } else {
-    const passwordHash = await bcrypt.hash(ADMIN.password, 10);
+    const passwordHash = await hashPassword(ADMIN.password);
     const userId = cuid();
 
     await prisma.user.create({
