@@ -643,3 +643,110 @@ export async function assertLeaveDecisionAuthority(
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 13. Department Manager slot availability guard (FEAT-001)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Prevents registering a new employee into a "manager-type" position when the
+ * department already has an active Department Manager (Department.managerId is
+ * not null).
+ *
+ * "Manager-type" is determined by a case-insensitive substring match on the
+ * position name (e.g. "Finance Manager", "HR Manager"). This avoids requiring a
+ * schema migration to add an `isDeptManagerPosition` boolean to the Position
+ * model.
+ *
+ * Must be called **inside** a Serializable `prisma.$transaction` so that the
+ * read (does the dept have a manager?) and the subsequent write (create employee)
+ * are atomic and cannot race.
+ *
+ * @param tx           Prisma interactive transaction client.
+ * @param departmentId The department being assigned to the new employee.
+ * @param positionId   The position being assigned to the new employee.
+ *
+ * @throws Error when the department already has an active manager and the chosen
+ *         position is a manager-type position.
+ */
+export async function assertDeptManagerSlotAvailable(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  departmentId: string,
+  positionId: string
+): Promise<void> {
+  const [dept, position] = await Promise.all([
+    tx.department.findUnique({
+      where: { id: departmentId },
+      select: { managerId: true, name: true },
+    }),
+    tx.position.findUnique({
+      where: { id: positionId },
+      select: { name: true },
+    }),
+  ]);
+
+  if (!dept || !position) return; // Validated upstream — skip silently here
+
+  // Only block if the position is a manager-type position (name contains "manager")
+  const isManagerTypePosition = position.name.toLowerCase().includes("manager");
+  if (!isManagerTypePosition) return;
+
+  // Block if the department already has an active manager
+  if (dept.managerId !== null) {
+    const deptName = dept.name ?? departmentId;
+    throw new Error(
+      `This department already has an assigned Department Manager. ` +
+      `The manager position in "${deptName}" cannot be assigned to another employee.`
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 14. Manager-position uniqueness guard for employee create (P3-new)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Prevents creating a new employee in the position currently held by the
+ * department's designated manager.
+ *
+ * Background: each department has exactly one designated manager employee
+ * (Department.managerId). That employee holds a specific position
+ * (e.g. "HR Manager", "Finance Manager"). Registering a second employee in
+ * the same position would leave two people holding the same title within the
+ * same department — the frontend disables this option, but the backend must
+ * enforce it independently.
+ *
+ * @param tx           Prisma interactive transaction client — call inside a
+ *                     $transaction so this check and the subsequent write are
+ *                     atomic and not subject to a TOCTOU race.
+ * @param departmentId The department being assigned.
+ * @param positionId   The position being assigned.
+ *
+ * @throws Error with a user-facing message when the position is already held
+ *         by the department's manager.
+ */
+export async function assertNotManagerPosition(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  departmentId: string,
+  positionId: string
+): Promise<void> {
+  const dept = await tx.department.findUnique({
+    where: { id: departmentId },
+    select: {
+      name: true,
+      managerId: true,
+      manager: { select: { positionId: true } },
+    },
+  });
+
+  if (
+    dept?.managerId !== null &&
+    dept?.manager?.positionId === positionId
+  ) {
+    const deptName = dept.name ?? departmentId;
+    throw new Error(
+      `This department already has an assigned manager. ` +
+      `The manager position in "${deptName}" cannot be assigned to another employee.`
+    );
+  }
+}

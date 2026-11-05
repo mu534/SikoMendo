@@ -1,0 +1,29 @@
+{
+  "id": "FEAT-001",
+  "type": "fix",
+  "description": "Backend: add assertDeptManagerSlotAvailable guard, fix createEmployeeLoginAccount DEPT_MANAGER enforcement, and extend positions query with departmentHasManager flag. This is the server-side foundation that makes all subsequent fixes correct and race-condition-safe.",
+  "status": "completed",
+  "steps": [
+    "1. In lib/employee-access.ts, add exported function assertDeptManagerSlotAvailable(tx, departmentId, positionId). Logic: fetch Department with managerId; fetch Position with name. If Department.managerId is NOT null AND the position name contains 'Manager' (case-insensitive), throw Error with translated message 'This department already has an assigned Department Manager.' Wrap the department.managerId check + the subsequent throw inside the Serializable transaction context (tx param). Keep the existing assertNotManagerPosition as-is — do not remove it.",
+    "2. In features/positions/queries.ts, add field departmentHasManager: p.department.managerId !== null to the object returned by listActivePositions(). This is a pure read — no DB write. Also update the return type comment.",
+    "3. In features/employees/actions.ts, inside the prisma.$transaction block in createEmployee (after the existing assertNotManagerPosition call), add: await assertDeptManagerSlotAvailable(tx, parsed.data.departmentId, parsed.data.positionId). Import assertDeptManagerSlotAvailable from '@/lib/employee-access'.",
+    "4. In features/users/actions.ts, in createEmployeeLoginAccount: (a) After the MANAGER guard, add: if (role === 'DEPT_MANAGER') { const deptId = String(formData.get('departmentId') ?? '').trim(); if (!deptId) throw new Error('A department must be selected when assigning the Department Manager role.'); await assertSingleManagerPerDepartment(deptId); } (b) Store deptId in a variable. (c) After prisma.employee.update that sets userId, add inside a transaction: if (role === 'DEPT_MANAGER' && deptId) { await prisma.department.update({ where: { id: deptId }, data: { managerId: employee.id } }); } — wrap the user.update + employee.update + department.update together in a single prisma.$transaction with isolationLevel: 'Serializable' to prevent races.",
+    "5. Write role-correction script at .agents/tasks/dept-manager-fix/role-correction.ts. The script: (a) Finds User records with role='MANAGER' whose linked employee is not the sole general manager (i.e., there are multiple MANAGER users). (b) Finds User records with role='HR_OFFICER' whose linked employee's department is NOT 'Human Resource Department'. (c) Prints a table. (d) If --apply flag is passed: updates MANAGER→DEPT_MANAGER (for those in a dept), HR_OFFICER→DEPT_MANAGER (for non-HR dept managers) or EMPLOYEE (no dept). Writes an AuditLog entry per correction. Script uses tsx, dotenv, and the existing lib/prisma. Add disclaimer comment at top: DO NOT run with --apply without manual review."
+  ],
+  "acceptance_criteria": [
+    "assertDeptManagerSlotAvailable is exported from lib/employee-access.ts and imported in features/employees/actions.ts",
+    "listActivePositions() returns departmentHasManager boolean on each position",
+    "createEmployee rejects a second department-manager-type position in a department that already has a DEPT_MANAGER (via assertDeptManagerSlotAvailable)",
+    "createEmployeeLoginAccount throws when role=DEPT_MANAGER and no departmentId is provided",
+    "createEmployeeLoginAccount calls assertSingleManagerPerDepartment when role=DEPT_MANAGER",
+    "createEmployeeLoginAccount sets Department.managerId when role=DEPT_MANAGER and departmentId provided",
+    "role-correction.ts exists and runs without error in dry-run mode"
+  ],
+  "verification": [
+    "npx vitest run lib/employee-access.test.ts — all existing tests pass, new assertDeptManagerSlotAvailable tests pass",
+    "npx vitest run — full suite passes",
+    "npm run build — TypeScript compiles without error"
+  ],
+  "blocked_reason": null,
+  "findings": "All acceptance criteria met. Test suite: 23 files / 287 tests passed (21 new tests added). Build: Next.js 16.2.9 Turbopack compiled cleanly with no TypeScript errors (103s compile + 119s type check). Key implementation notes for FEAT-002: (1) listActivePositions() now returns departmentHasManager boolean — employee-form.tsx should use this alongside isManagerPosition to disable manager-type positions even when the current manager has no positionId set. (2) assertDeptManagerSlotAvailable uses case-insensitive 'manager' substring match on position.name — positions like 'Finance Manager', 'HR Manager', 'Marketing Manager' are blocked when dept.managerId is set. (3) createEmployeeLoginAccount now wraps user.update + employee.update + department.update in a Serializable transaction and requires departmentId when role=DEPT_MANAGER. (4) The role-correction.ts script is at .agents/tasks/dept-manager-fix/role-correction.ts and runs in dry-run mode by default."
+}

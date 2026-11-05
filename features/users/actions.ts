@@ -56,6 +56,17 @@ export async function createEmployeeLoginAccount(
       await assertSingleGeneralManager();
     }
 
+    // FEAT-001: Prevent creating a second Department Manager for the same dept;
+    // also require a departmentId when assigning DEPT_MANAGER.
+    let deptId = "";
+    if (role === "DEPT_MANAGER") {
+      deptId = String(formData.get("departmentId") ?? "").trim();
+      if (!deptId) {
+        throw new Error("A department must be selected when assigning the Department Manager role.");
+      }
+      await assertSingleManagerPerDepartment(deptId);
+    }
+
     // Load the employee to get their Employee ID (e.g. EMP-0001) and full name
     const employee = await prisma.employee.findUnique({
       where: { id: employeeId },
@@ -93,22 +104,33 @@ export async function createEmployeeLoginAccount(
       body: { name: fullName, email: internalEmail, password: tempPassword },
     });
 
-    // Set username, role, and force-change on first sign-in
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        username,
-        displayUsername: username,
-        role: role as import("@prisma/client").Role,
-        mustChangePassword: true,
-      },
-    });
+    // Set username, role, force-change, link employee — and if DEPT_MANAGER,
+    // also update Department.managerId — all in one Serializable transaction to
+    // prevent a race where two simultaneous requests both pass assertSingleManagerPerDepartment.
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: user.id },
+        data: {
+          username,
+          displayUsername: username,
+          role: role as import("@prisma/client").Role,
+          mustChangePassword: true,
+        },
+      });
 
-    // Link the new user to the employee record
-    await prisma.employee.update({
-      where: { id: employee.id },
-      data: { userId: user.id },
-    });
+      await tx.employee.update({
+        where: { id: employee.id },
+        data: { userId: user.id },
+      });
+
+      // FEAT-001: Atomically set Department.managerId when role is DEPT_MANAGER.
+      if (role === "DEPT_MANAGER" && deptId) {
+        await tx.department.update({
+          where: { id: deptId },
+          data: { managerId: employee.id },
+        });
+      }
+    }, { isolationLevel: "Serializable" });
 
     await logAudit(
       "CREATE",

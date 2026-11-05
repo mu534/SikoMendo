@@ -12,6 +12,8 @@ import { validateCsvImportFile, validateEmployeeDocumentFile, validatePhotoFile 
 import {
   validateManagerAssignment,
   assertPositionInDepartment,
+  assertNotManagerPosition,
+  assertDeptManagerSlotAvailable,
   assertStatusChangeAllowed,
   assertArchiveSafe,
   assertRestoreSafe,
@@ -111,7 +113,18 @@ export async function createEmployee(
       const employeeId = await generateNextEmployeeId();
 
       // P2-13: Wrap Employee + EmploymentHistory + OnboardingRecord + Education in one transaction
+      // Serializable isolation prevents a TOCTOU race where two simultaneous requests
+      // could both pass the manager-position check and both create employees in the same position.
       const employee = await prisma.$transaction(async (tx) => {
+        // P3-new: Reject if the submitted position is already held by the department manager.
+        await assertNotManagerPosition(tx, parsed.data.departmentId, parsed.data.positionId);
+
+        // FEAT-001: Reject if the submitted position is a manager-type position
+        // and the department already has an active Department Manager (even if the
+        // current manager has no positionId set — assertNotManagerPosition alone
+        // would not catch that case).
+        await assertDeptManagerSlotAvailable(tx, parsed.data.departmentId, parsed.data.positionId);
+
         const created = await tx.employee.create({
           data: {
             employeeId,
@@ -188,7 +201,7 @@ export async function createEmployee(
         });
 
         return created;
-      });
+      }, { isolationLevel: "Serializable" });
 
       await logAudit(
         "CREATE",

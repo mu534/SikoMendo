@@ -390,7 +390,17 @@
       "profilePhoto": "Profile photo",
       "uploadPhoto": "Upload photo",
       "changePhoto": "Change photo",
-      "removePhoto": "Remove photo"
+      "removePhoto": "Remove photo",
+      "phonePlaceholder": "e.g. 0911 234567 or +251911234567",
+      "phoneHint": "Ethiopian: 09XXXXXXXX or 07XXXXXXXX — International: +country code",
+      "minAgeError": "Employee must be at least 21 years old.",
+      "positionTakenByManager": "assigned to department manager",
+      "deptHasManagerPositionHint": "This department already has an assigned manager. That position is unavailable.",
+      "deptManagerSlotTaken": "This department already has an assigned Department Manager.",
+      "hrDeptManagerSlotTaken": "Human Resources already has an assigned Department Manager.",
+      "deptManagerAlreadyExists": "A Department Manager for this department already exists.",
+      "selectDeptForDeptManager": "Select a department for the Department Manager role.",
+      "deptManagerRoleRequiresDept": "A department must be selected when assigning the Department Manager role."
     },
     "relationships": {
       "Spouse": "Spouse",

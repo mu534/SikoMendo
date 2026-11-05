@@ -385,7 +385,17 @@
       "profilePhoto": "Suuraa piroofaayilaa",
       "uploadPhoto": "Suuraa fe'i",
       "changePhoto": "Suuraa jijjiiri",
-      "removePhoto": "Suuraa haqi"
+      "removePhoto": "Suuraa haqi",
+      "phonePlaceholder": "Fakk. 0911 234567 ykn +251911234567",
+      "phoneHint": "Itoophiyaa: 09XXXXXXXX ykn 07XXXXXXXX — Idil-addunyaa: +koodii biyyaa",
+      "minAgeError": "Hojjetaan waggaa 21 ol ta'uu qaba.",
+      "positionTakenByManager": "hogganaa kutaa hojiitiif ramadame",
+      "deptHasManagerPositionHint": "Kutaan hojii kun hogganaa muudame qaba. Sadarkaan hojii sun hin argamu.",
+      "deptManagerSlotTaken": "Kutaan kun Manaajara Kutaa qaba.",
+      "hrDeptManagerSlotTaken": "Dhimma Namaa duruma Manaajara Kutaa qaba.",
+      "deptManagerAlreadyExists": "Manaajarii Kutaa kanaaf duruma jira.",
+      "selectDeptForDeptManager": "Sadarkaa Manaajara Kutaatiif kutaa filadhu.",
+      "deptManagerRoleRequiresDept": "Gahee Manaajara Kutaa kennu keessatti kutaa filachuu qabda."
     },
     "relationships": {
       "Spouse": "Hiriyyaa gaa'elaa",
