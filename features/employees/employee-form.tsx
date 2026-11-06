@@ -35,7 +35,7 @@ type EmploymentStatus =
   | "SUSPENDED" | "TERMINATED" | "INACTIVE";
 
 export type DepartmentOption = { id: string; name: string };
-export type PositionOption   = { id: string; name: string; departmentId: string };
+export type PositionOption   = { id: string; name: string; departmentId: string; isManagerPosition: boolean; departmentHasManager: boolean };
 export type ManagerOption    = {
   id: string;
   firstName: string;
@@ -136,6 +136,7 @@ function ManagerCombobox({
           role="combobox"
           aria-expanded={open}
           aria-haspopup="listbox"
+          aria-controls={`${name}-listbox`}
           aria-label={t("form.selectManager")}
           placeholder={selected ? `${selected.firstName} ${selected.lastName}` : t("form.selectManager")}
           value={query}
@@ -161,7 +162,7 @@ function ManagerCombobox({
       )}
 
       {open && (
-        <ul role="listbox" aria-label={t("form.manager")} className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-xl border border-ink-900/10 bg-white py-1 shadow-lg shadow-ink-900/8">
+        <ul role="listbox" id={`${name}-listbox`} aria-label={t("form.manager")} className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-xl border border-ink-900/10 bg-white py-1 shadow-lg shadow-ink-900/8">
           {!required && (
             <li role="option" aria-selected={!selected} onMouseDown={() => { setSelected(null); setQuery(""); setOpen(false); }} className="cursor-pointer px-3 py-2 text-sm text-ink-900/45 hover:bg-sand-50">
               {tC("none")}
@@ -320,6 +321,18 @@ export function EmployeeForm({
   // Date of birth — client-side minimum-age validation
   // Employee must be strictly older than 20 (i.e. turned 21 or older already).
   const [dobError, setDobError] = useState<string | null>(null);
+
+  // Maximum selectable birthday: exactly 21 years before today (calendar-accurate).
+  // Computed at render time so the restriction is always current.
+  const maxDob = (() => {
+    const today = new Date();
+    return new Date(
+      today.getFullYear() - 21,
+      today.getMonth(),
+      today.getDate()
+    ).toISOString().slice(0, 10);
+  })();
+
   function validateDob(value: string) {
     if (!value) { setDobError(t("form.dateOfBirth")); return; }
     const dob = new Date(value);
@@ -328,7 +341,7 @@ export function EmployeeForm({
     if (dob > today) { setDobError(tC("required")); return; }
     const threshold = new Date(today.getFullYear() - 21, today.getMonth(), today.getDate());
     if (dob > threshold) {
-      setDobError(tC("required"));
+      setDobError(t("form.minAgeError"));
     } else {
       setDobError(null);
     }
@@ -348,6 +361,7 @@ export function EmployeeForm({
       if (onSaveSuccess) {
         onSaveSuccess();
       } else {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setShowToast(true);
         const t = setTimeout(() => setShowToast(false), 4000);
         return () => clearTimeout(t);
@@ -424,7 +438,7 @@ export function EmployeeForm({
               </FieldGroup>
               <FieldGroup>
                 <Label htmlFor="dateOfBirth">{t("form.dateOfBirth")}<RequiredMark /></Label>
-                <Input id="dateOfBirth" name="dateOfBirth" type="date" required defaultValue={toDateInputValue(employee?.dateOfBirth)} onChange={(e) => validateDob(e.target.value)} />
+                <Input id="dateOfBirth" name="dateOfBirth" type="date" required max={maxDob} defaultValue={toDateInputValue(employee?.dateOfBirth)} onChange={(e) => validateDob(e.target.value)} />
                 {dobError && <FieldError>{dobError}</FieldError>}
               </FieldGroup>
               <FieldGroup>
@@ -497,10 +511,28 @@ export function EmployeeForm({
                   <Label htmlFor="positionId">{t("form.position")}<RequiredMark /></Label>
                   <Select id="positionId" name="positionId" required value={selectedPosId} onChange={(e) => setSelectedPosId(e.target.value)} disabled={!selectedDeptId}>
                     <option value="">{selectedDeptId ? t("form.selectPosition") : t("form.selectDepartmentFirst")}</option>
-                    {filteredPositions.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    {filteredPositions.map((p) => {
+                      const isManagerTypeName = p.name.toLowerCase().includes("manager");
+                      const shouldDisable = p.isManagerPosition || (isManagerTypeName && p.departmentHasManager);
+                      return (
+                        <option key={p.id} value={p.id} disabled={shouldDisable}>
+                          {p.name}{p.isManagerPosition ? ` — ${t("form.positionTakenByManager")}` : (isManagerTypeName && p.departmentHasManager ? ` — ${t("form.positionTakenByManager")}` : "")}
+                        </option>
+                      );
+                    })}
                   </Select>
                   {selectedDeptId && filteredPositions.length === 0 && (
                     <p className="mt-1 text-xs text-ink-900/50">{t("form.noPositionsInDept")}</p>
+                  )}
+                  {selectedDeptId && filteredPositions.some((p) => p.isManagerPosition) && (
+                    <p className="mt-1 text-xs text-amber-700">
+                      {t("form.deptHasManagerPositionHint")}
+                    </p>
+                  )}
+                  {selectedDeptId && !filteredPositions.some((p) => p.isManagerPosition) && filteredPositions.some((p) => p.departmentHasManager && p.name.toLowerCase().includes("manager")) && (
+                    <p className="mt-1 text-xs text-amber-700">
+                      {t("form.deptManagerSlotTaken")}
+                    </p>
                   )}
                 </FieldGroup>
 

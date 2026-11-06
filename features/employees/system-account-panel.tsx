@@ -38,6 +38,7 @@ type Props = {
   employeeCode: string;     // business-facing ID e.g. EMP-0001
   linkedUser: LinkedUser | null;
   canManage: boolean;       // MANAGE_USERS permission
+  departmentId: string | null;
 };
 
 // ── No-account state ──────────────────────────────────────────────────────────
@@ -45,16 +46,20 @@ type Props = {
 function CreateAccountForm({
   employeeId,
   employeeCode,
+  departmentId,
 }: {
   employeeId: string;
   employeeCode: string;
+  departmentId: string | null;
 }) {
   const router = useRouter();
   const [state, formAction, isPending] = useActionState(createEmployeeLoginAccount, null);
   const [credentials, setCredentials] = useState<{ username: string; password: string } | null>(null);
   const [copied, setCopied] = useState<"username" | "password" | null>(null);
+  const [selectedRole, setSelectedRole] = useState("EMPLOYEE");
   const t = useTranslations("users");
   const tC = useTranslations("common");
+  const tE = useTranslations("employees");
 
   useEffect(() => {
     if (state?.success) {
@@ -131,14 +136,26 @@ function CreateAccountForm({
 
       <FieldGroup>
         <Label htmlFor="emp-role">{t("form.role")}</Label>
-        <Select id="emp-role" name="role" defaultValue="EMPLOYEE">
+        <Select id="emp-role" name="role" value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)}>
           {ROLES.map((r) => (
             <option key={r} value={r}>{roleLabel(r)}</option>
           ))}
         </Select>
       </FieldGroup>
 
-      <Button type="submit" disabled={isPending} size="sm">
+      {/* When DEPT_MANAGER is selected, forward the employee's departmentId */}
+      {selectedRole === "DEPT_MANAGER" && departmentId && (
+        <input type="hidden" name="departmentId" value={departmentId} />
+      )}
+
+      {/* Warn if DEPT_MANAGER is selected but employee has no department */}
+      {selectedRole === "DEPT_MANAGER" && !departmentId && (
+        <div role="alert" className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+          {tE("form.selectDeptForDeptManager")}
+        </div>
+      )}
+
+      <Button type="submit" disabled={isPending || (selectedRole === "DEPT_MANAGER" && !departmentId)} size="sm">
         {isPending ? tC("loading") : t("form.createAccount")}
       </Button>
     </form>
@@ -298,7 +315,7 @@ function LinkedAccountPanel({
 
 // ── Public component ──────────────────────────────────────────────────────────
 
-export function SystemAccountPanel({ employeeId, employeeCode, linkedUser, canManage }: Props) {
+export function SystemAccountPanel({ employeeId, employeeCode, linkedUser, canManage, departmentId }: Props) {
   const t = useTranslations("users");
   const tC = useTranslations("common");
   return (
@@ -318,7 +335,7 @@ export function SystemAccountPanel({ employeeId, employeeCode, linkedUser, canMa
       {linkedUser ? (
         <LinkedAccountPanel user={linkedUser} canManage={canManage} />
       ) : canManage ? (
-        <CreateAccountForm employeeId={employeeId} employeeCode={employeeCode} />
+        <CreateAccountForm employeeId={employeeId} employeeCode={employeeCode} departmentId={departmentId} />
       ) : (
         <p className="text-sm text-ink-900/55 italic">
           No login account has been linked to this employee.

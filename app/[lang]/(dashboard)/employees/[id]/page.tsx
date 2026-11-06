@@ -418,6 +418,7 @@ export default async function EmployeeDetailPage({
                     : null
                 }
                 canManage={canManageUsers}
+                departmentId={employee.departmentId ?? null}
               />
             )}
           </>
