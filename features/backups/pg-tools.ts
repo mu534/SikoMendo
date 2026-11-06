@@ -32,6 +32,27 @@ export interface PgRestoreListEntry {
 }
 
 /**
+ * Strips Prisma-specific query parameters (e.g. ?schema=public) from a
+ * PostgreSQL connection URL before passing it to pg_dump / pg_restore.
+ * pg_dump rejects unrecognised URI query parameters.
+ */
+function pgConnectionUrl(databaseUrl: string): string {
+  try {
+    const u = new URL(databaseUrl);
+    // Remove params pg_dump doesn't understand
+    u.searchParams.delete("schema");
+    u.searchParams.delete("pgbouncer");
+    u.searchParams.delete("connection_limit");
+    u.searchParams.delete("pool_timeout");
+    // If no params remain, remove the trailing '?'
+    return u.toString();
+  } catch {
+    // Not a valid URL — return as-is and let pg_dump report the real error
+    return databaseUrl;
+  }
+}
+
+/**
  * Runs pg_dump --format=custom against DATABASE_URL and returns a Buffer.
  * Temp file is created in os.tmpdir(); callers MUST delete it in a finally block.
  *
@@ -39,7 +60,7 @@ export interface PgRestoreListEntry {
  */
 export async function runPgDump(): Promise<PgDumpResult> {
   const pgDumpPath = env.PG_DUMP_PATH ?? "pg_dump";
-  const databaseUrl = env.DATABASE_URL;
+  const databaseUrl = pgConnectionUrl(env.DATABASE_URL);
 
   const tmpDir  = await mkdtemp(join(tmpdir(), "siko-mendo-backup-"));
   const tmpPath = join(tmpDir, "dump.pgcustom");
@@ -101,7 +122,7 @@ export async function pgRestoreList(dumpPath: string): Promise<PgRestoreListEntr
  */
 export async function runPgRestore(dumpBuffer: Buffer): Promise<void> {
   const pgRestorePath = env.PG_RESTORE_PATH ?? "pg_restore";
-  const databaseUrl   = env.DATABASE_URL;
+  const databaseUrl   = pgConnectionUrl(env.DATABASE_URL);
 
   const tmpDir  = await mkdtemp(join(tmpdir(), "siko-mendo-restore-"));
   const tmpPath = join(tmpDir, "restore.pgcustom");
