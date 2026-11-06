@@ -2,6 +2,7 @@
 
 import { useTransition, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import {
   DatabaseBackup,
   Download,
@@ -48,6 +49,7 @@ function SourceBadge({ source }: { source: string }) {
 
 export function BackupRestoreManager({ backups }: { backups: BackupRow[] }) {
   const t = useTranslations("backupRestore");
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -73,11 +75,14 @@ export function BackupRestoreManager({ backups }: { backups: BackupRow[] }) {
     startTransition(async () => {
       const result = await createBackup({ source: "MANUAL" });
       if (result.success) {
-        setSuccessMsg(`${t("createAndDownload")}: ${result.data.filename} (${formatBytes(result.data.sizeBytes)})`);
-        // Trigger download
-        window.location.href = `/api/backups/${result.data.id}`;
+        setSuccessMsg(
+          `Backup created: ${result.data.filename} (${formatBytes(result.data.sizeBytes)})`
+        );
+        // Refresh server data so new row appears with UPLOADED status
+        router.refresh();
       } else {
         setError(result.error.message);
+        router.refresh();
       }
     });
   }
@@ -96,6 +101,7 @@ export function BackupRestoreManager({ backups }: { backups: BackupRow[] }) {
       const result = await executeRestore(id, true);
       if (result.success) {
         setSuccessMsg(t("restoreSuccess"));
+        router.refresh();
       } else {
         setError(result.error.message);
       }
@@ -138,6 +144,7 @@ export function BackupRestoreManager({ backups }: { backups: BackupRow[] }) {
       const result = await executeRestoreFromUpload(token, true);
       if (result.success) {
         setSuccessMsg(t("restoreSuccess"));
+        router.refresh();
       } else {
         setError(result.error.message);
       }
@@ -145,7 +152,7 @@ export function BackupRestoreManager({ backups }: { backups: BackupRow[] }) {
   }
 
   return (
-    <div className="max-w-4xl space-y-5">
+    <div className="max-w-5xl space-y-5">
 
       {/* Status messages */}
       {error && (
@@ -213,7 +220,7 @@ export function BackupRestoreManager({ backups }: { backups: BackupRow[] }) {
       {/* Backup history */}
       <Card>
         <CardHeader
-          title={t("title")}
+          title="Backup History"
           description={`${backups.length} ${backups.length === 1 ? "backup" : "backups"}`}
         />
 
@@ -227,78 +234,84 @@ export function BackupRestoreManager({ backups }: { backups: BackupRow[] }) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-ink-900/8 text-left text-xs font-medium uppercase tracking-wide text-ink-900/40">
-                  <th className="px-6 py-3">{t("title")}</th>
+                  <th className="px-6 py-3">Filename</th>
                   <th className="px-6 py-3">{t("createdBy")}</th>
                   <th className="px-6 py-3">{t("fileSize")}</th>
                   <th className="px-6 py-3">{t("cloudStatus")}</th>
                   <th className="px-6 py-3">{t("backupStatus")}</th>
                   <th className="px-6 py-3">{t("source")}</th>
-                  <th className="px-6 py-3 text-right">{t("title")}</th>
+                  <th className="px-6 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-900/6">
-                {backups.map((b) => (
-                  <tr key={b.id} className="hover:bg-sand-50/50">
-                    <td className="px-6 py-3">
-                      <div className="font-medium text-ink-900">{b.filename}</div>
-                      <div className="text-xs text-ink-900/45">{formatDateTime(b.createdAt)}</div>
-                    </td>
-                    <td className="px-6 py-3 text-ink-900/60">
-                      {b.createdBy?.name ?? b.createdBy?.username ?? "—"}
-                    </td>
-                    <td className="px-6 py-3 tabular-nums text-ink-900/60">
-                      {b.fileSize > 0 ? formatBytes(b.fileSize) : "—"}
-                    </td>
-                    <td className="px-6 py-3">
-                      <UploadStatusBadge status={b.cloudinaryUploadStatus} />
-                    </td>
-                    <td className="px-6 py-3">
-                      <BackupStatusBadge status={b.backupStatus} />
-                    </td>
-                    <td className="px-6 py-3">
-                      <SourceBadge source={b.source} />
-                    </td>
-                    <td className="px-6 py-3">
-                      <div className="flex justify-end gap-2">
-                        {b.cloudinaryUploadStatus === "UPLOADED" && b.backupStatus !== "FAILED" && (
-                          <a href={`/api/backups/${b.id}`} download>
-                            <Button variant="ghost" size="sm">
+                {backups.map((b) => {
+                  const canDownload =
+                    b.cloudinaryUploadStatus === "UPLOADED" &&
+                    b.backupStatus !== "FAILED";
+                  return (
+                    <tr key={b.id} className="hover:bg-sand-50/50">
+                      <td className="px-6 py-3">
+                        <div className="font-medium text-ink-900 break-all">{b.filename}</div>
+                        <div className="text-xs text-ink-900/45">{formatDateTime(b.createdAt)}</div>
+                      </td>
+                      <td className="px-6 py-3 text-ink-900/60 whitespace-nowrap">
+                        {b.createdBy?.name ?? b.createdBy?.username ?? "—"}
+                      </td>
+                      <td className="px-6 py-3 tabular-nums text-ink-900/60 whitespace-nowrap">
+                        {b.fileSize > 0 ? formatBytes(b.fileSize) : "—"}
+                      </td>
+                      <td className="px-6 py-3">
+                        <UploadStatusBadge status={b.cloudinaryUploadStatus} />
+                      </td>
+                      <td className="px-6 py-3">
+                        <BackupStatusBadge status={b.backupStatus} />
+                      </td>
+                      <td className="px-6 py-3">
+                        <SourceBadge source={b.source} />
+                      </td>
+                      <td className="px-6 py-3">
+                        <div className="flex items-center justify-end gap-2">
+                          {canDownload && (
+                            <a
+                              href={`/api/backups/${b.id}`}
+                              download={b.filename}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-ink-900/15 bg-white px-3 py-1.5 text-xs font-medium text-ink-900 hover:bg-ink-50"
+                            >
                               <Download className="h-3.5 w-3.5" />
                               {t("download")}
-                            </Button>
-                          </a>
-                        )}
-                        {b.cloudinaryUploadStatus === "UPLOADED" && b.backupStatus !== "FAILED" && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleRestoreClick(b.id)}
-                            disabled={isPending}
-                          >
-                            {isPending ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <RotateCcw className="h-3.5 w-3.5" />
-                            )}
-                            {t("restore")}
-                          </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                            </a>
+                          )}
+                          {canDownload && (
+                            <button
+                              onClick={() => handleRestoreClick(b.id)}
+                              disabled={isPending}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100 disabled:opacity-50"
+                            >
+                              {isPending ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <RotateCcw className="h-3.5 w-3.5" />
+                              )}
+                              {t("restore")}
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </Card>
 
-      {/* Restore confirm dialog */}
+      {/* Restore from Cloudinary confirm dialog */}
       {confirmRestoreId && (
         <ConfirmDialog
           title={t("confirmRestore")}
           message={t("restoreWarning")}
-          confirmLabel={t("confirm")}
+          confirmLabel={t("restore")}
           cancelLabel={t("cancel")}
           variant="danger"
           onConfirm={handleRestoreConfirm}
@@ -310,8 +323,8 @@ export function BackupRestoreManager({ backups }: { backups: BackupRow[] }) {
       {confirmUploadRestore && uploadDetails && (
         <ConfirmDialog
           title={t("confirmRestore")}
-          message={`${t("restoreWarning")} (${uploadDetails.filename as string}, v${uploadDetails.formatVersion as number})`}
-          confirmLabel={t("confirm")}
+          message={`${t("restoreWarning")} (${uploadDetails.filename as string})`}
+          confirmLabel={t("restore")}
           cancelLabel={t("cancel")}
           variant="danger"
           onConfirm={handleUploadRestoreConfirm}
