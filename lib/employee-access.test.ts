@@ -120,6 +120,20 @@ describe("assertSingleManagerPerDepartment", () => {
     mockUserFindFirst.mockResolvedValue(null);
     await expect(assertSingleManagerPerDepartment("dept-finance")).resolves.toBeUndefined();
   });
+
+  it("Finance DEPT_MANAGER blocks Finance but not HR (independent departments)", async () => {
+    // Finance already has a DEPT_MANAGER → findFirst returns a user, call throws.
+    mockUserFindFirst.mockResolvedValueOnce({ id: "u-fin", name: "Finance Lead", username: "flead" });
+    mockDeptFindUnique.mockResolvedValueOnce({ name: "Finance" });
+    await expect(assertSingleManagerPerDepartment("dept-finance")).rejects.toThrow(
+      /already an active Department Manager for "Finance"/
+    );
+
+    // HR has no DEPT_MANAGER → findFirst returns null, call does not throw.
+    // A manager in Finance must not prevent HR (another department) from assigning its own manager.
+    mockUserFindFirst.mockResolvedValueOnce(null);
+    await expect(assertSingleManagerPerDepartment("dept-hr")).resolves.toBeUndefined();
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

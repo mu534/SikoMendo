@@ -50,6 +50,13 @@ describe("Non-HR Department Manager does NOT receive HR Officer permissions", ()
   it("DEPT_MANAGER can VIEW_EMPLOYEES (scoped access)", () => {
     expect(can("DEPT_MANAGER", "VIEW_EMPLOYEES")).toBe(true);
   });
+
+  it("EMPLOYEE does not have VIEW_EMPLOYEES permission", () => {
+    // Baseline: an ordinary EMPLOYEE cannot view other employees. Non-HR dept
+    // managers resolve to DEPT_MANAGER (not HR_OFFICER), so they do not gain the
+    // HR-only MANAGE_EMPLOYEES function — only scoped VIEW_EMPLOYEES access.
+    expect(can("EMPLOYEE", "VIEW_EMPLOYEES")).toBe(false);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
