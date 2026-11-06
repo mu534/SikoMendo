@@ -3,7 +3,8 @@ import { Search, Users as UsersIcon } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { requirePermission } from "@/lib/session";
 import { listUsers } from "@/features/users/queries";
-import { suspendUserAccount, reactivateUserAccount, deleteUserAccount, restoreUserAccount } from "@/features/users/actions";
+import { suspendUserAccount, reactivateUserAccount, restoreUserAccount } from "@/features/users/actions";
+import { ArchiveUserButton } from "@/features/users/archive-user-button";
 import { roleLabel, ROLES } from "@/lib/permissions";
 import { parsePageParam, parseStringParam, formatDate } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
@@ -225,21 +226,12 @@ export default async function UsersPage({
                               )
                             )}
                             {!isSelf && user.role !== "ADMIN" && (
-                              <form
-                                action={async () => {
-                                  "use server";
-                                  await deleteUserAccount(user.id);
-                                }}
-                              >
-                                <ConfirmSubmitButton
-                                  variant="danger"
-                                  size="sm"
-                                  confirmMessage={t("confirmArchive")}
-                                  confirmTitle={t("archiveTitle")}
-                                >
-                                  {t("actions.archive")}
-                                </ConfirmSubmitButton>
-                              </form>
+                              <ArchiveUserButton
+                                userId={user.id}
+                                confirmMessage={t("confirmArchive")}
+                                confirmTitle={t("archiveTitle")}
+                                buttonLabel={t("actions.archive")}
+                              />
                             )}
                           </>
                         )}

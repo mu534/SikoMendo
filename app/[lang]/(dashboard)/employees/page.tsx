@@ -9,7 +9,8 @@ import {
   getEmployeeDirectoryCounts,
 } from "@/features/employees/queries";
 import { listActiveDepartments } from "@/features/departments/queries";
-import { archiveEmployee, restoreEmployee } from "@/features/employees/actions";
+import { restoreEmployee } from "@/features/employees/actions";
+import { ArchiveEmployeeButton } from "@/features/employees/archive-employee-button";
 import prisma from "@/lib/prisma";
 import { parsePageParam, parseStringParam, formatDate } from "@/lib/utils";
 import { Card, StatCard } from "@/components/ui/card";
@@ -372,16 +373,11 @@ export default async function EmployeesPage({
                             </ConfirmSubmitButton>
                           </form>
                         ) : (
-                          <form action={async () => { "use server"; await archiveEmployee(emp.id); }}>
-                            <ConfirmSubmitButton
-                              variant="ghost"
-                              size="sm"
-                              confirmMessage={t("confirmArchive", { name: fullName })}
-                              className="text-ink-900/40 hover:text-red-600"
-                            >
-                              {tC("archive")}
-                            </ConfirmSubmitButton>
-                          </form>
+                          <ArchiveEmployeeButton
+                            employeeId={emp.id}
+                            confirmMessage={t("confirmArchive", { name: fullName })}
+                            buttonLabel={tC("archive")}
+                          />
                         )}
                       </div>
                     </TD>
