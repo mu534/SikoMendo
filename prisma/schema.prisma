@@ -183,6 +183,10 @@ model User {
   attendancePolicyUpdates AttendancePolicy[]  @relation("PolicyUpdatedBy")
   shiftsCreated           WorkShift[]         @relation("ShiftCreatedBy")
   attendanceCorrections   Attendance[]        @relation("AttendanceCorrectedBy")
+  // Employment-change audit back-relation
+  recordedEmploymentChanges EmploymentHistory[] @relation("EmploymentChangeRecordedBy")
+  // Backup back-relation
+  createdBackups          BackupRecord[]      @relation("BackupCreatedBy")
 
   @@map("user")
 }
@@ -400,10 +404,19 @@ model EmploymentHistory {
   changeReason   String
   remarks        String?
 
+  // Manager audit fields (additive migration — pre-existing rows will have nulls)
+  previousDepartmentId String?
+  previousPositionId   String?
+  previousManagerId    String?
+  newManagerId         String?
+  recordedById         String?
+  recordedBy           User?   @relation("EmploymentChangeRecordedBy", fields: [recordedById], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
 
   @@index([employeeId])
   @@index([employeeId, endDate])
+  @@index([recordedById])
   @@map("employment_history")
 }
 
@@ -821,4 +834,49 @@ model OffboardingRecord {
   @@index([employeeId, completedAt])
   @@index([completedAt])
   @@map("offboarding_record")
+}
+
+// ─── Backup & Restore ─────────────────────────────────
+
+enum BackupUploadStatus {
+  PENDING
+  UPLOADED
+  FAILED
+}
+
+enum BackupRecordStatus {
+  COMPLETED
+  FAILED
+  RESTORED
+  SUPERSEDED
+}
+
+enum BackupSource {
+  MANUAL
+  SAFETY
+  UPLOAD
+}
+
+/// Metadata record for each database backup.
+/// The actual encrypted backup file is stored in Cloudinary (private/raw).
+/// This record is created BEFORE the backup starts (status=PENDING) and
+/// updated on completion or failure. The pipeline ensures no COMPLETED row
+/// can exist without a corresponding Cloudinary asset.
+model BackupRecord {
+  id                     String             @id @default(cuid())
+  filename               String
+  formatVersion          Int                @default(2)
+  createdAt              DateTime           @default(now())
+  fileSize               Int                @default(0)
+  publicId               String             @unique @default("")
+  cloudinaryUploadStatus BackupUploadStatus @default(PENDING)
+  backupStatus           BackupRecordStatus @default(COMPLETED)
+  source                 BackupSource       @default(MANUAL)
+  notes                  String?
+  createdById            String?
+  createdBy              User?              @relation("BackupCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([createdById])
+  @@index([createdAt])
+  @@map("backup_record")
 }

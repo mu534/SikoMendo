@@ -306,3 +306,42 @@ describe("getEmployeeDetailTabPermissions — DEPT_MANAGER", () => {
     expect(getEmployeeDetailTabPermissions("DEPT_MANAGER").canViewHistory).toBe(true);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// isActiveDeptManagerOf (employment-change canonical DM check)
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { isActiveDeptManagerOf } from "./employee-access";
+
+describe("isActiveDeptManagerOf", () => {
+  /** Helper: builds a minimal tx-like object for isActiveDeptManagerOf */
+  function makeDeptTx(managerId: string | null) {
+    return {
+      department: { findUnique: vi.fn().mockResolvedValue({ managerId }) },
+    } as unknown as Parameters<Parameters<typeof import("@/lib/prisma").default.$transaction>[0]>[0];
+  }
+
+  it("returns true when Department.managerId equals employeeId", async () => {
+    const tx = makeDeptTx("emp-1");
+    expect(await isActiveDeptManagerOf(tx, "emp-1", "dept-1")).toBe(true);
+  });
+
+  it("returns false when Department.managerId is a different employee", async () => {
+    const tx = makeDeptTx("emp-2");
+    expect(await isActiveDeptManagerOf(tx, "emp-1", "dept-1")).toBe(false);
+  });
+
+  it("returns false when Department.managerId is null (no DM assigned)", async () => {
+    const tx = makeDeptTx(null);
+    expect(await isActiveDeptManagerOf(tx, "emp-1", "dept-1")).toBe(false);
+  });
+
+  it("does NOT use position title — 'Marketing Manager' title does not make them a DM", async () => {
+    // Dept has a different managerId → isActiveDeptManagerOf returns false
+    // even though the employee has a title containing "Manager"
+    const tx = makeDeptTx("actual-dm-employee");
+    const result = await isActiveDeptManagerOf(tx, "emp-with-manager-title", "dept-1");
+    expect(result).toBe(false);
+  });
+});
+

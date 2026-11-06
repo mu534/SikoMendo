@@ -85,7 +85,9 @@ export type Action =
   // MANAGE_OFFBOARDING: initiate/complete offboarding, archive employees
   | "MANAGE_OFFBOARDING"
   // VIEW_LIFECYCLE: access the lifecycle dashboard and the lifecycle tab on profiles
-  | "VIEW_LIFECYCLE";
+  | "VIEW_LIFECYCLE"
+  // MANAGE_BACKUP_RESTORE: create/download/restore database backups (admin-only)
+  | "MANAGE_BACKUP_RESTORE";
 
 // Define which actions each role can perform (hierarchical)
 export const PERMISSIONS: Record<Role, Action[]> = {
@@ -120,6 +122,7 @@ export const PERMISSIONS: Record<Role, Action[]> = {
     "MANAGE_ONBOARDING",
     "MANAGE_OFFBOARDING",
     "VIEW_LIFECYCLE",
+    "MANAGE_BACKUP_RESTORE",
   ],
   HR_OFFICER: [
     "MANAGE_EMPLOYEES",

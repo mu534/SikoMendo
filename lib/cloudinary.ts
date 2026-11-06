@@ -90,3 +90,33 @@ export async function deleteFromCloudinary(publicId: string, resourceType: "imag
     console.error(`Failed to delete Cloudinary asset ${publicId}:`, error);
   }
 }
+
+/**
+ * Uploads an encrypted backup buffer to Cloudinary as a private raw asset.
+ * Uses upload_stream for streaming without base64 overhead.
+ * Backups are stored in a separate folder from employee documents.
+ */
+export async function uploadBackupToCloudinary(
+  buffer: Buffer,
+  publicId: string,
+  opts?: { filename?: string; folder?: string }
+): Promise<{ publicId: string; bytes: number; url: string }> {
+  const folder = opts?.folder ?? "siko-mendo/backups";
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder,
+        public_id: publicId,
+        resource_type: "raw",
+        type: "authenticated",
+        overwrite: true,
+      },
+      (err, res) => {
+        if (err) return reject(err);
+        if (!res) return reject(new Error("No response from Cloudinary upload"));
+        resolve({ publicId: res.public_id, bytes: res.bytes, url: res.secure_url });
+      }
+    );
+    stream.end(buffer);
+  });
+}

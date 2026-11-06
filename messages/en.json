@@ -1274,7 +1274,45 @@
       "reasonPlaceholder": "Describe the reason for this change…"
     },
     "current": "Current",
-    "previous": "Previous"
+    "previous": "Previous",
+    "managerWillUpdate": "The reporting manager will be updated to the new department Department Manager.",
+    "deptManagerAppointmentHint": "Appointing a Department Manager sets their reporting manager to the General Manager."
+  },
+
+  "backupRestore": {
+    "title": "Backup & Restore",
+    "description": "Create and manage encrypted database backups. Only Administrators can access this page.",
+    "createAndDownload": "Create & Download Backup",
+    "creating": "Creating backup…",
+    "download": "Download",
+    "restore": "Restore",
+    "restoring": "Restoring…",
+    "viewDetails": "View details",
+    "confirmRestore": "Confirm Restore",
+    "restoreWarning": "This will replace the current database with the selected backup. A safety backup will be created automatically first. This action cannot be undone.",
+    "confirm": "I understand and want to proceed with the restore.",
+    "cancel": "Cancel",
+    "uploadRestore": "Restore from File",
+    "uploadRestoreHint": "Upload a previously downloaded .enc backup file to restore from it.",
+    "dragDrop": "Drag & drop or click to select a backup file",
+    "noBackups": "No backups yet. Create the first backup to protect your data.",
+    "loading": "Loading backups…",
+    "filename": "Filename",
+    "fileSize": "Size",
+    "createdBy": "Created By",
+    "cloudStatus": "Cloud Status",
+    "backupStatus": "Status",
+    "source": "Source",
+    "sourceManual": "Manual",
+    "sourceSafety": "Safety",
+    "sourceUpload": "Upload",
+    "safetyBackupCreated": "Safety backup created",
+    "restoreSuccess": "Database restored successfully.",
+    "assetsVerified": "{verified} of {total} Cloudinary assets verified.",
+    "formatVersion": "Format version",
+    "tableCount": "Tables",
+    "delete": "Delete",
+    "deleteConfirm": "Delete this backup record? The Cloudinary file will also be removed."
   },
 
   "offline": {
@@ -1344,6 +1382,29 @@
     },
     "reports": {
       "generationFailed": "Report generation failed. Please try again."
+    },
+    "employmentHistory": {
+      "deptHasNoManager": "The selected department has no active Department Manager. Assign a Department Manager before transferring this employee.",
+      "noGeneralManager": "No active General Manager exists. A General Manager must be assigned before appointing a Department Manager.",
+      "deptManagerAlreadyExists": "This department already has an active Department Manager.",
+      "selfAssignment": "An employee cannot be assigned as their own manager.",
+      "cannotReassignGeneralManager": "The General Manager cannot be appointed as a Department Manager."
+    },
+    "backups": {
+      "configIncomplete": "Backup is not configured: encryption key or pg_dump path missing.",
+      "pgDumpFailed": "Database dump failed. Check pg_dump is installed and DATABASE_URL is correct.",
+      "cloudUploadFailed": "Backup file could not be uploaded to cloud storage.",
+      "downloadFailed": "Backup file could not be downloaded.",
+      "invalidFile": "The uploaded file is not a valid backup.",
+      "incompatibleVersion": "This backup format is not supported.",
+      "corruptOrWrongKey": "The backup is corrupted or the encryption key is wrong.",
+      "confirmRequired": "Restore requires explicit confirmation.",
+      "safetyBackupFailed": "Could not create a safety backup. Restore aborted.",
+      "restoreFailed": "Database restore failed. Your database is unchanged. Restore the safety backup to recover.",
+      "restoreVerifyFailed": "Restore completed but verification failed. Check the database manually.",
+      "uploadExpired": "The uploaded backup session has expired. Please upload the file again.",
+      "notFound": "Backup record not found.",
+      "forbidden": "You do not have permission to manage backups."
     }
   },
 

@@ -1256,7 +1256,45 @@
       "reasonPlaceholder": "Sababa jijjiirama kanaa ibsi…"
     },
     "current": "Ammaa",
-    "previous": "Kan duraa"
+    "previous": "Kan duraa",
+    "managerWillUpdate": "Hogganaan gabaasa kutaa hojii haaraatti hogganaa kutaa hojii sanaa ta'a.",
+    "deptManagerAppointmentHint": "Hogganaa Kutaa Hojii muuduun hogganaa gabaasa isaanii hogganaa waliigalaatti jijjiira."
+  },
+
+  "backupRestore": {
+    "title": "Kuusaa Nageenyaa fi Deebisuu",
+    "description": "Kuusaalee nageenyaa database jifarsame uumi fi bulchi. Bulchitoonni qofa fuula kana seenuu danda'u.",
+    "createAndDownload": "Kuusaa Nageenyaa Uumi & Buufadhu",
+    "creating": "Kuusaa nageenyaa uumaa jira…",
+    "download": "Buufadhu",
+    "restore": "Deebisi",
+    "restoring": "Deebisaa jira…",
+    "viewDetails": "Bal'ina ilaali",
+    "confirmRestore": "Deebisuu Mirkaneessi",
+    "restoreWarning": "Kuusaa nageenyaa filatamuun database ammaa bakka buusa. Dursee kuusaa nageenyaa nageenyaa ofumaan uumama. Gocha kana deebisuun hin danda'amu.",
+    "confirm": "Gara deebisuu itti fufu barbaada.",
+    "cancel": "Haqi",
+    "uploadRestore": "Faayilii Irraa Deebisi",
+    "uploadRestoreHint": "Kuusaa nageenyaa buufadhamee fi jifarsame .enc faayilii olkaa'i.",
+    "dragDrop": "Harkisi fi gadi dhiisi yookaan faayilii kuusaa nageenyaa filaachuuf cuqi",
+    "noBackups": "Ammaaf kuusaan nageenyaa hin jiru. Odeeffannoo kee eeguuf kuusaa nageenyaa jalqabaa uumi.",
+    "loading": "Kuusaalee nageenyaa fe'aa jira…",
+    "filename": "Maqaa faayilii",
+    "fileSize": "Hangamtaa",
+    "createdBy": "Kan Uume",
+    "cloudStatus": "Haala Kuusaa Samii",
+    "backupStatus": "Haala",
+    "source": "Madda",
+    "sourceManual": "Ofuma",
+    "sourceSafety": "Nageenyaa",
+    "sourceUpload": "Olkaa'iinsa",
+    "safetyBackupCreated": "Kuusaa nageenyaa nageenyaa uumame",
+    "restoreSuccess": "Databasen milkaa'inaan deebifame.",
+    "assetsVerified": "Qabeenya Cloudinary {verified} / {total} mirkana'e.",
+    "formatVersion": "Vershinii bifa",
+    "tableCount": "Gabateelee",
+    "delete": "Haqi",
+    "deleteConfirm": "Galmee kuusaa nageenyaa kana haqu? Faayiilli Cloudinary irraa ni haqama."
   },
   "offline": {
     "title": "Intarneetiin hin jiru",
@@ -1323,6 +1361,29 @@
     },
     "reports": {
       "generationFailed": "Gabaasa qopheessuun hin milkoofne. Maaloo irra deebi'i."
+    },
+    "employmentHistory": {
+      "deptHasNoManager": "Kutaan hojii filatame hogganaa kutaa hojii hojii irra jiru hin qabu. Hojjetaa kuusuu dura hogganaa kutaa hojii ramadi.",
+      "noGeneralManager": "Hogganaan Waliigalaa hojii irra jiru hin jiru. Hogganaa Kutaa Hojii muuduu dura Hogganaa Waliigalaa ramaduu barbaachisa.",
+      "deptManagerAlreadyExists": "Kutaan hojii kun hogganaa kutaa hojii hojii irra jiru duraan qaba.",
+      "selfAssignment": "Hojjetaan ofumaa hogganaa isaatitti ramadamuu hin danda'u.",
+      "cannotReassignGeneralManager": "Hogganaan Waliigalaa Hogganaa Kutaa Hojii ta'uu hin danda'u."
+    },
+    "backups": {
+      "configIncomplete": "Kuusaan nageenyaa qindaa'uu hin qabne: furii jifarsuu yookaan karaa pg_dump hin argamne.",
+      "pgDumpFailed": "Cuunfaa database hin milkoofne. pg_dump dhaabbatee jiraachuu isaa fi DATABASE_URL sirrii ta'uu isaa mirkaneessi.",
+      "cloudUploadFailed": "Faayiilli kuusaa nageenyaa kuusaa samii irratti olkaa'amuu hin dandeenye.",
+      "downloadFailed": "Faayiilli kuusaa nageenyaa buufadhamuu hin dandeenye.",
+      "invalidFile": "Faayiilli olkaa'ame kuusaa nageenyaa sirrii miti.",
+      "incompatibleVersion": "Bifa kuusaa nageenyaa kana deeggaruun hin danda'amu.",
+      "corruptOrWrongKey": "Kuusaan nageenyaa miidhamee jira yookaan furin jifarsuu sirrii miti.",
+      "confirmRequired": "Deebisuu mirkaneessuu barbaachisa.",
+      "safetyBackupFailed": "Kuusaa nageenyaa nageenyaa uumuun hin milkoofne. Deebisuu dhaabeera.",
+      "restoreFailed": "Deebisuu database hin milkoofne. Database kee hin jijjiirramne. Deebisuu kuusaa nageenyaa nageenyaa irraa fayyadi.",
+      "restoreVerifyFailed": "Deebisuu xumurame garuu mirkaneessichi hin milkoofne. Database ofumaan ilaali.",
+      "uploadExpired": "Seeshini faayilii olkaa'ame yeroon isaa darbee jira. Maaloo faayilii irra deebi'ii olkaa'i.",
+      "notFound": "Galmeen kuusaa nageenyaa hin argamne.",
+      "forbidden": "Kuusaalee nageenyaa bulchuuf hayyama hin qabdu."
     }
   },
   "validation": {

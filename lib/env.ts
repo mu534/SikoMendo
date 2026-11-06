@@ -9,6 +9,11 @@ const envSchema = z.object({
   CLOUDINARY_API_KEY: z.string().min(1, "CLOUDINARY_API_KEY is required"),
   CLOUDINARY_API_SECRET: z.string().min(1, "CLOUDINARY_API_SECRET is required"),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+  // Backup & Restore (optional — validated at action runtime if feature is used)
+  BACKUP_ENCRYPTION_KEY: z.string().optional(),
+  CLOUDINARY_BACKUP_FOLDER: z.string().optional().default("siko-mendo/backups"),
+  PG_DUMP_PATH: z.string().optional().default("pg_dump"),
+  PG_RESTORE_PATH: z.string().optional().default("pg_restore"),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -38,6 +43,10 @@ if (typeof window === "undefined") {
     CLOUDINARY_API_KEY: "",
     CLOUDINARY_API_SECRET: "",
     NODE_ENV: (process.env.NODE_ENV as Env["NODE_ENV"]) || "development",
+    BACKUP_ENCRYPTION_KEY: undefined,
+    CLOUDINARY_BACKUP_FOLDER: "siko-mendo/backups",
+    PG_DUMP_PATH: "pg_dump",
+    PG_RESTORE_PATH: "pg_restore",
   };
 }
 

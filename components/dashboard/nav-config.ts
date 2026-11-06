@@ -146,7 +146,7 @@ export const NAV_ITEMS: AnyNavItem[] = [
     activePrefix: "/settings",
     children: [
       { href: "/settings/organization", labelKey: "nav.organisation",   icon: Building2,     requires: "MANAGE_SETTINGS" },
-      { href: "/settings/backup",       labelKey: "nav.backupRestore",  icon: DatabaseBackup, requires: "MANAGE_SETTINGS" },
+      { href: "/settings/backup",       labelKey: "nav.backupRestore",  icon: DatabaseBackup, requires: "MANAGE_BACKUP_RESTORE" },
       { href: "/settings/security",     labelKey: "nav.security",       icon: ShieldCheck,   requires: "MANAGE_SETTINGS" },
     ],
   },

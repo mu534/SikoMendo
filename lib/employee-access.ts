@@ -362,6 +362,58 @@ export async function assertPositionInDepartment(
   }
 }
 
+/**
+ * Transaction-context version of assertPositionInDepartment.
+ * Accepts a Prisma interactive transaction client `tx` as the first argument.
+ * Used by recordEmploymentChange inside a Serializable transaction.
+ * The original assertPositionInDepartment is preserved for the create path.
+ */
+export async function assertPositionInDepartmentTx(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  positionId: string,
+  departmentId: string
+): Promise<void> {
+  const position = await tx.position.findUnique({
+    where: { id: positionId },
+    select: { id: true, name: true, departmentId: true, isActive: true, department: { select: { name: true, isActive: true } } },
+  });
+
+  if (!position) {
+    throw new Error("The selected position does not exist.");
+  }
+  if (!position.isActive) {
+    throw new Error(`Position "${position.name}" is inactive and cannot be used.`);
+  }
+  if (position.departmentId !== departmentId) {
+    throw new Error(
+      `Position "${position.name}" does not belong to the selected department. Select a position within the correct department.`
+    );
+  }
+  if (!position.department.isActive) {
+    throw new Error(`Department "${position.department.name}" is inactive and cannot be used.`);
+  }
+}
+
+/**
+ * Returns true when the given employee is the active Department Manager of the
+ * specified department.
+ *
+ * DM status is determined CANONICALLY by Department.managerId === employeeId.
+ * Position title is NEVER inspected here. Use this function (not title matching)
+ * in the employment-change path.
+ */
+export async function isActiveDeptManagerOf(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  employeeId: string,
+  departmentId: string
+): Promise<boolean> {
+  const dept = await tx.department.findUnique({
+    where: { id: departmentId },
+    select: { managerId: true },
+  });
+  return dept?.managerId === employeeId;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 6. Lifecycle status protection (P1-8)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -657,6 +709,10 @@ export async function assertLeaveDecisionAuthority(
  * position name (e.g. "Finance Manager", "HR Manager"). This avoids requiring a
  * schema migration to add an `isDeptManagerPosition` boolean to the Position
  * model.
+ *
+ * @create-path-only — This function is intentionally limited to the employee
+ * CREATE path. The employment-CHANGE path must NOT use title-matching to decide
+ * DM status; it uses Department.managerId === employee.id canonically.
  *
  * Must be called **inside** a Serializable `prisma.$transaction` so that the
  * read (does the dept have a manager?) and the subsequent write (create employee)
