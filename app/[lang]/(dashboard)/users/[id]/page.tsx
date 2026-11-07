@@ -88,7 +88,7 @@ export default async function EditUserPage({
       {!isSelf && (
         <AccountSecurityPanel
           userId={user.id}
-          isSuspended={user.banned}
+          isSuspended={user.deletedAt ? false : user.banned}
           mustChangePassword={user.mustChangePassword}
         />
       )}

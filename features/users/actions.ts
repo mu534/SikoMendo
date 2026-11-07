@@ -322,10 +322,20 @@ export async function suspendUserAccount(
       throw new Error("You can't suspend your own account.");
     }
 
+    // Fix B: guard against suspending an archived account
+    const target = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, deletedAt: true },
+    });
+    if (!target) throw new Error('User not found.');
+    if (target.deletedAt) throw new Error('This account has been archived. Please restore it first before suspending.');
+
     await auth.api.banUser({ headers: await headers(), body: { userId } });
 
     await logAudit("SUSPEND", userId, { suspended: true }, session?.user.id);
+    // Fix A: revalidate both paths
     revalidatePath("/users");
+    revalidatePath("/users/suspended");
     return { id: userId };
   });
 }
@@ -344,10 +354,22 @@ export async function reactivateUserAccount(
       throw new Error("You can't modify your own account status here.");
     }
 
+    // Fix C: if the user is archived, clear deletedAt before unbanning
+    const target = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, deletedAt: true },
+    });
+    if (!target) throw new Error('User not found.');
+    if (target.deletedAt) {
+      await prisma.user.update({ where: { id: userId }, data: { deletedAt: null } });
+    }
+
     await auth.api.unbanUser({ headers: await headers(), body: { userId } });
 
     await logAudit("REACTIVATE", userId, { suspended: false }, session?.user.id);
+    // Fix A: revalidate both paths
     revalidatePath("/users");
+    revalidatePath("/users/suspended");
     return { id: userId };
   });
 }
