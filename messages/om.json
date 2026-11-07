@@ -1372,7 +1372,8 @@
     "hierarchy": {
       "deptHasNoActiveManager": "The selected department has no active Department Manager. Assign a Department Manager before registering employees into this department.",
       "selfAssignment": "An employee cannot be assigned as their own reporting manager.",
-      "managerNotInDepartment": "The assigned manager does not belong to this employee's department. Only the department's designated Department Manager may be assigned as the direct reporting manager."
+      "managerNotInDepartment": "The assigned manager does not belong to this employee's department. Only the department's designated Department Manager may be assigned as the direct reporting manager.",
+      "bulkImportNoDeptManager": "The department \"{{dept}}\" has no active Department Manager. Employees cannot be imported into a department without one."
     },
     "backups": {
       "configIncomplete": "Kuusaan nageenyaa qindaa'uu hin qabne: furii jifarsuu yookaan karaa pg_dump hin argamne.",

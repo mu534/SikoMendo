@@ -8,6 +8,40 @@ import { generateNextEmployeeId } from "./queries";
 import { assertPositionInDepartment } from "@/lib/employee-access";
 import type { EducationLevel } from "@prisma/client";
 
+// ── DM presence check (inline — does not require a tx client) ─────────────────
+/**
+ * Checks that a department has an active Department Manager.
+ * Returns { ok: true, managerId } or { ok: false, errorMsg }.
+ * Used in resolveRowReferences (outside a transaction — the final import write
+ * runs its own Serializable tx that re-validates via managerId fetch).
+ */
+async function checkDeptHasActiveDM(
+  departmentId: string,
+  departmentName: string
+): Promise<{ ok: true; managerId: string } | { ok: false; errorMsg: string }> {
+  const dept = await prisma.department.findUnique({
+    where: { id: departmentId },
+    select: {
+      managerId: true,
+      manager: { select: { deletedAt: true, employmentStatus: true } },
+    },
+  });
+
+  const isActive =
+    dept?.managerId !== null &&
+    dept?.manager?.deletedAt === null &&
+    dept?.manager?.employmentStatus === "ACTIVE";
+
+  if (!isActive || !dept?.managerId) {
+    return {
+      ok: false,
+      errorMsg: `department: The department "${departmentName}" has no active Department Manager. Employees cannot be registered into a department without one.`,
+    };
+  }
+
+  return { ok: true, managerId: dept.managerId };
+}
+
 // ── Local schema for CSV import ────────────────────────────────────────────
 // Same as employeeSchema but managerId is optional — CSV rows may omit it.
 // Empty value → null (DB allows null for managerId; onDelete: SetNull).
@@ -169,8 +203,17 @@ function buildEducationsJson(row: Record<string, string>): { json: string } | { 
 /**
  * Resolves department, position, and manager for a single CSV row.
  * Returns the resolved IDs and display names, or collects errors.
+ *
+ * Exported for unit-testing in bulk-import-hierarchy.test.ts.
+ *
+ * Hierarchy rules (FEAT-002):
+ *   - The department must have an active Department Manager. If not, the row
+ *     is rejected with a clear error.
+ *   - The canonical managerId for the DB write is always the dept's active DM.
+ *   - The CSV 'manager' column is still resolved for display in the preview
+ *     table but is NOT used for the actual DB write.
  */
-async function resolveRowReferences(
+export async function resolveRowReferences(
   row: Record<string, string>,
   rowNumber: number,
   displayName: string
@@ -181,7 +224,9 @@ async function resolveRowReferences(
       departmentName: string;
       positionId: string;
       positionName: string;
-      managerId: string | null;
+      /** Canonical manager ID derived from the dept's active DM — always used for DB write. */
+      managerId: string;
+      /** Display-only manager name resolved from the CSV 'manager' column (may be null). */
       managerName: string | null;
     }
   | { ok: false; errors: string[] }
@@ -227,9 +272,25 @@ async function resolveRowReferences(
     );
   }
 
-  // ── Resolve manager ──────────────────────────────────────────────────────
+  // ── FEAT-002 Step 1: Enforce active DM in the department ─────────────────
+  // After resolving the department, check that it has an active DM. Reject
+  // the row immediately — employees cannot be imported into a dept with no DM.
+  let canonicalManagerId: string | null = null;
+  if (department) {
+    const dmCheck = await checkDeptHasActiveDM(department.id, department.name);
+    if (!dmCheck.ok) {
+      errors.push(dmCheck.errorMsg);
+    } else {
+      // Use the dept's active DM as the canonical managerId for this row.
+      canonicalManagerId = dmCheck.managerId;
+    }
+  }
+
+  // ── Resolve manager column for display only ───────────────────────────────
+  // The CSV 'manager' column value is resolved purely for backwards-compat
+  // display in the preview table. It is NOT used for the DB write — the dept
+  // DM (canonicalManagerId) is the source of truth.
   const managerRaw = row.manager?.trim() ?? "";
-  let managerId: string | null = null;
   let resolvedManagerName: string | null = null;
 
   if (managerRaw !== "") {
@@ -240,7 +301,6 @@ async function resolveRowReferences(
     });
 
     if (byEmpId) {
-      managerId = byEmpId.id;
       resolvedManagerName = `${byEmpId.firstName} ${byEmpId.lastName}`;
     } else {
       // Try first+last name match (case-insensitive)
@@ -261,16 +321,11 @@ async function resolveRowReferences(
           : null;
 
       if (byName) {
-        managerId = byName.id;
         resolvedManagerName = `${byName.firstName} ${byName.lastName}`;
-      } else {
-        errors.push(
-          `manager: "${managerRaw}" doesn't match any active employee (tried by employee ID and by first + last name).`
-        );
       }
+      // Display-only lookup failure is silently ignored — the dept DM is authoritative.
     }
   }
-  // Empty managerRaw → managerId stays null (acceptable)
 
   if (errors.length > 0) {
     return { ok: false, errors };
@@ -282,7 +337,8 @@ async function resolveRowReferences(
     departmentName: department!.name,
     positionId: position!.id,
     positionName: position!.name,
-    managerId,
+    // FEAT-002: always use the dept's canonical DM id, never the CSV 'manager' column value
+    managerId: canonicalManagerId!,
     managerName: resolvedManagerName,
   };
 }
@@ -407,6 +463,7 @@ export async function validateEmployeeCsvRows(
       _data: parsed.data,
       _departmentId: resolved.departmentId,
       _positionId: resolved.positionId,
+      // FEAT-002: managerId is always the dept's canonical DM, never null at this point
       _managerId: resolved.managerId,
     });
   }
@@ -500,6 +557,21 @@ export async function importEmployeeRows(
       const employeeId = await generateNextEmployeeId();
 
       await prisma.$transaction(async (tx) => {
+        // FEAT-002 Step 1b: Re-fetch the dept's canonical DM inside the transaction
+        // (Serializable isolation ensures no race between validation and write).
+        const deptInTx = await tx.department.findUnique({
+          where: { id: resolved.departmentId },
+          select: { managerId: true },
+        });
+        // deptInTx.managerId must be non-null — resolveRowReferences above already
+        // rejected any row where the dept has no active DM. This is a final safety check.
+        if (!deptInTx?.managerId) {
+          throw new Error(
+            `The department no longer has an active Department Manager. Please retry the import.`
+          );
+        }
+        const canonicalManagerId = deptInTx.managerId;
+
         const created = await tx.employee.create({
           data: {
             employeeId,
@@ -521,7 +593,8 @@ export async function importEmployeeRows(
             hireDate: parsed.data.hireDate ?? null,
             employmentStatus: "ONBOARDING",
             employmentType: parsed.data.employmentType as EmploymentType | null ?? null,
-            managerId: resolved.managerId ?? null,
+            // FEAT-002: always use the dept's canonical DM id, not the CSV 'manager' column
+            managerId: canonicalManagerId,
           },
         });
 
@@ -568,7 +641,7 @@ export async function importEmployeeRows(
         });
 
         return created;
-      });
+      }, { isolationLevel: "Serializable" });
 
       results.push({ row: rowNumber, status: "created", employeeId, name: displayName });
     } catch (err) {

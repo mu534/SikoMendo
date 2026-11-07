@@ -383,6 +383,17 @@ export async function archiveEmployee(id: string): Promise<ActionResult<{ id: st
           where: { managerId: id, deletedAt: null },
           data: { managerId: null },
         });
+
+        // Audit the cascade so it is visible in the log
+        await tx.auditLog.create({
+          data: {
+            action: "MANAGER_VACATED",
+            entity: "Department",
+            entityId: managedDept.id,
+            changes: { vacatedManagerId: id, reason: "employee_archived" },
+            userId: session?.user.id,
+          },
+        });
       }
 
       // Soft-delete the employee

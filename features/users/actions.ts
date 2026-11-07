@@ -458,17 +458,21 @@ export async function deleteUserAccount(
     if (target.employee) {
       const empId = target.employee.id;
 
-      // Nullify managerId for all direct reports
-      await prisma.employee.updateMany({
-        where: { managerId: empId },
-        data:  { managerId: null },
-      });
+      // FEAT-002 Step 3: Wrap both manager-reference cleanup writes in a single
+      // Serializable transaction so they are atomic — no partial state possible.
+      await prisma.$transaction(async (tx) => {
+        // Nullify managerId for all direct reports
+        await tx.employee.updateMany({
+          where: { managerId: empId },
+          data:  { managerId: null },
+        });
 
-      // Clear Department.managerId if this employee was a dept manager
-      await prisma.department.updateMany({
-        where: { managerId: empId },
-        data:  { managerId: null },
-      });
+        // Clear Department.managerId if this employee was a dept manager
+        await tx.department.updateMany({
+          where: { managerId: empId },
+          data:  { managerId: null },
+        });
+      }, { isolationLevel: "Serializable" });
     }
 
     // ── Audit log BEFORE the archive ──────────────────────────────────────

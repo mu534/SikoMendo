@@ -45,7 +45,39 @@ export async function setDepartmentActive(id: string, isActive: boolean): Promis
   const session = await getServerSession();
 
   return withPermission(session, "MANAGE_DEPARTMENTS", async () => {
-    await prisma.department.update({ where: { id }, data: { isActive } });
+    if (isActive) {
+      // Reactivating: simple update, no cascade needed
+      await prisma.department.update({ where: { id }, data: { isActive } });
+    } else {
+      // Deactivating: if the dept has a DM, null out all direct reports' managerId
+      // (Rule 5 — they must not be left pointing to a manager in a deactivated dept).
+      // NOTE: Department.managerId itself is kept so the DM pointer survives reactivation.
+      const dept = await prisma.department.findUnique({
+        where: { id },
+        select: { managerId: true },
+      });
+
+      if (dept?.managerId) {
+        // FEAT-002 Step 4: cascade inside a Serializable transaction
+        await prisma.$transaction(async (tx) => {
+          // Null out direct reports' managerId
+          await tx.employee.updateMany({
+            where: { managerId: dept.managerId! },
+            data: { managerId: null },
+          });
+
+          // Deactivate the department
+          await tx.department.update({
+            where: { id },
+            data: { isActive: false },
+          });
+        }, { isolationLevel: "Serializable" });
+      } else {
+        // No DM — plain update
+        await prisma.department.update({ where: { id }, data: { isActive: false } });
+      }
+    }
+
     await logAudit(isActive ? "ACTIVATE" : "DEACTIVATE", id, { isActive }, session?.user.id);
 
     revalidatePath("/departments");
