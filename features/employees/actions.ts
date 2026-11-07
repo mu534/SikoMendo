@@ -18,6 +18,8 @@ import {
   assertArchiveSafe,
   assertRestoreSafe,
   assertDocumentBelongsToEmployee,
+  resolveReportingManager,
+  assertManagerBelongsToDept,
 } from "@/lib/employee-access";
 import type {
   Gender,
@@ -89,20 +91,6 @@ export async function createEmployee(
     // P2-11: Validate department/position relationship server-side
     await assertPositionInDepartment(parsed.data.positionId, parsed.data.departmentId);
 
-    // P0-3: Validate manager assignment
-    if (parsed.data.managerId) {
-      const manager = await prisma.employee.findUnique({
-        where: { id: parsed.data.managerId },
-        select: { id: true, firstName: true, lastName: true, deletedAt: true },
-      });
-      if (!manager) throw new Error("The selected manager does not exist.");
-      if (manager.deletedAt) {
-        throw new Error(
-          `${manager.firstName} ${manager.lastName} is archived and cannot be assigned as a manager.`
-        );
-      }
-    }
-
     const photo = getPhotoFile(formData);
     if (photo) validatePhotoFileThrow(photo);
     const asset = photo
@@ -124,6 +112,15 @@ export async function createEmployee(
         // current manager has no positionId set — assertNotManagerPosition alone
         // would not catch that case).
         await assertDeptManagerSlotAvailable(tx, parsed.data.departmentId, parsed.data.positionId);
+
+        // FEAT-001 Rule 9 + Rule 2: Server-authoritatively derive the reporting manager
+        // from the department's active DM. Client-supplied managerId is ignored.
+        // Throws deptHasNoActiveManager if the dept has no active DM.
+        const resolvedManagerId = await resolveReportingManager(
+          tx,
+          parsed.data.departmentId,
+          "new-employee-placeholder" // New employee doesn't have an ID yet; self-assignment impossible here
+        );
 
         const created = await tx.employee.create({
           data: {
@@ -163,7 +160,7 @@ export async function createEmployee(
             employmentType: (parsed.data.employmentType as EmploymentType) ?? null,
             profileImageUrl: asset?.url ?? null,
             profileImageKey: asset?.publicId ?? null,
-            managerId:      parsed.data.managerId ?? null,
+            managerId:      resolvedManagerId,
           },
         });
 
@@ -184,12 +181,14 @@ export async function createEmployee(
 
         await tx.employmentHistory.create({
           data: {
-            employeeId: created.id,
+            employeeId:     created.id,
             departmentId:   parsed.data.departmentId,
             positionId:     parsed.data.positionId,
             employmentType: (parsed.data.employmentType as EmploymentType) ?? null,
             effectiveDate:  parsed.data.hireDate ?? new Date(),
             changeReason:   "Initial hire",
+            previousManagerId: null,
+            newManagerId:   resolvedManagerId,
           },
         });
 
@@ -257,6 +256,16 @@ export async function updateEmployee(
     }
 
     assertStatusChangeAllowed(existing.employmentStatus, parsed.data.employmentStatus);
+
+    // FEAT-001 Rule 6: Self-assignment guard
+    if (parsed.data.managerId && parsed.data.managerId === id) {
+      throw new Error("An employee cannot be assigned as their own manager.");
+    }
+
+    // FEAT-001 Rule 8: Cross-dept guard — managerId must be the dept's own DM
+    await assertManagerBelongsToDept(parsed.data.managerId, parsed.data.departmentId);
+
+    // Keep existing cycle detection and archived-manager checks
     await validateManagerAssignment(id, parsed.data.managerId);
 
     const photo = getPhotoFile(formData);
@@ -348,7 +357,41 @@ export async function archiveEmployee(id: string): Promise<ActionResult<{ id: st
   const session = await getServerSession();
   return withPermission(session, "MANAGE_EMPLOYEES", async () => {
     await assertArchiveSafe(id, session!.user.role);
-    await prisma.employee.update({ where: { id }, data: { deletedAt: new Date() } });
+
+    // FEAT-001 Rule 5: Archive cascade inside a Serializable transaction.
+    // If the employee being archived is a Department Manager:
+    //   1. Null out Department.managerId (removes the DM pointer)
+    //   2. Null out Employee.managerId for all their direct reports
+    //      (prevents orphaned reporting relationships)
+    // Then soft-delete the employee — all atomically.
+    await prisma.$transaction(async (tx) => {
+      // Check if this employee is a department manager
+      const managedDept = await tx.department.findFirst({
+        where: { managerId: id },
+        select: { id: true },
+      });
+
+      if (managedDept) {
+        // Remove the DM pointer from the department
+        await tx.department.update({
+          where: { id: managedDept.id },
+          data: { managerId: null },
+        });
+
+        // Null out direct reports' managerId so they are not orphaned
+        await tx.employee.updateMany({
+          where: { managerId: id, deletedAt: null },
+          data: { managerId: null },
+        });
+      }
+
+      // Soft-delete the employee
+      await tx.employee.update({
+        where: { id },
+        data: { deletedAt: new Date() },
+      });
+    }, { isolationLevel: "Serializable" });
+
     await logAudit("ARCHIVE", id, { archivedBy: session?.user.name }, session?.user.id);
     revalidatePath("/employees");
     return { id };

@@ -11,6 +11,7 @@ import "server-only";
 import prisma from "@/lib/prisma";
 import { can, type Role, HR_DEPARTMENT_NAME, resolveEffectiveRoleSync } from "@/lib/permissions";
 import type { AuthSession } from "@/lib/auth";
+import { LocalizedError } from "@/lib/errors";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 0. Effective-role resolution — dynamic HR dept manager detection
@@ -803,6 +804,138 @@ export async function assertNotManagerPosition(
     throw new Error(
       `This department already has an assigned manager. ` +
       `The manager position in "${deptName}" cannot be assigned to another employee.`
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 15. Three-tier hierarchy helpers (FEAT-001)
+// ─────────────────────────────────────────────────────────────────────────────
+
+type TxClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
+/**
+ * Asserts that a department has an active Department Manager.
+ *
+ * Throws `errors.hierarchy.deptHasNoActiveManager` when:
+ *   - `dept.managerId` is null (no DM pointer)
+ *   - the DM employee is soft-deleted (deletedAt != null)
+ *   - the DM employee's employmentStatus is not 'ACTIVE'
+ *
+ * Designed for use inside a Serializable transaction so the check and the
+ * subsequent write are atomic.
+ */
+export async function assertActiveDeptManagerExists(
+  tx: TxClient,
+  departmentId: string
+): Promise<void> {
+  const dept = await tx.department.findUnique({
+    where: { id: departmentId },
+    select: {
+      managerId: true,
+      manager: { select: { deletedAt: true, employmentStatus: true } },
+    },
+  });
+
+  const isActive =
+    dept?.managerId !== null &&
+    dept?.manager?.deletedAt === null &&
+    dept?.manager?.employmentStatus === "ACTIVE";
+
+  if (!isActive) {
+    throw new LocalizedError(
+      "errors.hierarchy.deptHasNoActiveManager",
+      "The selected department has no active Department Manager. Assign a Department Manager before registering employees into this department."
+    );
+  }
+}
+
+/**
+ * Resolves the reporting manager for a new or updated employee in the given
+ * department, reading the department's active DM from the DB inside the
+ * supplied transaction.
+ *
+ * Throws `errors.hierarchy.deptHasNoActiveManager` when no active DM exists.
+ * Throws `errors.hierarchy.selfAssignment` when the resolved DM is the
+ * employee themselves (edge case: a DM registering their own record).
+ *
+ * @param tx           Prisma interactive transaction client.
+ * @param departmentId Department the employee is being assigned to.
+ * @param employeeId   The employee's own ID (used for self-assignment guard).
+ *                     Pass a placeholder string for new employees before insert.
+ *
+ * @returns The active DM's employee ID to be stored in Employee.managerId.
+ */
+export async function resolveReportingManager(
+  tx: TxClient,
+  departmentId: string,
+  employeeId: string
+): Promise<string> {
+  const dept = await tx.department.findUnique({
+    where: { id: departmentId },
+    select: {
+      managerId: true,
+      manager: { select: { id: true, deletedAt: true, employmentStatus: true } },
+    },
+  });
+
+  const activeDM =
+    dept?.managerId !== null &&
+    dept?.manager?.deletedAt === null &&
+    dept?.manager?.employmentStatus === "ACTIVE"
+      ? dept.managerId
+      : null;
+
+  if (!activeDM) {
+    throw new LocalizedError(
+      "errors.hierarchy.deptHasNoActiveManager",
+      "The selected department has no active Department Manager. Assign a Department Manager before registering employees into this department."
+    );
+  }
+
+  if (activeDM === employeeId) {
+    throw new LocalizedError(
+      "errors.hierarchy.selfAssignment",
+      "An employee cannot be assigned as their own reporting manager."
+    );
+  }
+
+  return activeDM;
+}
+
+/**
+ * Validates that the supplied managerId is exactly the active Department Manager
+ * of the given department.
+ *
+ * Called from `updateEmployee` where managerId is freely editable via a
+ * ManagerCombobox. Ensures Rule 8 — employees may only report to their own
+ * department's designated DM, not to managers from other departments.
+ *
+ * Passes silently when managerId is null or undefined (null is always
+ * acceptable — resolveReportingManager handles the non-null requirement at
+ * create time).
+ *
+ * @param managerId    The manager ID submitted by the client form.
+ * @param departmentId The employee's current department ID.
+ *
+ * @throws LocalizedError('errors.hierarchy.managerNotInDepartment') when
+ *         managerId is non-null and does not equal dept.managerId.
+ */
+export async function assertManagerBelongsToDept(
+  managerId: string | null | undefined,
+  departmentId: string
+): Promise<void> {
+  if (!managerId) return; // null is always acceptable
+
+  const dept = await prisma.department.findUnique({
+    where: { id: departmentId },
+    select: { managerId: true },
+  });
+
+  if (dept?.managerId !== managerId) {
+    throw new LocalizedError(
+      "errors.hierarchy.managerNotInDepartment",
+      "The assigned manager does not belong to this employee's department. Only the department's designated Department Manager may be assigned as the direct reporting manager."
     );
   }
 }

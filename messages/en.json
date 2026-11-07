@@ -1390,6 +1390,11 @@
       "selfAssignment": "An employee cannot be assigned as their own manager.",
       "cannotReassignGeneralManager": "The General Manager cannot be appointed as a Department Manager."
     },
+    "hierarchy": {
+      "deptHasNoActiveManager": "The selected department has no active Department Manager. Assign a Department Manager before registering employees into this department.",
+      "selfAssignment": "An employee cannot be assigned as their own reporting manager.",
+      "managerNotInDepartment": "The assigned manager does not belong to this employee's department. Only the department's designated Department Manager may be assigned as the direct reporting manager."
+    },
     "backups": {
       "configIncomplete": "Backup is not configured: encryption key or pg_dump path missing.",
       "pgDumpFailed": "Database dump failed. Check pg_dump is installed and DATABASE_URL is correct.",
