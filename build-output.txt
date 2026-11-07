@@ -1,0 +1,120 @@
+
+> siko-mendo-hris@0.1.0 build
+> next build
+
+Γû▓ Next.js 16.2.9 (Turbopack)
+- Environments: .env.local, .env
+
+  Creating an optimized production build ...
+Γ£ô Compiled successfully in 88s
+  Running TypeScript ...
+  Finished TypeScript in 78s ...
+  Collecting page data using 3 workers ...
+Γùç injected env (0) from .env.local // tip: Γîÿ custom filepath { path: '/custom/path/.env' }
+Γùç injected env (0) from .env.local // tip: Γîÿ custom filepath { path: '/custom/path/.env' }
+Γùç injected env (0) from .env.local // tip: Γîÿ custom filepath { path: '/custom/path/.env' }
+Γùç injected env (0) from .env.local // tip: Γîÿ suppress logs { quiet: true }
+Γùç injected env (0) from .env.local // tip: Γîÿ override existing { override: true }
+Γùç injected env (0) from .env.local // tip: Γîÿ suppress logs { quiet: true }
+  Generating static pages using 3 workers (0/108) ...
+  Generating static pages using 3 workers (27/108) 
+  Generating static pages using 3 workers (54/108) 
+  Generating static pages using 3 workers (81/108) 
+Γ£ô Generating static pages using 3 workers (108/108) in 5.2s
+  Finalizing page optimization ...
+
+Route (app)
+Γöî Γùï /
+Γö£ Γùï /_not-found
+Γö£ ╞Æ /[lang]
+Γö£ ╞Æ /[lang]/attendance
+Γö£ ╞Æ /[lang]/attendance/management
+Γö£ ╞Æ /[lang]/attendance/mine
+Γö£ ╞Æ /[lang]/attendance/monitoring
+Γö£ ╞Æ /[lang]/attendance/policy
+Γö£ ╞Æ /[lang]/attendance/team
+Γö£ ╞Æ /[lang]/audit-log
+Γö£ ╞Æ /[lang]/cooperatives
+Γö£ ╞Æ /[lang]/cooperatives/[id]
+Γö£ ╞Æ /[lang]/cooperatives/new
+Γö£ ╞Æ /[lang]/dashboard
+Γö£ ╞Æ /[lang]/departments
+Γö£ ╞Æ /[lang]/departments/[id]
+Γö£ ╞Æ /[lang]/employees
+Γö£ ╞Æ /[lang]/employees/[id]
+Γö£ ╞Æ /[lang]/employees/import
+Γö£ ╞Æ /[lang]/employees/lifecycle
+Γö£ ╞Æ /[lang]/employees/new
+Γö£ ╞Æ /[lang]/force-password-change
+Γö£ ╞Æ /[lang]/leave
+Γö£ ╞Æ /[lang]/leave/[id]
+Γö£ ╞Æ /[lang]/leave/new
+Γö£ ╞Æ /[lang]/leave/policy
+Γö£ ╞Æ /[lang]/my-documents
+Γö£ ╞Æ /[lang]/offline
+Γö£ ╞Æ /[lang]/profile
+Γö£ ╞Æ /[lang]/reports
+Γö£ ╞Æ /[lang]/reports/history
+Γö£ ╞Æ /[lang]/settings
+Γö£ ╞Æ /[lang]/settings/backup
+Γö£ ╞Æ /[lang]/settings/organization
+Γö£ ╞Æ /[lang]/settings/preferences
+Γö£ ╞Æ /[lang]/settings/security
+Γö£ ╞Æ /[lang]/sign-in
+Γö£ ╞Æ /[lang]/users
+Γö£ ╞Æ /[lang]/users/[id]
+Γö£ ╞Æ /[lang]/users/new
+Γö£ ╞Æ /[lang]/users/suspended
+Γö£ ╞Æ /api/attendance/jobs/detect
+Γö£ ╞Æ /api/attendance/jobs/finalize
+Γö£ ╞Æ /api/auth/[...all]
+Γö£ ╞Æ /api/backups/[id]
+Γö£ ╞Æ /api/backups/restore-upload
+Γö£ ╞Æ /api/health
+Γö£ ╞Æ /api/reports/[id]
+Γö£ ╞Æ /api/settings/backup/[id]
+Γö£ ╞Æ /attendance
+Γö£ ╞Æ /attendance/management
+Γö£ ╞Æ /attendance/mine
+Γö£ ╞Æ /attendance/monitoring
+Γö£ ╞Æ /attendance/policy
+Γö£ ╞Æ /attendance/team
+Γö£ ╞Æ /audit-log
+Γö£ ╞Æ /cooperatives
+Γö£ ╞Æ /cooperatives/[id]
+Γö£ ╞Æ /cooperatives/new
+Γö£ ╞Æ /dashboard
+Γö£ ╞Æ /departments
+Γö£ ╞Æ /departments/[id]
+Γö£ ╞Æ /employees
+Γö£ ╞Æ /employees/[id]
+Γö£ ╞Æ /employees/import
+Γö£ ╞Æ /employees/lifecycle
+Γö£ ╞Æ /employees/new
+Γö£ ╞Æ /force-password-change
+Γö£ ╞Æ /leave
+Γö£ ╞Æ /leave/[id]
+Γö£ ╞Æ /leave/new
+Γö£ ╞Æ /leave/policy
+Γö£ ╞Æ /my-documents
+Γö£ ╞Æ /offline
+Γö£ ╞Æ /profile
+Γö£ ╞Æ /reports
+Γö£ ╞Æ /reports/history
+Γö£ ╞Æ /settings
+Γö£ ╞Æ /settings/backup
+Γö£ ╞Æ /settings/organization
+Γö£ ╞Æ /settings/preferences
+Γö£ ╞Æ /settings/security
+Γö£ ╞Æ /sign-in
+Γö£ ╞Æ /users
+Γö£ ╞Æ /users/[id]
+Γö£ ╞Æ /users/new
+Γöö ╞Æ /users/suspended
+
+
+╞Æ Proxy (Middleware)
+
+Γùï  (Static)   prerendered as static content
+╞Æ  (Dynamic)  server-rendered on demand
+
