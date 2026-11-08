@@ -23,6 +23,7 @@ import {
   getEmployeeDetailTabPermissions,
   assertDeptManagerSlotAvailable,
   assertSingleManagerPerDepartment,
+  isHrDeptManager,
 } from "./employee-access";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -40,6 +41,9 @@ vi.mock("@/lib/prisma", () => ({
     position: {
       findUnique: vi.fn(),
     },
+    employee: {
+      findUnique: vi.fn(),
+    },
   },
 }));
 
@@ -47,6 +51,7 @@ import prisma from "@/lib/prisma";
 
 const mockUserFindFirst     = prisma.user.findFirst     as ReturnType<typeof vi.fn>;
 const mockDeptFindUnique    = prisma.department.findUnique as ReturnType<typeof vi.fn>;
+const mockEmployeeFindUnique = prisma.employee.findUnique as ReturnType<typeof vi.fn>;
 
 /** Helper: build a minimal prisma tx-like object for assertDeptManagerSlotAvailable */
 function makeTx(
@@ -161,7 +166,57 @@ describe("resolveEffectiveRoleSync", () => {
   });
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// isHrDeptManager (HR Department Manager identification by ASSIGNED department)
+// ─────────────────────────────────────────────────────────────────────────────
 
+describe("isHrDeptManager", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockEmployeeFindUnique.mockReset();
+  });
+
+  it("returns true for a DEPT_MANAGER assigned to the HR department, even without a managedDepartment back-relation", async () => {
+    // The HR Department Manager's Department.managerId is NULL in the live DB,
+    // so managedDepartment would be absent — identification must use the
+    // assigned department (Employee.department) instead.
+    mockEmployeeFindUnique.mockResolvedValue({
+      department: { name: "Human Resource Department" },
+    });
+    await expect(isHrDeptManager("user-hr-mgr", "DEPT_MANAGER")).resolves.toBe(true);
+    expect(mockEmployeeFindUnique).toHaveBeenCalledTimes(1);
+    expect(mockEmployeeFindUnique).toHaveBeenCalledWith({
+      where: { userId: "user-hr-mgr" },
+      select: { department: { select: { name: true } } },
+    });
+  });
+
+  it("returns false for a DEPT_MANAGER assigned to a non-HR department", async () => {
+    mockEmployeeFindUnique.mockResolvedValue({
+      department: { name: "Finance Department" },
+    });
+    await expect(isHrDeptManager("user-fin-mgr", "DEPT_MANAGER")).resolves.toBe(false);
+    expect(mockEmployeeFindUnique).toHaveBeenCalledTimes(1);
+  });
+
+  it("short-circuits and never queries the DB for non-DEPT_MANAGER roles", async () => {
+    await expect(isHrDeptManager("user-hr-officer", "HR_OFFICER")).resolves.toBe(false);
+    await expect(isHrDeptManager("user-employee", "EMPLOYEE")).resolves.toBe(false);
+    await expect(isHrDeptManager("user-admin", "ADMIN")).resolves.toBe(false);
+    await expect(isHrDeptManager("user-manager", "MANAGER")).resolves.toBe(false);
+    expect(mockEmployeeFindUnique).not.toHaveBeenCalled();
+  });
+
+  it("returns false when the DEPT_MANAGER has no assigned department", async () => {
+    mockEmployeeFindUnique.mockResolvedValue({ department: null });
+    await expect(isHrDeptManager("user-orphan", "DEPT_MANAGER")).resolves.toBe(false);
+  });
+
+  it("returns false when the DEPT_MANAGER has no employee record", async () => {
+    mockEmployeeFindUnique.mockResolvedValue(null);
+    await expect(isHrDeptManager("user-none", "DEPT_MANAGER")).resolves.toBe(false);
+  });
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Viewer capability resolution (P0-1, P0-2)

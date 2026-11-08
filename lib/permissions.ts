@@ -27,9 +27,9 @@ export const HR_DEPARTMENT_NAME = "Human Resource Department" as const;
  * are returned unchanged — no DB call is needed.
  *
  * @param actualRole      The role stored on the User record.
- * @param isHrDeptManager Whether the user manages the HR department (resolved
- *                        by the async DB helper resolveEffectiveRole in
- *                        lib/employee-access.ts).
+ * @param isHrDeptManager Whether the user is assigned to the HR department
+ *                        (resolved by the async DB helper resolveEffectiveRole
+ *                        in lib/employee-access.ts).
  */
 export function resolveEffectiveRoleSync(
   actualRole: Role,

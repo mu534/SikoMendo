@@ -10,7 +10,8 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/session";
-import { can } from "@/lib/permissions";
+import { can, type Role } from "@/lib/permissions";
+import { resolveEffectiveRole } from "@/lib/employee-access";
 import { env } from "@/lib/env";
 import { validateHeader, decryptBackup, parseManifest } from "@/features/backups/backup-format";
 import { pgRestoreList, deleteTempFile } from "@/features/backups/pg-tools";
@@ -28,7 +29,8 @@ export async function POST(req: NextRequest) {
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (!can(session.user.role, "MANAGE_BACKUP_RESTORE")) {
+  const effectiveRole = await resolveEffectiveRole(session.user.id, session.user.role as Role);
+  if (!can(effectiveRole, "MANAGE_BACKUP_RESTORE")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

@@ -33,16 +33,16 @@ export async function isHrDeptManager(
 
   const employee = await prisma.employee.findUnique({
     where: { userId },
-    select: { managedDepartment: { select: { name: true } } },
+    select: { department: { select: { name: true } } },
   });
 
-  return employee?.managedDepartment?.name === HR_DEPARTMENT_NAME;
+  return employee?.department?.name === HR_DEPARTMENT_NAME;
 }
 
 /**
  * Resolves the effective role for permission checks.
  *
- * A DEPT_MANAGER whose managed department is the HR department receives the
+ * A DEPT_MANAGER who is assigned to the HR department receives the
  * same permissions as an HR_OFFICER. All other roles are returned unchanged.
  *
  * Only performs a DB lookup for DEPT_MANAGER users — all other roles are
