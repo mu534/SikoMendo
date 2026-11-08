@@ -45,13 +45,20 @@ export function OnboardingPanel({
   const isOnboarding = employmentStatus === "ONBOARDING";
   const isCompleted  = !!record?.completedAt;
 
-  // Checklist label keys map to lifecycle.onboarding namespace
-  const CHECKLIST_KEYS: Array<{ key: keyof Omit<OnboardingChecklist, "completedSteps" | "totalSteps" | "isComplete">; label: string }> = [
+  // Checklist label keys map to lifecycle.onboarding namespace.
+  // The contract row is only shown when the employee's employment type requires it.
+  type ChecklistBooleanKey = keyof Omit<
+    OnboardingChecklist,
+    "contractRequired" | "completedSteps" | "totalSteps" | "isComplete"
+  >;
+  const CHECKLIST_KEYS: Array<{ key: ChecklistBooleanKey; label: string }> = [
     { key: "hasName",        label: tC("name") },
     { key: "hasDepartment",  label: tC("noDepartment") },
     { key: "hasPosition",    label: tC("noPosition") },
     { key: "hasHireDate",    label: tC("date") },
-    { key: "hasContract",    label: tC("active") },
+    ...(checklist.contractRequired
+      ? [{ key: "hasContract" as ChecklistBooleanKey, label: tC("active") }]
+      : []),
     { key: "hasIdDocument",  label: tC("required") },
     { key: "hasUserAccount", label: tC("status") },
   ];

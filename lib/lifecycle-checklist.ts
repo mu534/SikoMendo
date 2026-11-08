@@ -17,22 +17,34 @@ import prisma from "@/lib/prisma";
 // Onboarding (P1-6)
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Employment types that require an active contract before onboarding can be
+ * completed. PERMANENT employees are exempt — a contract is optional for them.
+ * A null/unset employmentType is treated permissively (no contract required).
+ */
+const CONTRACT_REQUIRED_TYPES = new Set(["CONTRACT", "TEMPORARY", "PROBATION", "INTERNSHIP"]);
+
 export type OnboardingChecklist = {
-  hasName:        boolean;
-  hasDepartment:  boolean;
-  hasPosition:    boolean;
-  hasHireDate:    boolean;
-  hasContract:    boolean;
-  hasIdDocument:  boolean;
-  hasUserAccount: boolean;
-  completedSteps: number;
-  totalSteps:     number;
-  isComplete:     boolean;
+  hasName:          boolean;
+  hasDepartment:    boolean;
+  hasPosition:      boolean;
+  hasHireDate:      boolean;
+  hasContract:      boolean;
+  hasIdDocument:    boolean;
+  hasUserAccount:   boolean;
+  contractRequired: boolean;
+  completedSteps:   number;
+  totalSteps:       number;
+  isComplete:       boolean;
 };
 
 /**
  * Recalculates the onboarding checklist from live database state.
  * Never reads checklist values from the client or from a stored boolean field.
+ *
+ * Contract requirement is conditional on the employee's employment type:
+ * - PERMANENT (or unset): contract step is waived (hasContract = true, not counted in totalSteps).
+ * - CONTRACT / TEMPORARY / PROBATION / INTERNSHIP: an active contract record is required.
  */
 export async function computeOnboardingChecklist(
   employeeId: string
@@ -40,12 +52,13 @@ export async function computeOnboardingChecklist(
   const employee = await prisma.employee.findUnique({
     where: { id: employeeId },
     select: {
-      firstName:    true,
-      lastName:     true,
-      departmentId: true,
-      positionId:   true,
-      hireDate:     true,
-      userId:       true,
+      firstName:      true,
+      lastName:       true,
+      departmentId:   true,
+      positionId:     true,
+      hireDate:       true,
+      userId:         true,
+      employmentType: true,
       contracts: {
         where: { status: "ACTIVE" },
         take: 1,
@@ -63,25 +76,34 @@ export async function computeOnboardingChecklist(
     return {
       hasName: false, hasDepartment: false, hasPosition: false, hasHireDate: false,
       hasContract: false, hasIdDocument: false, hasUserAccount: false,
-      completedSteps: 0, totalSteps: 7, isComplete: false,
+      contractRequired: false,
+      completedSteps: 0, totalSteps: 6, isComplete: false,
     };
   }
+
+  const contractRequired = CONTRACT_REQUIRED_TYPES.has(employee.employmentType ?? "");
 
   const hasName        = !!(employee.firstName && employee.lastName);
   const hasDepartment  = !!employee.departmentId;
   const hasPosition    = !!employee.positionId;
   const hasHireDate    = !!employee.hireDate;
-  const hasContract    = employee.contracts.length > 0;
+  // When a contract is not required, treat the step as satisfied automatically.
+  const hasContract    = contractRequired ? employee.contracts.length > 0 : true;
   const hasIdDocument  = employee.documents.length > 0;
   const hasUserAccount = !!employee.userId;
 
-  const steps = [hasName, hasDepartment, hasPosition, hasHireDate, hasContract, hasIdDocument, hasUserAccount];
+  // The contract step only counts toward the total when it is required.
+  const steps = contractRequired
+    ? [hasName, hasDepartment, hasPosition, hasHireDate, hasContract, hasIdDocument, hasUserAccount]
+    : [hasName, hasDepartment, hasPosition, hasHireDate, hasIdDocument, hasUserAccount];
+
   const completedSteps = steps.filter(Boolean).length;
   const totalSteps     = steps.length;
 
   return {
     hasName, hasDepartment, hasPosition, hasHireDate,
     hasContract, hasIdDocument, hasUserAccount,
+    contractRequired,
     completedSteps,
     totalSteps,
     isComplete: completedSteps === totalSteps,
@@ -91,12 +113,18 @@ export async function computeOnboardingChecklist(
 /**
  * Throws a descriptive error listing which onboarding steps are incomplete.
  * Call this inside completeOnboarding() before doing any DB writes.
+ * The contract step is only included in the report when it is required for this employee.
  */
 export async function requireOnboardingComplete(employeeId: string): Promise<void> {
   const checklist = await computeOnboardingChecklist(employeeId);
   if (checklist.isComplete) return;
 
-  const labels: Record<keyof Omit<OnboardingChecklist, "completedSteps" | "totalSteps" | "isComplete">, string> = {
+  type ChecklistBooleanKey = keyof Omit<
+    OnboardingChecklist,
+    "contractRequired" | "completedSteps" | "totalSteps" | "isComplete"
+  >;
+
+  const allLabels: Record<ChecklistBooleanKey, string> = {
     hasName:        "Employee name (first and last)",
     hasDepartment:  "Department assignment",
     hasPosition:    "Position assignment",
@@ -106,9 +134,13 @@ export async function requireOnboardingComplete(employeeId: string): Promise<voi
     hasUserAccount: "System user account",
   };
 
-  const missing = (Object.keys(labels) as Array<keyof typeof labels>)
-    .filter((k) => !checklist[k])
-    .map((k) => labels[k]);
+  const missing = (Object.keys(allLabels) as ChecklistBooleanKey[])
+    .filter((k) => {
+      // Skip the contract step entirely when it is not required for this employee.
+      if (k === "hasContract" && !checklist.contractRequired) return false;
+      return !checklist[k];
+    })
+    .map((k) => allLabels[k]);
 
   throw new Error(
     `Onboarding cannot be completed — the following requirements are not yet met: ${missing.join("; ")}.`

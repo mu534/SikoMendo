@@ -105,9 +105,11 @@ function OnboardingProgressCard({
         {checklist.completedSteps} of {checklist.totalSteps} requirements complete
       </p>
 
-      {/* Checklist rows */}
+      {/* Checklist rows — exclude the contract row for employment types that don't require it */}
       <ul className="space-y-1.5">
-        {(Object.keys(CHECKLIST_LABELS) as string[]).map((key) => {
+        {(Object.keys(CHECKLIST_LABELS) as string[])
+          .filter((key) => key !== "hasContract" || checklist.contractRequired)
+          .map((key) => {
           const done = checklist[key as keyof OnboardingChecklist] as boolean;
           const action = CHECKLIST_ACTIONS[key];
 
