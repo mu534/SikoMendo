@@ -15,7 +15,8 @@ import {
   Eye,
 } from "lucide-react";
 import { requirePermission } from "@/lib/session";
-import { can } from "@/lib/permissions";
+import { can, type Role } from "@/lib/permissions";
+import { resolveEffectiveRole } from "@/lib/employee-access";
 import { getCooperativeById } from "@/features/cooperatives/queries";
 import {
   updateCooperative,
@@ -106,7 +107,8 @@ export default async function CooperativeDetailPage({
   const cooperative = await getCooperativeById(id);
   if (!cooperative) notFound();
 
-  const canManage = can(session.user.role, "MANAGE_COOPERATIVES");
+  const effectiveRole = await resolveEffectiveRole(session.user.id, session.user.role as Role);
+  const canManage = can(effectiveRole, "MANAGE_COOPERATIVES");
 
   // Parse tab from searchParams; validate against allowed values
   const rawTab = typeof sp.tab === "string" ? sp.tab : "overview";

@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, UserCheck } from "lucide-react";
 import { requireSession } from "@/lib/session";
-import { can } from "@/lib/permissions";
+import { can, type Role } from "@/lib/permissions";
+import { resolveEffectiveRole } from "@/lib/employee-access";
 import { getDepartmentById } from "@/features/departments/queries";
 import { updateDepartment, setDepartmentActive } from "@/features/departments/actions";
 import { DepartmentForm } from "@/features/departments/department-form";
@@ -15,14 +16,15 @@ export default async function DepartmentDetailPage({ params }: { params: Promise
   const t = await getTranslations("departments");
   const tC = await getTranslations("common");
   const session = await requireSession();
-  if (!can(session.user.role, "VIEW_DEPARTMENTS")) notFound();
+  const effectiveRole = await resolveEffectiveRole(session.user.id, session.user.role as Role);
+  if (!can(effectiveRole, "VIEW_DEPARTMENTS")) notFound();
   const { id } = await params;
 
   const department = await getDepartmentById(id);
   if (!department) notFound();
 
-  const canManageDepartment = can(session.user.role, "MANAGE_DEPARTMENTS");
-  const canManagePositions = can(session.user.role, "MANAGE_POSITIONS");
+  const canManageDepartment = can(effectiveRole, "MANAGE_DEPARTMENTS");
+  const canManagePositions = can(effectiveRole, "MANAGE_POSITIONS");
 
   return (
     <div className="space-y-6">
