@@ -11,7 +11,8 @@ import {
 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { requirePermission } from "@/lib/session";
-import { can } from "@/lib/permissions";
+import { can, type Role } from "@/lib/permissions";
+import { resolveEffectiveRole } from "@/lib/employee-access";
 import { listReports } from "@/features/reports/queries";
 import { deleteReport } from "@/features/reports/actions";
 import { parsePageParam } from "@/lib/utils";
@@ -39,12 +40,13 @@ export default async function ReportHistoryPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const session = await requirePermission("VIEW_REPORTS");
-  const { role, id: userId } = session.user;
+  const { role: rawRole, id: userId } = session.user;
+  const effectiveRole = await resolveEffectiveRole(userId, rawRole as Role);
 
   const t = await getTranslations("reports");
 
   // Only ADMIN has DELETE_REPORTS
-  const canDelete = can(role, "DELETE_REPORTS");
+  const canDelete = can(effectiveRole, "DELETE_REPORTS");
 
   const params = await searchParams;
   const page = parsePageParam(params.page);
@@ -52,7 +54,7 @@ export default async function ReportHistoryPage({
   // listReports is scoped by role:
   // ADMIN / HR_OFFICER → all reports
   // MANAGER / others   → only their own generated reports
-  const { items, total, totalPages } = await listReports(page, userId, role);
+  const { items, total, totalPages } = await listReports(page, userId, effectiveRole);
 
   // Build localized type label map inside the component
   const typeLabels: Record<string, string> = {
@@ -70,7 +72,7 @@ export default async function ReportHistoryPage({
         <h2 className="font-display text-xl font-semibold text-ink-900">{t("history.title")}</h2>
         <p className="mt-1 text-sm text-ink-900/60">
           {t("history.description")}
-          {role === "MANAGER" && " " + t("history.managerNote")}
+          {rawRole === "MANAGER" && " " + t("history.managerNote")}
         </p>
       </div>
 

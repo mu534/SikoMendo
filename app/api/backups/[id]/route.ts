@@ -10,7 +10,8 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/session";
-import { can } from "@/lib/permissions";
+import { can, type Role } from "@/lib/permissions";
+import { resolveEffectiveRole } from "@/lib/employee-access";
 import { getSignedFileUrl } from "@/lib/cloudinary";
 import prisma from "@/lib/prisma";
 
@@ -25,7 +26,8 @@ export async function GET(
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (!can(session.user.role, "MANAGE_BACKUP_RESTORE")) {
+  const effectiveRole = await resolveEffectiveRole(session.user.id, session.user.role as Role);
+  if (!can(effectiveRole, "MANAGE_BACKUP_RESTORE")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

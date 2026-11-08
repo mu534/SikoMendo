@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Building2, Search, Plus, Users, Activity, Archive, LayoutGrid } from "lucide-react";
 import { requirePermission } from "@/lib/session";
-import { can } from "@/lib/permissions";
+import { can, type Role } from "@/lib/permissions";
+import { resolveEffectiveRole } from "@/lib/employee-access";
 import { listCooperatives, getCooperativeCounts } from "@/features/cooperatives/queries";
 import { archiveCooperative, restoreCooperative } from "@/features/cooperatives/actions";
 import { parsePageParam, parseStringParam } from "@/lib/utils";
@@ -26,7 +27,8 @@ export default async function CooperativesPage({
   const session = await requirePermission("VIEW_COOPERATIVES");
   const t = await getTranslations("cooperatives");
   const tC = await getTranslations("common");
-  const canManage = can(session.user.role, "MANAGE_COOPERATIVES");
+  const effectiveRole = await resolveEffectiveRole(session.user.id, session.user.role as Role);
+  const canManage = can(effectiveRole, "MANAGE_COOPERATIVES");
 
   const params = await searchParams;
   const q = parseStringParam(params.q);

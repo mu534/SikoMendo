@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/session";
-import { can } from "@/lib/permissions";
+import { can, type Role } from "@/lib/permissions";
+import { resolveEffectiveRole } from "@/lib/employee-access";
 import { getSignedFileUrl } from "@/lib/cloudinary";
 import prisma from "@/lib/prisma";
 
@@ -30,7 +31,8 @@ export async function GET(
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (!can(session.user.role, "VIEW_REPORTS")) {
+  const effectiveRole = await resolveEffectiveRole(session.user.id, session.user.role as Role);
+  if (!can(effectiveRole, "VIEW_REPORTS")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -56,7 +58,7 @@ export async function GET(
 
   // Non-admin/HR users can only download their own reports
   const ORG_WIDE_ROLES = new Set(["ADMIN", "HR_OFFICER"]);
-  if (!ORG_WIDE_ROLES.has(session.user.role) && report.generatedById !== session.user.id) {
+  if (!ORG_WIDE_ROLES.has(effectiveRole) && report.generatedById !== session.user.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

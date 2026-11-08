@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Building2, Users, Briefcase, ChevronRight, LayoutGrid, UserCheck } from "lucide-react";
 import { requirePermission } from "@/lib/session";
-import { can } from "@/lib/permissions";
+import { can, type Role } from "@/lib/permissions";
+import { resolveEffectiveRole } from "@/lib/employee-access";
 import { listDepartments } from "@/features/departments/queries";
 import { Badge } from "@/components/ui/badge";
 import { getTranslations } from "next-intl/server";
@@ -10,7 +11,7 @@ export default async function DepartmentsPage() {
   const t = await getTranslations("departments");
   const tC = await getTranslations("common");
   const session = await requirePermission("VIEW_DEPARTMENTS");
-  const canManage = can(session.user.role, "MANAGE_DEPARTMENTS");
+  const canManage = can(await resolveEffectiveRole(session.user.id, session.user.role as Role), "MANAGE_DEPARTMENTS");
   const departments = await listDepartments();
 
   const active = departments.filter((d) => d.isActive).length;
