@@ -7,6 +7,8 @@ import { withPermission, type ActionResult } from "@/lib/action-utils";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 import { buildReportFile, type ReportFilters } from "./file-builder";
 import { getSubordinateIds } from "@/features/employees/queries";
+import { resolveEffectiveRole } from "@/lib/employee-access";
+import type { Role } from "@/lib/permissions";
 import type { ReportType, ReportFormat, Prisma } from "@prisma/client";
 
 const REPORT_TITLES: Record<ReportType, string> = {
@@ -113,9 +115,18 @@ export async function generateReport(
     // Resolve the Manager's authorised employee scope server-side.
     // Client-submitted IDs are then validated against this scope — the UI
     // dropdown is a convenience, not a security boundary.
+    //
+    // Use the effective role so that an HR-dept DEPT_MANAGER resolves to
+    // HR_OFFICER, which causes resolveManagerScope to return null (unrestricted)
+    // rather than querying their employee record for subordinate IDs and
+    // producing an empty scope that zeroes out all employee-scoped reports.
+    const effectiveRole = await resolveEffectiveRole(
+      session!.user.id,
+      session!.user.role as Role
+    );
     const scope = await resolveManagerScope(
       session!.user.id,
-      session!.user.role
+      effectiveRole
     );
 
     if (scope !== null && EMPLOYEE_SCOPED_REPORT_TYPES.has(type)) {
