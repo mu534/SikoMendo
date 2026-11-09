@@ -130,7 +130,7 @@ export async function createEmployeeLoginAccount(
           data: { managerId: employee.id },
         });
       }
-    }, { isolationLevel: "Serializable" });
+    }, { isolationLevel: "Serializable", timeout: 15000 });
 
     await logAudit(
       "CREATE",
