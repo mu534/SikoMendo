@@ -102,40 +102,47 @@ export async function getOwnAttendanceSummary(employeeId: string) {
   return { present, absent, late, total: records.length };
 }
 
-/** Daily present/absent counts for the last N days (default 30), including days with zero records. */
+/** Daily present/absent counts for the last N days (default 30), including days with zero records.
+ *
+ * Uses a SQL GROUP BY instead of loading all individual attendance rows into
+ * Node.js memory and aggregating in JavaScript.
+ */
 export async function getAttendanceTrend(days = 30) {
   // Derive start from org-local today (UTC+3), same convention as selfCheckIn.
-  // parseDateOnly produces midnight-UTC, matching the @db.Date storage format.
   const todayStr = getOrgLocalDateString();
   const todayDate = parseDateOnly(todayStr);
 
   const start = new Date(todayDate);
   start.setUTCDate(start.getUTCDate() - (days - 1));
 
-  const records = await prisma.attendance.findMany({
-    where: { date: { gte: start } },
-    select: { date: true, status: true },
-  });
+  // One aggregation query — the DB groups by date+status, we just pivot in JS.
+  const grouped = await prisma.$queryRaw<{ date: Date; status: string; count: bigint }[]>`
+    SELECT date, status, COUNT(*)::bigint AS count
+    FROM attendance
+    WHERE date >= ${start}
+    GROUP BY date, status
+    ORDER BY date ASC
+  `;
 
+  // Build the per-day buckets (all days, including days with zero records)
   const byDate = new Map<string, { present: number; absent: number; onLeave: number }>();
   for (let i = 0; i < days; i++) {
     const d = new Date(start);
-    // Use UTC arithmetic so the ISO string always matches the org-local date key.
     d.setUTCDate(d.getUTCDate() + i);
     byDate.set(d.toISOString().slice(0, 10), { present: 0, absent: 0, onLeave: 0 });
   }
 
-  for (const record of records) {
-    const key = record.date.toISOString().slice(0, 10);
+  for (const row of grouped) {
+    const key = row.date.toISOString().slice(0, 10);
     const bucket = byDate.get(key);
     if (!bucket) continue;
-    // PRESENT, LATE, and HALF_DAY all represent days the employee showed up.
-    if (record.status === "PRESENT" || record.status === "LATE" || record.status === "HALF_DAY") {
-      bucket.present += 1;
-    } else if (record.status === "ABSENT" || record.status === "EXCUSED") {
-      bucket.absent += 1;
-    } else if (record.status === "ON_LEAVE") {
-      bucket.onLeave += 1;
+    const n = Number(row.count);
+    if (row.status === "PRESENT" || row.status === "LATE" || row.status === "HALF_DAY") {
+      bucket.present += n;
+    } else if (row.status === "ABSENT" || row.status === "EXCUSED") {
+      bucket.absent += n;
+    } else if (row.status === "ON_LEAVE") {
+      bucket.onLeave += n;
     }
   }
 

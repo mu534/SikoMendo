@@ -127,22 +127,32 @@ export async function generateNextEmployeeId() {
 
 // ── Reporting hierarchy ──────────────────────────────────────────────────────
 
-/** All employee IDs reporting up to `managerId`, directly or transitively (BFS). */
+/**
+ * All employee IDs reporting up to `managerId`, directly or transitively.
+ *
+ * Uses a single PostgreSQL recursive CTE instead of a JavaScript BFS loop,
+ * replacing N sequential DB round-trips (one per org depth level) with one
+ * query. This matters most for MANAGER-role users on the employees list and
+ * reports pages, which run this on every page load.
+ */
 export async function getSubordinateIds(managerId: string): Promise<string[]> {
-  const all: string[] = [];
-  let currentLevel = [managerId];
-
-  while (currentLevel.length > 0) {
-    const next = await prisma.employee.findMany({
-      where: { managerId: { in: currentLevel }, deletedAt: null },
-      select: { id: true },
-    });
-    const nextIds = next.map((e) => e.id);
-    all.push(...nextIds);
-    currentLevel = nextIds;
-  }
-
-  return all;
+  const rows = await prisma.$queryRaw<{ id: string }[]>`
+    WITH RECURSIVE subordinates AS (
+      -- base: direct reports of the given manager
+      SELECT id
+      FROM employee
+      WHERE "managerId" = ${managerId}
+        AND "deletedAt" IS NULL
+      UNION ALL
+      -- recursive: their reports, and so on
+      SELECT e.id
+      FROM employee e
+      INNER JOIN subordinates s ON e."managerId" = s.id
+      WHERE e."deletedAt" IS NULL
+    )
+    SELECT id FROM subordinates
+  `;
+  return rows.map((r) => r.id);
 }
 
 /**

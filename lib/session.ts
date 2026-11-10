@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { headers, cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth, type AuthSession } from "@/lib/auth";
@@ -25,10 +26,14 @@ async function getLocalePrefix(): Promise<string> {
   return `/${locale}`;
 }
 
-/** Reads the current session on the server. Returns null when signed out. */
-export async function getServerSession(): Promise<AuthSession | null> {
-  return auth.api.getSession({ headers: await headers() });
-}
+/** Reads the current session on the server. Returns null when signed out.
+ *
+ * Wrapped with React.cache() so repeated calls within the same request
+ * (layout + page both calling requireSession) hit the DB only once.
+ */
+export const getServerSession: () => Promise<AuthSession | null> = cache(
+  async () => auth.api.getSession({ headers: await headers() })
+);
 
 /** Use in layouts/pages that require any authenticated user. Redirects otherwise. */
 export async function requireSession(): Promise<AuthSession> {

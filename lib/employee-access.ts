@@ -8,6 +8,7 @@
  * IMPORTANT: All functions are server-only.
  */
 import "server-only";
+import { cache } from "react";
 import prisma from "@/lib/prisma";
 import { can, type Role, HR_DEPARTMENT_NAME, resolveEffectiveRoleSync } from "@/lib/permissions";
 import type { AuthSession } from "@/lib/auth";
@@ -47,14 +48,16 @@ export async function isHrDeptManager(
  *
  * Only performs a DB lookup for DEPT_MANAGER users — all other roles are
  * a no-op O(1) return.
+ *
+ * Wrapped with React.cache() so layout + page both calling this for the same
+ * user hit the DB only once per request.
  */
-export async function resolveEffectiveRole(
-  userId: string,
-  actualRole: Role
-): Promise<Role> {
-  const hrManager = await isHrDeptManager(userId, actualRole);
-  return resolveEffectiveRoleSync(actualRole, hrManager);
-}
+export const resolveEffectiveRole: (userId: string, actualRole: Role) => Promise<Role> = cache(
+  async (userId: string, actualRole: Role): Promise<Role> => {
+    const hrManager = await isHrDeptManager(userId, actualRole);
+    return resolveEffectiveRoleSync(actualRole, hrManager);
+  }
+);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. Scoped employee access (P0-1 / P0-2)
@@ -195,22 +198,28 @@ export async function getEmployeeByIdForViewer(
   });
 }
 
-/** BFS traversal — returns all employee IDs that ultimately report to managerId. */
+/**
+ * Returns all employee IDs that ultimately report to managerId.
+ *
+ * Uses a single recursive CTE instead of a BFS loop so there is exactly one
+ * DB round-trip regardless of the org depth.
+ */
 export async function getSubordinateIds(managerId: string): Promise<string[]> {
-  const all: string[] = [];
-  let currentLevel = [managerId];
-
-  while (currentLevel.length > 0) {
-    const next = await prisma.employee.findMany({
-      where: { managerId: { in: currentLevel }, deletedAt: null },
-      select: { id: true },
-    });
-    const nextIds = next.map((e) => e.id);
-    all.push(...nextIds);
-    currentLevel = nextIds;
-  }
-
-  return all;
+  const rows = await prisma.$queryRaw<{ id: string }[]>`
+    WITH RECURSIVE subordinates AS (
+      SELECT id
+      FROM employee
+      WHERE "managerId" = ${managerId}
+        AND "deletedAt" IS NULL
+      UNION ALL
+      SELECT e.id
+      FROM employee e
+      INNER JOIN subordinates s ON e."managerId" = s.id
+      WHERE e."deletedAt" IS NULL
+    )
+    SELECT id FROM subordinates
+  `;
+  return rows.map((r) => r.id);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

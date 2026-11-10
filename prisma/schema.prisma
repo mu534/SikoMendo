@@ -325,6 +325,7 @@ model Employee {
   @@index([positionId])
   @@index([shiftId])
   @@index([managerId])
+  @@index([managerId, deletedAt])
   @@index([deletedAt])
   @@map("employee")
 }
@@ -525,6 +526,7 @@ model Attendance {
   // Prevent duplicate attendance for same employee on same date
   @@unique([employeeId, date])
   @@index([date])
+  @@index([date, status])
   @@index([employeeId])
   @@index([recordedById])
   @@index([correctedById])

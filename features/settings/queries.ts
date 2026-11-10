@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import prisma from "@/lib/prisma";
 
 export type OrgSettings = {
@@ -27,18 +28,25 @@ const DEFAULTS: OrgSettings = {
  *
  * Uses $queryRaw so this works even when the Prisma client cache is stale
  * (i.e. the client hasn't been regenerated since the migration ran).
+ *
+ * Cached for 60 seconds — org settings change rarely and are read on every
+ * dashboard page load from the layout.
  */
-export async function getOrgSettings(): Promise<OrgSettings> {
-  try {
-    const rows = await prisma.$queryRaw<OrgSettings[]>`
-      SELECT id, "orgName", tagline, location, "logoUrl", "logoKey", "updatedAt"
-      FROM org_settings
-      WHERE id = 'singleton'
-      LIMIT 1
-    `;
-    return rows[0] ?? DEFAULTS;
-  } catch {
-    // Table doesn't exist yet or any other DB error — return defaults
-    return DEFAULTS;
-  }
-}
+export const getOrgSettings: () => Promise<OrgSettings> = unstable_cache(
+  async (): Promise<OrgSettings> => {
+    try {
+      const rows = await prisma.$queryRaw<OrgSettings[]>`
+        SELECT id, "orgName", tagline, location, "logoUrl", "logoKey", "updatedAt"
+        FROM org_settings
+        WHERE id = 'singleton'
+        LIMIT 1
+      `;
+      return rows[0] ?? DEFAULTS;
+    } catch {
+      // Table doesn't exist yet or any other DB error — return defaults
+      return DEFAULTS;
+    }
+  },
+  ["org-settings"],
+  { revalidate: 60, tags: ["org-settings"] }
+);

@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "@/lib/session";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
@@ -108,6 +108,8 @@ export async function updateOrgSettings(
     revalidatePath("/settings");
     // Revalidate everywhere the sidebar renders (it reads org settings server-side)
     revalidatePath("/", "layout");
+    // Bust the unstable_cache entry for org settings so layout picks up new values
+    revalidateTag("org-settings");
     return null;
   });
 }
@@ -142,6 +144,7 @@ export async function removeOrgLogo(): Promise<ActionResult<null>> {
 
     revalidatePath("/settings/organization");
     revalidatePath("/", "layout");
+    revalidateTag("org-settings");
     return null;
   });
 }

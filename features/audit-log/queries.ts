@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import prisma from "@/lib/prisma";
 import { PAGE_SIZE } from "@/lib/utils";
 import type { Prisma } from "@prisma/client";
@@ -78,30 +79,39 @@ export async function listAuditLog({
   return { items, total, totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)) };
 }
 
-/** Distinct entity/action values already recorded — used to populate filter dropdowns. */
-export async function listAuditLogFilterOptions() {
-  const [entities, actions, users] = await Promise.all([
-    prisma.auditLog.findMany({
-      distinct: ["entity"],
-      select: { entity: true },
-      orderBy: { entity: "asc" },
-    }),
-    prisma.auditLog.findMany({
-      distinct: ["action"],
-      select: { action: true },
-      orderBy: { action: "asc" },
-    }),
-    // Users who have generated at least one audit event
-    prisma.user.findMany({
-      where: { auditLogs: { some: {} } },
-      select: { id: true, name: true },
-      orderBy: { name: "asc" },
-    }),
-  ]);
+/** Distinct entity/action values already recorded — used to populate filter dropdowns.
+ *
+ * Cached for 60 seconds — this runs 3 queries including correlated subqueries
+ * on every audit log page load. The dropdown values change only when new audit
+ * events are created, so a short TTL is safe.
+ */
+export const listAuditLogFilterOptions = unstable_cache(
+  async () => {
+    const [entities, actions, users] = await Promise.all([
+      prisma.auditLog.findMany({
+        distinct: ["entity"],
+        select: { entity: true },
+        orderBy: { entity: "asc" },
+      }),
+      prisma.auditLog.findMany({
+        distinct: ["action"],
+        select: { action: true },
+        orderBy: { action: "asc" },
+      }),
+      // Users who have generated at least one audit event
+      prisma.user.findMany({
+        where: { auditLogs: { some: {} } },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      }),
+    ]);
 
-  return {
-    entities: entities.map((e) => e.entity),
-    actions: actions.map((a) => a.action),
-    users,
-  };
-}
+    return {
+      entities: entities.map((e) => e.entity),
+      actions: actions.map((a) => a.action),
+      users,
+    };
+  },
+  ["audit-log-filter-options"],
+  { revalidate: 60, tags: ["audit-log-filter-options"] }
+);
