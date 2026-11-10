@@ -661,7 +661,11 @@ model AuditLog {
 
   @@index([userId])
   @@index([entity])
+  @@index([action])
   @@index([createdAt])
+  @@index([userId, createdAt])
+  @@index([entity, createdAt])
+  @@index([action, createdAt])
   @@map("audit_log")
 }
 

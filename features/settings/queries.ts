@@ -48,5 +48,5 @@ export const getOrgSettings: () => Promise<OrgSettings> = unstable_cache(
     }
   },
   ["org-settings"],
-  { revalidate: 60, tags: ["org-settings"] }
+  { revalidate: 60 }
 );
