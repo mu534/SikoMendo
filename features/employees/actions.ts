@@ -204,7 +204,7 @@ export async function createEmployee(
         userId
       );
 
-      revalidatePath("/employees");
+      revalidatePath("/[lang]/employees", "page");
       return { id: employee.id };
     } catch (err) {
       if (asset) {
@@ -340,8 +340,8 @@ export async function updateEmployee(
 
     await logAudit("UPDATE", id, { updatedBy: session?.user.name }, userId);
 
-    revalidatePath("/employees");
-    revalidatePath(`/employees/${id}`);
+    revalidatePath("/[lang]/employees", "page");
+    revalidatePath("/[lang]/employees/[id]", "page");
     return { id };
   });
 }
@@ -399,7 +399,7 @@ export async function archiveEmployee(id: string): Promise<ActionResult<{ id: st
     }, { isolationLevel: "Serializable" });
 
     await logAudit("ARCHIVE", id, { archivedBy: session?.user.name }, session?.user.id);
-    revalidatePath("/employees");
+    revalidatePath("/[lang]/employees", "page");
     return { id };
   });
 }
@@ -410,7 +410,7 @@ export async function restoreEmployee(id: string): Promise<ActionResult<{ id: st
     await assertRestoreSafe(id);
     await prisma.employee.update({ where: { id }, data: { deletedAt: null } });
     await logAudit("RESTORE", id, { restoredBy: session?.user.name }, session?.user.id);
-    revalidatePath("/employees");
+    revalidatePath("/[lang]/employees", "page");
     return { id };
   });
 }
@@ -466,7 +466,7 @@ export async function uploadEmployeeDocument(
       },
     });
 
-    revalidatePath(`/employees/${employeeId}`);
+    revalidatePath("/[lang]/employees/[id]", "page");
     return { id: document.id };
   });
 }
@@ -485,7 +485,7 @@ export async function deleteEmployeeDocument(
       document.fileResourceType === "image" ? "image" : "raw";
     await deleteFromCloudinary(document.fileKey, resourceType);
 
-    revalidatePath(`/employees/${employeeId}`);
+    revalidatePath("/[lang]/employees/[id]", "page");
     return { id: documentId };
   });
 }
@@ -564,7 +564,7 @@ export async function bulkImportEmployees(
     const createdCount = results.filter((r) => r.status === "created").length;
     const errorCount   = results.filter((r) => r.status === "error").length;
 
-    revalidatePath("/employees");
+    revalidatePath("/[lang]/employees", "page");
     return { results, createdCount, errorCount };
   });
 }
