@@ -156,6 +156,29 @@ export async function getSubordinateIds(managerId: string): Promise<string[]> {
 }
 
 /**
+ * Like getSubordinateIds(), but includes archived employees in the hierarchy.
+ * Used when building restrictToIds for the archive view, so that archived
+ * subordinates are not excluded from the intersection filter.
+ */
+export async function getSubordinateIdsIncludingArchived(managerId: string): Promise<string[]> {
+  const rows = await prisma.$queryRaw<{ id: string }[]>`
+    WITH RECURSIVE subordinates AS (
+      -- base: direct reports of the given manager (active and archived)
+      SELECT id
+      FROM employee
+      WHERE "managerId" = ${managerId}
+      UNION ALL
+      -- recursive: their reports, and so on (active and archived)
+      SELECT e.id
+      FROM employee e
+      INNER JOIN subordinates s ON e."managerId" = s.id
+    )
+    SELECT id FROM subordinates
+  `;
+  return rows.map((r) => r.id);
+}
+
+/**
  * Returns the designated Department Manager employee for a given department,
  * or null if none is assigned.
  *

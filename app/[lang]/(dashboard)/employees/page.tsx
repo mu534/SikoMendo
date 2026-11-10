@@ -6,6 +6,7 @@ import { resolveEffectiveRole } from "@/lib/employee-access";
 import {
   listEmployees,
   getSubordinateIds,
+  getSubordinateIdsIncludingArchived,
   getEmployeeDirectoryCounts,
 } from "@/features/employees/queries";
 import { listActiveDepartments } from "@/features/departments/queries";
@@ -68,7 +69,13 @@ export default async function EmployeesPage({
       where: { userId: session.user.id },
       select: { id: true },
     });
-    restrictToIds = ownEmployee ? await getSubordinateIds(ownEmployee.id) : [];
+    if (ownEmployee) {
+      restrictToIds = showArchived
+        ? await getSubordinateIdsIncludingArchived(ownEmployee.id)
+        : await getSubordinateIds(ownEmployee.id);
+    } else {
+      restrictToIds = [];
+    }
   }
 
   // Non-HR DEPT_MANAGER: restrict to employees in their managed department
@@ -80,7 +87,10 @@ export default async function EmployeesPage({
     const managedDeptId = deptManagerEmployee?.managedDepartment?.id;
     if (managedDeptId) {
       const deptEmployees = await prisma.employee.findMany({
-        where: { departmentId: managedDeptId, deletedAt: null },
+        where: {
+          departmentId: managedDeptId,
+          ...(showArchived ? {} : { deletedAt: null }),
+        },
         select: { id: true },
       });
       restrictToIds = deptEmployees.map((e) => e.id);
