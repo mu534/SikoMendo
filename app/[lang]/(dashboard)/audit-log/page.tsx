@@ -233,6 +233,11 @@ export default async function AuditLogPage({
                         {entry.entityId}
                       </p>
                     )}
+                    {entry.ipAddress && (
+                      <p className="font-mono text-xs text-ink-900/35 mt-0.5">
+                        {entry.ipAddress}
+                      </p>
+                    )}
                   </TD>
 
                   {/* Change details — human-readable with raw JSON as secondary */}

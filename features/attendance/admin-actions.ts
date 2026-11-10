@@ -19,6 +19,7 @@
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "@/lib/session";
+import { logAudit } from "@/lib/audit";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
 import { getOrgLocalDateString, parseDateOnly, getServerNow } from "@/lib/attendance-date";
 import { evaluateCheckInStatus } from "@/lib/attendance-policy";
@@ -32,15 +33,7 @@ async function logAdminAudit(
   changes: unknown,
   adminUserId: string
 ) {
-  await prisma.auditLog.create({
-    data: {
-      action,
-      entity: "Attendance",
-      entityId,
-      changes: changes as object,
-      userId: adminUserId,
-    },
-  });
+  await logAudit(action, "Attendance", entityId, changes, adminUserId);
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────

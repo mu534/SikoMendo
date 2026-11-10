@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "@/lib/session";
+import { logAudit } from "@/lib/audit";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
@@ -99,15 +100,7 @@ export async function updateOwnProfile(
       });
     }
 
-    await prisma.auditLog.create({
-      data: {
-        action: "UPDATE_PROFILE",
-        entity: "User",
-        entityId: session!.user.id,
-        changes: { name: fullName, photoChanged: Boolean(asset) },
-        userId: session!.user.id,
-      },
-    });
+    await logAudit("UPDATE_PROFILE", "User", session!.user.id, { name: fullName, photoChanged: Boolean(asset) }, session!.user.id);
 
     revalidatePath("/profile");
     return { name: fullName, image: asset?.url ?? null };
@@ -169,15 +162,7 @@ export async function updateOwnEmployeeInfo(
       });
     }
 
-    await prisma.auditLog.create({
-      data: {
-        action: "UPDATE_OWN_INFO",
-        entity: "Employee",
-        entityId: employee.id,
-        changes: { ...parsed.data, photoChanged: Boolean(asset) },
-        userId: session!.user.id,
-      },
-    });
+    await logAudit("UPDATE_OWN_INFO", "Employee", employee.id, { ...parsed.data, photoChanged: Boolean(asset) }, session!.user.id);
 
     revalidatePath("/profile");
     return { image: asset?.url ?? null };
@@ -215,15 +200,7 @@ export async function changeOwnPassword(
       data: { mustChangePassword: false, passwordChangedAt: new Date() },
     });
 
-    await prisma.auditLog.create({
-      data: {
-        action: "PASSWORD_CHANGED",
-        entity: "User",
-        entityId: session!.user.id,
-        changes: { selfService: true },
-        userId: session!.user.id,
-      },
-    });
+    await logAudit("PASSWORD_CHANGED", "User", session!.user.id, { selfService: true }, session!.user.id);
 
     return null;
   });
@@ -351,15 +328,7 @@ export async function updateProfilePicture(
     }
 
     // ── Audit + revalidate ────────────────────────────────────────────────────
-    await prisma.auditLog.create({
-      data: {
-        action: "UPDATE_PROFILE",
-        entity: "User",
-        entityId: targetUserId,
-        changes: { photoChanged: true },
-        userId: selfId,
-      },
-    });
+    await logAudit("UPDATE_PROFILE", "User", targetUserId, { photoChanged: true }, selfId);
 
     revalidatePath("/profile");
     revalidatePath("/employees");
@@ -434,15 +403,7 @@ export async function removeProfilePicture(): Promise<ActionResult<null>> {
     }
 
     // ── Audit + revalidate ────────────────────────────────────────────────────
-    await prisma.auditLog.create({
-      data: {
-        action: "UPDATE_PROFILE",
-        entity: "User",
-        entityId: userId,
-        changes: { photoRemoved: true },
-        userId,
-      },
-    });
+    await logAudit("UPDATE_PROFILE", "User", userId, { photoRemoved: true }, userId);
 
     revalidatePath("/profile");
     revalidatePath("/employees");

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "@/lib/session";
+import { logAudit } from "@/lib/audit";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 import { createNotification } from "@/lib/notifications";
@@ -19,11 +20,7 @@ import {
 import { generateNextLeaveId, hasOverlappingLeave, getEmployeeLeaveBalances, resolveLeaveApprovalRoute } from "./queries";
 import { assertLeaveDecisionAuthority } from "@/lib/employee-access";
 
-async function logAudit(action: string, entity: string, entityId: string, changes: unknown, userId?: string) {
-  await prisma.auditLog.create({
-    data: { action, entity, entityId, changes: changes as object, userId },
-  });
-}
+
 
 function getDocumentFile(formData: FormData): File | null {
   const file = formData.get("document");

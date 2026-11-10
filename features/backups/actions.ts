@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "@/lib/session";
+import { logAudit } from "@/lib/audit";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
 import { uploadBackupToCloudinary, getSignedFileUrl } from "@/lib/cloudinary";
 import { LocalizedError } from "@/lib/errors";
@@ -109,15 +110,7 @@ export async function createBackup(
       });
 
       // Step 4f: Audit + revalidate
-      await prisma.auditLog.create({
-        data: {
-          action: "BACKUP_CREATE",
-          entity: "BackupRecord",
-          entityId: record.id,
-          changes: { filename, sizeBytes: uploaded.bytes, source },
-          userId: session!.user.id,
-        },
-      });
+      await logAudit("BACKUP_CREATE", "BackupRecord", record.id, { filename, sizeBytes: uploaded.bytes, source }, session!.user.id);
 
       revalidatePath("/settings/backup");
 
@@ -139,15 +132,7 @@ export async function createBackup(
         },
       }).catch(() => {});
 
-      await prisma.auditLog.create({
-        data: {
-          action: "BACKUP_FAILED",
-          entity: "BackupRecord",
-          entityId: record.id,
-          changes: { error: errMsg.slice(0, 500) },
-          userId: session!.user.id,
-        },
-      }).catch(() => {});
+      await logAudit("BACKUP_FAILED", "BackupRecord", record.id, { error: errMsg.slice(0, 500) }, session!.user.id).catch(() => {});
 
       revalidatePath("/settings/backup");
       throw err;
@@ -289,15 +274,7 @@ export async function executeRestore(
       await runPgRestore(dumpBuffer);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
-      await prisma.auditLog.create({
-        data: {
-          action: "BACKUP_RESTORE_FAILED",
-          entity: "BackupRecord",
-          entityId: backupId,
-          changes: { error: errMsg.slice(0, 500), safetyBackupId },
-          userId: session!.user.id,
-        },
-      }).catch(() => {});
+      await logAudit("BACKUP_RESTORE_FAILED", "BackupRecord", backupId, { error: errMsg.slice(0, 500), safetyBackupId }, session!.user.id).catch(() => {});
       throw new LocalizedError(
         "errors.backups.restoreFailed",
         "Database restore failed. Your database is unchanged. Restore the safety backup to recover."
@@ -309,15 +286,7 @@ export async function executeRestore(
       await prisma.$queryRaw`SELECT 1 AS ok`;
       await prisma.employee.count();
     } catch {
-      await prisma.auditLog.create({
-        data: {
-          action: "BACKUP_RESTORE_VERIFY_FAILED",
-          entity: "BackupRecord",
-          entityId: backupId,
-          changes: { safetyBackupId },
-          userId: session!.user.id,
-        },
-      }).catch(() => {});
+      await logAudit("BACKUP_RESTORE_VERIFY_FAILED", "BackupRecord", backupId, { safetyBackupId }, session!.user.id).catch(() => {});
       throw new LocalizedError(
         "errors.backups.restoreVerifyFailed",
         "Restore completed but verification failed. Check the database manually."
@@ -333,15 +302,7 @@ export async function executeRestore(
     // Best-effort asset verification (non-blocking)
     verifyAssets(manifest).catch(() => {});
 
-    await prisma.auditLog.create({
-      data: {
-        action: "BACKUP_RESTORE",
-        entity: "BackupRecord",
-        entityId: backupId,
-        changes: { safetyBackupId, filename: record.filename },
-        userId: session!.user.id,
-      },
-    }).catch(() => {});
+    await logAudit("BACKUP_RESTORE", "BackupRecord", backupId, { safetyBackupId, filename: record.filename }, session!.user.id).catch(() => {});
 
     revalidatePath("/settings/backup");
     return { restoredId: backupId, safetyBackupId };
@@ -398,15 +359,7 @@ export async function executeRestoreFromUpload(
       await runPgRestore(dumpBuffer);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
-      await prisma.auditLog.create({
-        data: {
-          action: "BACKUP_RESTORE_FAILED",
-          entity: "BackupRecord",
-          entityId: token,
-          changes: { error: errMsg.slice(0, 500), safetyBackupId, source: "upload" },
-          userId: session!.user.id,
-        },
-      }).catch(() => {});
+      await logAudit("BACKUP_RESTORE_FAILED", "BackupRecord", token, { error: errMsg.slice(0, 500), safetyBackupId, source: "upload" }, session!.user.id).catch(() => {});
       throw new LocalizedError(
         "errors.backups.restoreFailed",
         "Database restore failed. Your database is unchanged. Restore the safety backup to recover."
@@ -417,15 +370,7 @@ export async function executeRestoreFromUpload(
     await deleteTempFile(entry.tmpPath).catch(() => {});
     removeUploadEntry(token);
 
-    await prisma.auditLog.create({
-      data: {
-        action: "BACKUP_RESTORE",
-        entity: "BackupRecord",
-        entityId: token,
-        changes: { safetyBackupId, source: "upload" },
-        userId: session!.user.id,
-      },
-    }).catch(() => {});
+    await logAudit("BACKUP_RESTORE", "BackupRecord", token, { safetyBackupId, source: "upload" }, session!.user.id).catch(() => {});
 
     revalidatePath("/settings/backup");
     return { safetyBackupId };

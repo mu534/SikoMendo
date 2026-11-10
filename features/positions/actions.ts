@@ -3,14 +3,11 @@
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "@/lib/session";
+import { logAudit } from "@/lib/audit";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
 import { positionSchema, positionFormDataToObject } from "./schemas";
 
-async function logAudit(action: string, entityId: string, changes: unknown, userId?: string) {
-  await prisma.auditLog.create({
-    data: { action, entity: "Position", entityId, changes: changes as object, userId },
-  });
-}
+
 
 async function assertNameNotTakenInDepartment(departmentId: string, name: string, excludeId?: string) {
   const existing = await prisma.position.findFirst({

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import prisma from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
 import { auth } from "@/lib/auth";
 import { getServerSession } from "@/lib/session";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
@@ -20,17 +21,7 @@ import {
 
 // ── Shared audit helper ────────────────────────────────────────────────────
 
-async function logAudit(
-  action: string,
-  entity: string,
-  entityId: string,
-  changes: unknown,
-  userId?: string
-) {
-  await prisma.auditLog.create({
-    data: { action, entity, entityId, changes: changes as object, userId },
-  });
-}
+
 
 // ── Onboarding ─────────────────────────────────────────────────────────────
 

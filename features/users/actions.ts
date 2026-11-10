@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
 import { auth } from "@/lib/auth";
 import { getServerSession } from "@/lib/session";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
@@ -21,11 +22,7 @@ function getPhotoFile(formData: FormData): File | null {
   return file instanceof File && file.size > 0 ? file : null;
 }
 
-async function logAudit(action: string, entityId: string, changes: unknown, userId?: string) {
-  await prisma.auditLog.create({
-    data: { action, entity: "User", entityId, changes: changes as object, userId },
-  });
-}
+
 
 /**
  * Derives a unique username + temporary password from a full name.
@@ -134,6 +131,7 @@ export async function createEmployeeLoginAccount(
 
     await logAudit(
       "CREATE",
+      "User",
       user.id,
       { username, role, linkedEmployeeId: employee.employeeId },
       session?.user.id
@@ -237,6 +235,7 @@ export async function createUserAccount(
 
     await logAudit(
       "CREATE",
+      "User",
       user.id,
       { name: user.name, username: parsed.data.username, role: parsed.data.role },
       session?.user.id
@@ -298,6 +297,7 @@ export async function updateUserAccount(
 
     await logAudit(
       "UPDATE",
+      "User",
       userId,
       { name: parsed.data.name, role: parsed.data.role, photoChanged: Boolean(asset) },
       session?.user.id
@@ -332,7 +332,7 @@ export async function suspendUserAccount(
 
     await auth.api.banUser({ headers: await headers(), body: { userId } });
 
-    await logAudit("SUSPEND", userId, { suspended: true }, session?.user.id);
+    await logAudit("SUSPEND", "User", userId, { suspended: true }, session?.user.id);
     // Fix A: revalidate both paths
     revalidatePath("/users");
     revalidatePath("/users/suspended");
@@ -366,7 +366,7 @@ export async function reactivateUserAccount(
 
     await auth.api.unbanUser({ headers: await headers(), body: { userId } });
 
-    await logAudit("REACTIVATE", userId, { suspended: false }, session?.user.id);
+    await logAudit("REACTIVATE", "User", userId, { suspended: false }, session?.user.id);
     // Fix A: revalidate both paths
     revalidatePath("/users");
     revalidatePath("/users/suspended");
@@ -402,7 +402,7 @@ export async function resetUserPassword(userId: string): Promise<ActionResult<{ 
     });
     await prisma.session.deleteMany({ where: { userId } });
 
-    await logAudit("PASSWORD_RESET", userId, {}, session?.user.id);
+    await logAudit("PASSWORD_RESET", "User", userId, {}, session?.user.id);
     await createNotification(
       userId,
       "PASSWORD_RESET",
@@ -500,6 +500,7 @@ export async function deleteUserAccount(
     // ── Audit log BEFORE the archive ──────────────────────────────────────
     await logAudit(
       "ARCHIVE",
+      "User",
       userId,
       {
         name:             target.name,
@@ -550,6 +551,7 @@ export async function restoreUserAccount(
 
     await logAudit(
       "RESTORE_ACCOUNT",
+      "User",
       userId,
       { name: target.name, username: target.username, role: target.role },
       session?.user.id
@@ -573,7 +575,7 @@ export async function forcePasswordChangeForUser(userId: string): Promise<Action
       data: { mustChangePassword: true },
     });
 
-    await logAudit("FORCE_PASSWORD_CHANGE", userId, {}, session?.user.id);
+    await logAudit("FORCE_PASSWORD_CHANGE", "User", userId, {}, session?.user.id);
     revalidatePath(`/users/${userId}`);
     return { id: userId };
   });
@@ -698,6 +700,7 @@ export async function createManagerAccount(
     // ── Audit log ─────────────────────────────────────────────────────────────
     await logAudit(
       "CREATE",
+      "User",
       user.id,
       { username, role, linkedEmployeeId: employee.employeeId, departmentId: departmentId ?? null },
       session?.user.id
@@ -926,6 +929,7 @@ export async function createManagerWithEmployee(
     // ── 8. Audit log + cache invalidation ────────────────────────────────────
     await logAudit(
       "CREATE",
+      "User",
       createdUser.id,
       {
         username,

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "@/lib/session";
+import { logAudit } from "@/lib/audit";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
 import { uploadToCloudinary, deleteFromCloudinary } from "@/lib/cloudinary";
 import { employeeSchema, employeeFormDataToObject } from "./schemas";
@@ -46,13 +47,7 @@ function validateDocumentTitle(title: string): void {
   }
 }
 
-// ── Shared audit helper ────────────────────────────────────────────────────────
 
-async function logAudit(action: string, entityId: string, changes: unknown, userId?: string) {
-  await prisma.auditLog.create({
-    data: { action, entity: "Employee", entityId, changes: changes as object, userId },
-  });
-}
 
 // ── Profile photo validation ──────────────────────────────────────────────────
 // Limit defined in lib/file-limits.ts — validatePhotoFile is imported directly.

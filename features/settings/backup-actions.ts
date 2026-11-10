@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "@/lib/session";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
+import { logAudit } from "@/lib/audit";
 import { uploadToCloudinary, deleteFromCloudinary } from "@/lib/cloudinary";
 import prisma from "@/lib/prisma";
 import { Pool } from "pg";
@@ -96,15 +97,7 @@ export async function createBackup(
         WHERE id = ${logId}
       `;
 
-      await prisma.auditLog.create({
-        data: {
-          action: "CREATE",
-          entity: "Backup",
-          entityId: logId,
-          changes: { sizeBytes, fileName },
-          userId: session!.user.id,
-        },
-      });
+      await logAudit("CREATE", "Backup", logId, { sizeBytes, fileName }, session!.user.id);
 
       revalidatePath("/settings/backup");
       return { id: logId, sizeBytes };
@@ -113,15 +106,7 @@ export async function createBackup(
       await prisma.$executeRaw`
         UPDATE backup_log SET status = 'FAILED', notes = ${msg} WHERE id = ${logId}
       `;
-      await prisma.auditLog.create({
-        data: {
-          action: "BACKUP_FAILED",
-          entity: "Backup",
-          entityId: logId,
-          changes: { error: msg },
-          userId: session!.user.id,
-        },
-      });
+      await logAudit("BACKUP_FAILED", "Backup", logId, { error: msg }, session!.user.id);
       revalidatePath("/settings/backup");
       throw new Error(`Backup failed: ${msg}`);
     }
@@ -147,15 +132,7 @@ export async function deleteBackupRecord(
 
     await prisma.$executeRaw`DELETE FROM backup_log WHERE id = ${id}`;
 
-    await prisma.auditLog.create({
-      data: {
-        action: "DELETE",
-        entity: "Backup",
-        entityId: id,
-        changes: {},
-        userId: session!.user.id,
-      },
-    });
+    await logAudit("DELETE", "Backup", id, {}, session!.user.id);
 
     revalidatePath("/settings/backup");
     return { id };

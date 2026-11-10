@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import prisma from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
 import { getServerSession } from "@/lib/session";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
 import { parseTimeToMinutes } from "@/lib/attendance-policy";
@@ -37,11 +38,7 @@ function extractShiftFromFormData(formData: FormData) {
   };
 }
 
-async function logAudit(action: string, entityId: string, changes: unknown, userId?: string) {
-  await prisma.auditLog.create({
-    data: { action, entity: "WorkShift", entityId, changes: changes as object, userId },
-  });
-}
+
 
 // ── Create ────────────────────────────────────────────────────────────────
 

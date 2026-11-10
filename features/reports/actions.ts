@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "@/lib/session";
+import { logAudit } from "@/lib/audit";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 import { buildReportFile, type ReportFilters } from "./file-builder";
@@ -175,15 +176,7 @@ export async function generateReport(
       },
     });
 
-    await prisma.auditLog.create({
-      data: {
-        action: "CREATE",
-        entity: "Report",
-        entityId: report.id,
-        changes: { title, type, format } as Prisma.InputJsonValue,
-        userId: session!.user.id,
-      },
-    });
+    await logAudit("CREATE", "Report", report.id, { title, type, format }, session!.user.id);
 
     revalidatePath("/reports");
     return { id: report.id, title: report.title };
@@ -203,18 +196,7 @@ export async function deleteReport(
 
     await prisma.report.delete({ where: { id } });
 
-    await prisma.auditLog.create({
-      data: {
-        action: "DELETE",
-        entity: "Report",
-        entityId: id,
-        changes: {
-          title: existing.title,
-          type: existing.type,
-        } as Prisma.InputJsonValue,
-        userId: session!.user.id,
-      },
-    });
+    await logAudit("DELETE", "Report", id, { title: existing.title, type: existing.type }, session!.user.id);
 
     revalidatePath("/reports");
     return { id };

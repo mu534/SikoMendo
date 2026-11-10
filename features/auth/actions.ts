@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { logAudit } from "@/lib/audit";
 import { getServerSession } from "@/lib/session";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
 import { strongPasswordSchema } from "@/lib/credentials";
@@ -73,15 +74,7 @@ export async function forceChangePassword(
       },
     });
 
-    await prisma.auditLog.create({
-      data: {
-        action:   "PASSWORD_CHANGED",
-        entity:   "User",
-        entityId: session!.user.id,
-        changes:  { firstLogin: true },
-        userId:   session!.user.id,
-      },
-    });
+    await logAudit("PASSWORD_CHANGED", "User", session!.user.id, { firstLogin: true }, session!.user.id);
 
     return null;
   });

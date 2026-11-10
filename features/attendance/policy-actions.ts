@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import prisma from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
 import { getServerSession } from "@/lib/session";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
 import { parseTimeToMinutes } from "@/lib/attendance-policy";
@@ -130,22 +131,14 @@ export async function upsertAttendancePolicy(
       select: { id: true },
     });
 
-    await prisma.auditLog.create({
-      data: {
-        action: "UPDATE",
-        entity: "AttendancePolicy",
-        entityId: "singleton",
-        changes: {
-          workStartTime,
-          workEndTime,
-          absenceDetectionTime,
-          gracePeriodMinutes,
-          halfDayThresholdMinutes,
-          workingDays,
-        } as object,
-        userId: session!.user.id,
-      },
-    });
+    await logAudit("UPDATE", "AttendancePolicy", "singleton", {
+      workStartTime,
+      workEndTime,
+      absenceDetectionTime,
+      gracePeriodMinutes,
+      halfDayThresholdMinutes,
+      workingDays,
+    }, session!.user.id);
 
     revalidatePath("/attendance/policy");
     return { id: row.id };

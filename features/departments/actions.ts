@@ -3,14 +3,11 @@
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "@/lib/session";
+import { logAudit } from "@/lib/audit";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
 import { departmentUpdateSchema, departmentFormDataToObject } from "./schemas";
 
-async function logAudit(action: string, entityId: string, changes: unknown, userId?: string) {
-  await prisma.auditLog.create({
-    data: { action, entity: "Department", entityId, changes: changes as object, userId },
-  });
-}
+
 
 // Department names are fixed (seeded once, reflecting the Union's official
 // structure) — there is deliberately no createDepartment action. Admins can

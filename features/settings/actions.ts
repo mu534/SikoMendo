@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "@/lib/session";
+import { logAudit } from "@/lib/audit";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
 import { uploadToCloudinary, deleteFromCloudinary } from "@/lib/cloudinary";
 import { z } from "zod";
@@ -94,15 +95,7 @@ export async function updateOrgSettings(
       `;
     }
 
-    await prisma.auditLog.create({
-      data: {
-        action: "UPDATE",
-        entity: "OrgSettings",
-        entityId: "singleton",
-        changes: { orgName: parsed.data.orgName, logoChanged: Boolean(logoFile) },
-        userId: session!.user.id,
-      },
-    });
+    await logAudit("UPDATE", "OrgSettings", "singleton", { orgName: parsed.data.orgName, logoChanged: Boolean(logoFile) }, session!.user.id);
 
     revalidatePath("/settings/organization");
     revalidatePath("/settings");
@@ -130,15 +123,7 @@ export async function removeOrgLogo(): Promise<ActionResult<null>> {
       WHERE id = 'singleton'
     `;
 
-    await prisma.auditLog.create({
-      data: {
-        action: "UPDATE",
-        entity: "OrgSettings",
-        entityId: "singleton",
-        changes: { logoRemoved: true },
-        userId: session!.user.id,
-      },
-    });
+    await logAudit("UPDATE", "OrgSettings", "singleton", { logoRemoved: true }, session!.user.id);
 
     revalidatePath("/settings/organization");
     revalidatePath("/", "layout");

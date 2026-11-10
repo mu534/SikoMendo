@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
 import { auth } from "@/lib/auth";
 import { getServerSession } from "@/lib/session";
 import { can, type Role } from "@/lib/permissions";
@@ -262,37 +263,21 @@ export async function recordEmploymentChange(
     // ── Audit logs (outside transaction — non-fatal if they fail) ───────────
 
     // Employment change audit
-    await prisma.auditLog.create({
-      data: {
-        action: "CREATE",
-        entity: "EmploymentHistory",
-        entityId: historyId!,
-        changes: {
-          departmentId:   parsed.data.departmentId,
-          positionId:     parsed.data.positionId,
-          employmentType: parsed.data.employmentType,
-          effectiveDate:  parsed.data.effectiveDate,
-          changeReason:   parsed.data.changeReason,
-        },
-        userId: session?.user.id,
-      },
-    });
+    await logAudit("CREATE", "EmploymentHistory", historyId!, {
+      departmentId:   parsed.data.departmentId,
+      positionId:     parsed.data.positionId,
+      employmentType: parsed.data.employmentType,
+      effectiveDate:  parsed.data.effectiveDate,
+      changeReason:   parsed.data.changeReason,
+    }, session?.user.id);
 
     // Role change audit — separate entry, only when a role was actually changed
     if (roleToUpdate && employeeUserId) {
-      await prisma.auditLog.create({
-        data: {
-          action: "UPDATE",
-          entity: "User",
-          entityId: employeeUserId,
-          changes: {
-            roleFrom: prevEmployeeRole,
-            roleTo:   roleToUpdate,
-            reason:   `Employment change: ${parsed.data.changeReason}`,
-          },
-          userId: session?.user.id,
-        },
-      });
+      await logAudit("UPDATE", "User", employeeUserId, {
+        roleFrom: prevEmployeeRole,
+        roleTo:   roleToUpdate,
+        reason:   `Employment change: ${parsed.data.changeReason}`,
+      }, session?.user.id);
 
       // Also update the better-auth user so the session reflects the new role
       // immediately on next sign-in. Non-fatal if it fails.

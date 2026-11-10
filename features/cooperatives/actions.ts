@@ -3,16 +3,13 @@
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "@/lib/session";
+import { logAudit } from "@/lib/audit";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
 import { cooperativeSchema, cooperativeFormDataToObject, validateCertificateFile } from "./schemas";
 import { generateNextCooperativeId } from "./queries";
 import { uploadToCloudinary, deleteFromCloudinary, getSignedFileUrl } from "@/lib/cloudinary";
 
-async function logAudit(action: string, entityId: string, changes: unknown, userId?: string) {
-  await prisma.auditLog.create({
-    data: { action, entity: "Cooperative", entityId, changes: changes as object, userId },
-  });
-}
+
 
 export async function createCooperative(
   _prevState: unknown,
