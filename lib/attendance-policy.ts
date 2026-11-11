@@ -2,10 +2,17 @@
  * Attendance policy engine — the single authoritative place where attendance
  * status is calculated from a check-in timestamp and the active policy.
  *
- * Rules enforced here:
- *   - Before/within grace period after work-start → PRESENT
- *   - After grace period, before half-day threshold (if set) → LATE
- *   - At or after half-day threshold (if set) → HALF_DAY
+ * Rules enforced here (two-session model with grace period):
+ *   - Check-in at or before the session deadline                → PRESENT
+ *   - Check-in after deadline but within graceMinutes           → LATE
+ *   - Check-in after deadline + graceMinutes                    → ABSENT
+ *
+ * Auto-absence detection fires at deadline + graceMinutes, so employees who
+ * arrive during the grace window are marked LATE — never wrongly auto-ABSENT.
+ *
+ * Session routing:
+ *   - EAT time strictly before afternoonStartTime → MORNING
+ *   - EAT time at or after afternoonStartTime → AFTERNOON
  *
  * Historical integrity: status is calculated at check-in time and stored in
  * the Attendance row. A future policy change does NOT recalculate past records.
@@ -19,22 +26,26 @@ import { getOrgLocalDateString } from "@/lib/attendance-date";
 // ── Default policy (used when no DB row exists yet) ───────────────────────
 
 export const DEFAULT_POLICY: PolicyValues = {
-  workStartTime:           "08:00",
-  workEndTime:             "17:00",
-  gracePeriodMinutes:      15,
-  halfDayThresholdMinutes: null,
-  workingDays:             [1, 2, 3, 4, 5],
-  isActive:                true,
+  morningStartTime:         "08:00",
+  morningCheckInDeadline:   "08:15",
+  afternoonStartTime:       "13:00",
+  afternoonCheckInDeadline: "13:15",
+  graceMinutes:             15,
+  workingDays:              [1, 2, 3, 4, 5],
+  isActive:                 true,
 };
 
 export type PolicyValues = {
-  workStartTime:           string;       // "HH:MM"
-  workEndTime:             string;       // "HH:MM"
-  gracePeriodMinutes:      number;
-  halfDayThresholdMinutes: number | null;
-  workingDays:             number[];     // ISO weekday 1=Mon … 7=Sun
-  isActive:                boolean;
+  morningStartTime:         string; // "HH:MM"
+  morningCheckInDeadline:   string; // "HH:MM"
+  afternoonStartTime:       string; // "HH:MM"
+  afternoonCheckInDeadline: string; // "HH:MM"
+  graceMinutes:             number; // minutes after deadline where check-in → LATE
+  workingDays:              number[]; // ISO weekday 1=Mon … 7=Sun
+  isActive:                 boolean;
 };
+
+export type AttendanceSession = "MORNING" | "AFTERNOON";
 
 // ── Time helpers ──────────────────────────────────────────────────────────
 
@@ -69,52 +80,69 @@ export function orgDateWeekday(dateStr: string): number {
   return dow === 0 ? 7 : dow;
 }
 
-// ── Core status evaluator ─────────────────────────────────────────────────
-
-export type AttendanceStatusResult =
-  | "PRESENT"
-  | "LATE"
-  | "HALF_DAY"
-  | "ABSENT"
-  | "ON_LEAVE";
+// ── Session routing ───────────────────────────────────────────────────────
 
 /**
- * Determines the attendance status for a given check-in time against the
- * active policy. Called at check-in time — the result is stored permanently
- * and never recalculated when the policy changes.
- *
- * If `shiftStartTime` is supplied it overrides `policy.workStartTime`, allowing
- * per-employee shift-based evaluation while reusing the global grace/threshold rules.
- *
- * @param checkInUtc      The UTC timestamp of the check-in (server-generated).
- * @param policy          The active attendance policy (grace period, thresholds).
- * @param _dateStr        Reserved for future working-day validation.
- * @param shiftStartTime  Optional "HH:MM" from the employee's assigned shift.
+ * Routes a check-in timestamp to a session by time of day (EAT).
+ * EAT time strictly before afternoonStartTime → MORNING; otherwise → AFTERNOON.
+ * A check-in exactly at afternoonStartTime belongs to AFTERNOON.
  */
-export function evaluateCheckInStatus(
+export function routeCheckInToSession(
+  checkInUtc: Date,
+  policy: PolicyValues
+): AttendanceSession {
+  const afternoonStartMin = parseTimeToMinutes(policy.afternoonStartTime);
+  return utcDateToOrgMinutesSinceMidnight(checkInUtc) < afternoonStartMin
+    ? "MORNING"
+    : "AFTERNOON";
+}
+
+// ── Core status evaluator ─────────────────────────────────────────────────
+
+export type AttendanceStatusResult = "PRESENT" | "ABSENT" | "ON_LEAVE";
+
+/**
+ * Per-session status evaluation with grace period (FR-2.1).
+ *
+ * Check-in at or before deadline                   → PRESENT
+ * Check-in after deadline, within graceMinutes     → LATE
+ * Check-in after deadline + graceMinutes           → ABSENT
+ *
+ * @param checkInUtc  The UTC timestamp of the check-in (server-generated).
+ * @param policy      The active attendance policy.
+ * @param session     The session to evaluate against.
+ */
+export function evaluateSessionCheckIn(
   checkInUtc: Date,
   policy: PolicyValues,
-  _dateStr: string,
-  shiftStartTime?: string | null
-): AttendanceStatusResult {
-  const effectiveStart = shiftStartTime ?? policy.workStartTime;
-  const workStartMinutes    = parseTimeToMinutes(effectiveStart);
-  const graceCutoff         = workStartMinutes + policy.gracePeriodMinutes;
-  const halfDayCutoff       =
-    policy.halfDayThresholdMinutes != null
-      ? graceCutoff + policy.halfDayThresholdMinutes
-      : null;
+  session: AttendanceSession
+): "PRESENT" | "LATE" | "ABSENT" {
+  const checkInMin = utcDateToOrgMinutesSinceMidnight(checkInUtc);
+  const deadlineMin = parseTimeToMinutes(
+    session === "MORNING"
+      ? policy.morningCheckInDeadline
+      : policy.afternoonCheckInDeadline
+  );
+  if (checkInMin <= deadlineMin) return "PRESENT";
+  if (checkInMin <= deadlineMin + policy.graceMinutes) return "LATE";
+  return "ABSENT";
+}
 
-  const checkInMinutes = utcDateToOrgMinutesSinceMidnight(checkInUtc);
-
-  // Within work-start + grace period → PRESENT
-  if (checkInMinutes <= graceCutoff) return "PRESENT";
-
-  // After grace, check for half-day threshold
-  if (halfDayCutoff !== null && checkInMinutes >= halfDayCutoff) return "HALF_DAY";
-
-  // Otherwise → LATE
-  return "LATE";
+/**
+ * Returns the EAT minutes-since-midnight at which auto-absence detection
+ * should fire for a given session: deadline + graceMinutes.
+ * The tick route compares nowMin against this threshold.
+ */
+export function detectionThresholdMinutes(
+  policy: PolicyValues,
+  session: AttendanceSession
+): number {
+  const deadlineMin = parseTimeToMinutes(
+    session === "MORNING"
+      ? policy.morningCheckInDeadline
+      : policy.afternoonCheckInDeadline
+  );
+  return deadlineMin + policy.graceMinutes;
 }
 
 /**
@@ -144,27 +172,31 @@ export function getTodayWorkingDayInfo(policy: PolicyValues): {
  * with safe fallbacks for missing/corrupt data.
  */
 export function normalisePolicyRow(row: {
-  workStartTime: string;
-  workEndTime: string;
-  gracePeriodMinutes: number;
-  halfDayThresholdMinutes: number | null;
-  workingDays: string;
-  isActive: boolean;
+  morningStartTime:         string;
+  morningCheckInDeadline:   string;
+  afternoonStartTime:       string;
+  afternoonCheckInDeadline: string;
+  graceMinutes:             number;
+  workingDays:              string;
+  isActive:                 boolean;
 }): PolicyValues {
   let workingDays: number[];
   try {
     const parsed = JSON.parse(row.workingDays);
-    workingDays = Array.isArray(parsed) ? parsed.filter((n) => typeof n === "number") : [1, 2, 3, 4, 5];
+    workingDays = Array.isArray(parsed)
+      ? parsed.filter((n) => typeof n === "number")
+      : [1, 2, 3, 4, 5];
   } catch {
     workingDays = [1, 2, 3, 4, 5];
   }
 
   return {
-    workStartTime:           row.workStartTime,
-    workEndTime:             row.workEndTime,
-    gracePeriodMinutes:      Math.max(0, row.gracePeriodMinutes),
-    halfDayThresholdMinutes: row.halfDayThresholdMinutes,
+    morningStartTime:         row.morningStartTime,
+    morningCheckInDeadline:   row.morningCheckInDeadline,
+    afternoonStartTime:       row.afternoonStartTime,
+    afternoonCheckInDeadline: row.afternoonCheckInDeadline,
+    graceMinutes:             Math.max(0, row.graceMinutes ?? 15),
     workingDays,
-    isActive:                row.isActive,
+    isActive:                 row.isActive,
   };
 }

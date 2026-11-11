@@ -54,9 +54,10 @@ function eachDateInRange(startDate: Date, endDate: Date): Date[] {
 }
 
 /**
- * Marks each day of an approved leave as "On Leave" in Attendance — but only
- * for days that don't already have an attendance record, so we never
- * overwrite a real check-in/check-out that was already recorded.
+ * Marks each day of an approved leave as "On Leave" in Attendance for BOTH
+ * sessions — but only for days/sessions that don't already have an attendance
+ * record, so we never overwrite a real check-in/check-out that was already
+ * recorded. skipDuplicates preserves any existing row (real check-in).
  */
 async function markAttendanceForApprovedLeave(
   employeeId: string,
@@ -68,13 +69,24 @@ async function markAttendanceForApprovedLeave(
   const dates = eachDateInRange(startDate, endDate);
 
   await prisma.attendance.createMany({
-    data: dates.map((date) => ({
-      employeeId,
-      date,
-      status: "ON_LEAVE" as const,
-      notes: `Approved leave (${leaveId})`,
-      recordedById,
-    })),
+    data: dates.flatMap((date) => ([
+      {
+        employeeId,
+        date,
+        session: "MORNING" as const,
+        status: "ON_LEAVE" as const,
+        notes: `Approved leave (${leaveId})`,
+        recordedById,
+      },
+      {
+        employeeId,
+        date,
+        session: "AFTERNOON" as const,
+        status: "ON_LEAVE" as const,
+        notes: `Approved leave (${leaveId})`,
+        recordedById,
+      },
+    ])),
     skipDuplicates: true,
   });
 }

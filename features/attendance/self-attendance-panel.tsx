@@ -68,8 +68,13 @@ function TodayCard({
   todayStr: string;
   todayRecord: TodayRecord;
 }) {
-  const [checkInState,  checkInAction,  checkInPending]  = useActionState(selfCheckIn,  null);
-  const [checkOutState, checkOutAction, checkOutPending] = useActionState(selfCheckOut, null);
+  const [checkInState,  checkInAction,  checkInPending]  = useActionState(selfCheckIn, null);
+  const checkOutMorning   = selfCheckOut.bind(null, "MORNING");
+  const checkOutAfternoon = selfCheckOut.bind(null, "AFTERNOON");
+  const [checkOutMorningState,   checkOutMorningAction,   checkOutMorningPending]   = useActionState(checkOutMorning,   null);
+  // checkOutAfternoon and its state are wired for future session-aware UI expansion.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_checkOutAfternoonState, _checkOutAfternoonAction, _checkOutAfternoonPending] = useActionState(checkOutAfternoon, null);
   const t = useTranslations("attendance");
   const tC = useTranslations("common");
 
@@ -136,10 +141,10 @@ function TodayCard({
             )}
 
             {hasCheckedIn && !hasCheckedOut && (
-              <form action={checkOutAction}>
-                <Button type="submit" variant="secondary" disabled={checkOutPending} size="md">
+              <form action={checkOutMorningAction}>
+                <Button type="submit" variant="secondary" disabled={checkOutMorningPending} size="md">
                   <LogOut className="h-4 w-4" />
-                  {checkOutPending ? tC("loading") : t("checkOut")}
+                  {checkOutMorningPending ? tC("loading") : t("checkOut")}
                 </Button>
               </form>
             )}
@@ -151,8 +156,11 @@ function TodayCard({
             {checkInState && !checkInState.success && (
               <p role="alert" className="text-sm text-red-600">{checkInState.error.message}</p>
             )}
-            {checkOutState && !checkOutState.success && (
-              <p role="alert" className="text-sm text-red-600">{checkOutState.error.message}</p>
+            {checkOutMorningState && !checkOutMorningState.success && (
+              <p role="alert" className="text-sm text-red-600">{checkOutMorningState.error.message}</p>
+            )}
+            {_checkOutAfternoonState && !_checkOutAfternoonState.success && (
+              <p role="alert" className="text-sm text-red-600">{_checkOutAfternoonState.error.message}</p>
             )}
           </div>
         )}

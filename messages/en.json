@@ -522,6 +522,8 @@
     "employee": "Employee",
     "checkIn": "Check-in",
     "checkOut": "Check-out",
+    "morningSession": "Morning",
+    "afternoonSession": "Afternoon",
     "status": "Status",
     "notes": "Notes",
     "recordedBy": "Recorded by",
@@ -540,20 +542,25 @@
     },
     "policy": {
       "title": "Attendance Policy",
-      "workStartTime": "Work start time",
-      "workEndTime": "Work end time",
-      "gracePeriodMinutes": "Grace period (minutes)",
-      "halfDayThresholdMinutes": "Half-day threshold (minutes)",
+      "morningSession": "Morning Session",
+      "afternoonSession": "Afternoon Session",
+      "morningStartTime": "Morning start time",
+      "morningCheckInDeadline": "Morning check-in deadline",
+      "afternoonStartTime": "Afternoon start time",
+      "afternoonCheckInDeadline": "Afternoon check-in deadline",
       "workingDays": "Working days",
       "savePolicy": "Save policy",
-      "noHalfDay": "No half-day threshold",
       "monday": "Monday",
       "tuesday": "Tuesday",
       "wednesday": "Wednesday",
       "thursday": "Thursday",
       "friday": "Friday",
       "saturday": "Saturday",
-      "sunday": "Sunday"
+      "sunday": "Sunday",
+      "sessions": {
+        "MORNING": "Morning",
+        "AFTERNOON": "Afternoon"
+      }
     },
     "shifts": {
       "title": "Work Shifts",

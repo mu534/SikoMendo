@@ -9,6 +9,7 @@ export const attendanceEntrySchema = z.object({
   employeeId: z.string().min(1),
   date: z.string().min(1), // "YYYY-MM-DD"
   status: z.enum(["PRESENT", "ABSENT", "LATE", "HALF_DAY", "EXCUSED", "ON_LEAVE"]),
+  session: z.enum(["MORNING", "AFTERNOON"]).optional(),
   checkIn: optionalTime,
   checkOut: optionalTime,
   notes: z
@@ -24,13 +25,19 @@ export function attendanceFormDataToObject(formData: FormData) {
     employeeId: formData.get("employeeId"),
     date: formData.get("date"),
     status: formData.get("status"),
+    session: formData.get("session") || undefined,
     checkIn: formData.get("checkIn"),
     checkOut: formData.get("checkOut"),
     notes: formData.get("notes"),
   };
 }
 
-/** Combines a "YYYY-MM-DD" date with an "HH:mm" time into a Date, or null. */
+/**
+ * Combines a "YYYY-MM-DD" date with an "HH:mm" time into a Date, or null.
+ *
+ * combineDateAndTime interprets time as UTC not EAT — pre-existing behaviour,
+ * tracked separately.
+ */
 export function combineDateAndTime(dateStr: string, time: string | null): Date | null {
   if (!time) return null;
   return new Date(`${dateStr}T${time}:00`);

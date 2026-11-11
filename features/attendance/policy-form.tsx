@@ -18,11 +18,10 @@ const WEEKDAY_KEYS = [
 ];
 
 type PolicyRow = {
-  workStartTime: string;
-  workEndTime: string;
-  absenceDetectionTime: string;
-  gracePeriodMinutes: number;
-  halfDayThresholdMinutes: number | null;
+  morningStartTime: string;
+  morningCheckInDeadline: string;
+  afternoonStartTime: string;
+  afternoonCheckInDeadline: string;
   workingDays: string;
 } | null;
 
@@ -59,33 +58,77 @@ export function AttendancePolicyForm({ policy }: { policy: PolicyRow }) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <FieldGroup>
-          <Label htmlFor="workStartTime">{t("workStartTime")}</Label>
-          <Input id="workStartTime" name="workStartTime" type="time" defaultValue={policy?.workStartTime ?? "08:00"} required />
-        </FieldGroup>
-        <FieldGroup>
-          <Label htmlFor="workEndTime">{t("workEndTime")}</Label>
-          <Input id="workEndTime" name="workEndTime" type="time" defaultValue={policy?.workEndTime ?? "17:00"} required />
-        </FieldGroup>
-      </div>
+      {/* ── Morning Session ─────────────────────────────────────────────── */}
+      <fieldset className="rounded-lg border border-ink-900/12 p-4 space-y-4">
+        <legend className="px-1 text-sm font-semibold text-ink-900">{t("morningSession")}</legend>
 
-      <FieldGroup>
-        <Label htmlFor="gracePeriodMinutes">{t("gracePeriodMinutes")}</Label>
-        <Input id="gracePeriodMinutes" name="gracePeriodMinutes" type="number" min="0" max="120" defaultValue={policy?.gracePeriodMinutes ?? 15} required className="w-32" />
-      </FieldGroup>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <FieldGroup>
+            <Label htmlFor="morningStartTime">{t("morningStartTime")}</Label>
+            <Input
+              id="morningStartTime"
+              name="morningStartTime"
+              type="time"
+              defaultValue={policy?.morningStartTime ?? "08:00"}
+              required
+            />
+          </FieldGroup>
+          <FieldGroup>
+            <Label htmlFor="morningCheckInDeadline">{t("morningCheckInDeadline")}</Label>
+            <Input
+              id="morningCheckInDeadline"
+              name="morningCheckInDeadline"
+              type="time"
+              defaultValue={policy?.morningCheckInDeadline ?? "08:15"}
+              required
+            />
+          </FieldGroup>
+        </div>
+      </fieldset>
 
-      <FieldGroup>
-        <Label htmlFor="halfDayThresholdMinutes">{t("halfDayThresholdMinutes")}</Label>
-        <Input id="halfDayThresholdMinutes" name="halfDayThresholdMinutes" type="number" min="1" max="480" defaultValue={policy?.halfDayThresholdMinutes ?? ""} placeholder={t("noHalfDay")} className="w-48" />
-      </FieldGroup>
+      {/* ── Afternoon Session ───────────────────────────────────────────── */}
+      <fieldset className="rounded-lg border border-ink-900/12 p-4 space-y-4">
+        <legend className="px-1 text-sm font-semibold text-ink-900">{t("afternoonSession")}</legend>
 
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <FieldGroup>
+            <Label htmlFor="afternoonStartTime">{t("afternoonStartTime")}</Label>
+            <Input
+              id="afternoonStartTime"
+              name="afternoonStartTime"
+              type="time"
+              defaultValue={policy?.afternoonStartTime ?? "13:00"}
+              required
+            />
+          </FieldGroup>
+          <FieldGroup>
+            <Label htmlFor="afternoonCheckInDeadline">{t("afternoonCheckInDeadline")}</Label>
+            <Input
+              id="afternoonCheckInDeadline"
+              name="afternoonCheckInDeadline"
+              type="time"
+              defaultValue={policy?.afternoonCheckInDeadline ?? "13:15"}
+              required
+            />
+          </FieldGroup>
+        </div>
+      </fieldset>
+
+      {/* ── Working Days ─────────────────────────────────────────────────── */}
       <FieldGroup>
         <Label>{t("workingDays")}</Label>
         <div className="flex flex-wrap gap-2 pt-1">
           {WEEKDAY_KEYS.map((day) => (
-            <label key={day.value} className="flex cursor-pointer items-center gap-2 rounded-lg border border-ink-900/15 bg-white px-3 py-2 text-sm font-medium text-ink-900 has-[:checked]:border-brand-700 has-[:checked]:bg-brand-50 has-[:checked]:text-brand-700">
-              <input type="checkbox" name={`workingDay_${day.value}`} defaultChecked={workingDays.includes(day.value)} className="h-3.5 w-3.5 rounded border-ink-900/25 accent-brand-700" />
+            <label
+              key={day.value}
+              className="flex cursor-pointer items-center gap-2 rounded-lg border border-ink-900/15 bg-white px-3 py-2 text-sm font-medium text-ink-900 has-[:checked]:border-brand-700 has-[:checked]:bg-brand-50 has-[:checked]:text-brand-700"
+            >
+              <input
+                type="checkbox"
+                name={`workingDay_${day.value}`}
+                defaultChecked={workingDays.includes(day.value)}
+                className="h-3.5 w-3.5 rounded border-ink-900/25 accent-brand-700"
+              />
               {t(day.key)}
             </label>
           ))}

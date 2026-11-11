@@ -10,10 +10,11 @@
  *   - Produce audit log entries that clearly identify the Admin as the actor,
  *     separate from the employee self-attendance audit trail.
  *
- * The admin CAN supply an override time string ("HH:MM") to back-record attendance
- * for a specific moment (e.g. employee arrived at 08:05 but forgot to check in).
- * The date is always today unless explicitly supplied as a date string "YYYY-MM-DD".
- * Both are validated server-side.
+ * Session routing (adminCheckIn): session is server-derived from the check-in
+ * timestamp via routeCheckInToSession — the admin cannot force a session mismatch.
+ *
+ * Admin check-out: keyed by attendanceId (the specific session row) with
+ * employeeId/date ownership validation for defense in depth.
  */
 
 import { revalidatePath } from "next/cache";
@@ -22,7 +23,10 @@ import { getServerSession } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
 import { getOrgLocalDateString, parseDateOnly, getServerNow } from "@/lib/attendance-date";
-import { evaluateCheckInStatus } from "@/lib/attendance-policy";
+import {
+  routeCheckInToSession,
+  evaluateSessionCheckIn,
+} from "@/lib/attendance-policy";
 import { getAttendancePolicy } from "./policy-queries";
 
 // ── Shared audit helper ────────────────────────────────────────────────────
@@ -56,6 +60,9 @@ async function isOnApprovedLeave(employeeId: string, date: Date): Promise<boolea
  * to produce a UTC Date object. If no time is given, returns the current
  * server time. The resulting Date is treated as org-local (EAT = UTC+3)
  * and converted to UTC for storage.
+ *
+ * combineDateAndTime interprets time as UTC not EAT — pre-existing behaviour,
+ * tracked separately.
  */
 function buildTimestamp(dateStr: string, timeStr: string | null): Date {
   if (!timeStr) return getServerNow();
@@ -74,6 +81,9 @@ function buildTimestamp(dateStr: string, timeStr: string | null): Date {
 /**
  * Admin records a check-in for another employee.
  *
+ * Session is server-derived from routeCheckInToSession(checkInTs, policy) —
+ * the admin cannot specify or override the session directly.
+ *
  * formData fields:
  *   employeeId  – the target employee's internal DB id (trusted because ADMIN)
  *   date        – optional "YYYY-MM-DD"; defaults to today
@@ -88,7 +98,8 @@ export async function adminCheckIn(
 
   return withPermission(session, "MANAGE_ATTENDANCE", async () => {
     const employeeId = String(formData.get("employeeId") ?? "").trim();
-    const dateInput  = String(formData.get("date") ?? "").trim() || getOrgLocalDateString();
+    const dateInput  =
+      String(formData.get("date") ?? "").trim() || getOrgLocalDateString();
     const timeInput  = String(formData.get("checkInTime") ?? "").trim() || null;
     const notes      = String(formData.get("notes") ?? "").trim() || null;
 
@@ -103,8 +114,11 @@ export async function adminCheckIn(
     const employee = await prisma.employee.findUnique({
       where: { id: employeeId },
       select: {
-        id: true, firstName: true, lastName: true, employeeId: true, deletedAt: true,
-        shift: { select: { startTime: true, isActive: true } },
+        id: true,
+        firstName: true,
+        lastName: true,
+        employeeId: true,
+        deletedAt: true,
       },
     });
     if (!employee) throw new Error("Employee not found.");
@@ -123,17 +137,6 @@ export async function adminCheckIn(
       );
     }
 
-    // Check for existing check-in
-    const existing = await prisma.attendance.findUnique({
-      where: { employeeId_date: { employeeId, date: dateValue } },
-      select: { id: true, checkIn: true },
-    });
-    if (existing?.checkIn !== null && existing?.checkIn !== undefined) {
-      throw new Error(
-        `${employee.firstName} ${employee.lastName} already has a check-in recorded for ${dateInput}.`
-      );
-    }
-
     // Build check-in timestamp (admin can supply an override time)
     const checkInTs = buildTimestamp(dateInput, timeInput);
 
@@ -142,25 +145,53 @@ export async function adminCheckIn(
       throw new Error("Check-in time cannot be in the future.");
     }
 
+    // Server-derive session from the check-in timestamp
+    const policy   = await getAttendancePolicy();
+    const attendanceSession = routeCheckInToSession(checkInTs, policy);
+
+    // Check for existing row for (employeeId, date, session)
+    const existing = await prisma.attendance.findUnique({
+      where: {
+        employeeId_date_session: {
+          employeeId,
+          date: dateValue,
+          session: attendanceSession,
+        },
+      },
+      select: { id: true, checkIn: true, autoRecorded: true },
+    });
+
+    if (existing?.checkIn !== null && existing?.checkIn !== undefined) {
+      throw new Error(
+        `${employee.firstName} ${employee.lastName} already has a check-in for the ${attendanceSession.toLowerCase()} session on ${dateInput}.`
+      );
+    }
+
     // Policy-based status calculation — Admin does NOT manually pick status
-    const policy = await getAttendancePolicy();
-    const shiftStartTime = employee.shift?.isActive ? employee.shift.startTime : null;
-    const status  = evaluateCheckInStatus(checkInTs, policy, dateInput, shiftStartTime);
+    const status = evaluateSessionCheckIn(checkInTs, policy, attendanceSession);
 
     let record;
     if (existing) {
+      // Update existing auto-ABSENT row in place
       record = await prisma.attendance.update({
         where: { id: existing.id },
-        data: { checkIn: checkInTs, status, notes, recordedById: session!.user.id },
+        data: {
+          checkIn:      checkInTs,
+          status,
+          notes,
+          autoRecorded: false,
+          recordedById: session!.user.id,
+        },
         select: { id: true },
       });
     } else {
       record = await prisma.attendance.create({
         data: {
           employeeId,
-          date: dateValue,
+          date:        dateValue,
+          session:     attendanceSession,
           status,
-          checkIn: checkInTs,
+          checkIn:     checkInTs,
           notes,
           recordedById: session!.user.id,
         },
@@ -173,13 +204,14 @@ export async function adminCheckIn(
       "ADMIN_CHECK_IN",
       record.id,
       {
-        targetEmployeeId: employeeId,
+        targetEmployeeId:   employeeId,
         targetEmployeeCode: employee.employeeId,
         targetEmployeeName: `${employee.firstName} ${employee.lastName}`,
-        date: dateInput,
-        checkIn: checkInTs.toISOString(),
+        date:               dateInput,
+        session:            attendanceSession,
+        checkIn:            checkInTs.toISOString(),
         status,
-        recordedByAdmin: session!.user.id,
+        recordedByAdmin:    session!.user.id,
         notes,
       },
       session!.user.id
@@ -196,9 +228,14 @@ export async function adminCheckIn(
 /**
  * Admin records a check-out for another employee.
  *
+ * Keyed by attendanceId (the specific session row) so there is no ambiguity
+ * now that two rows per employee/day exist. employeeId and date are validated
+ * for ownership/defense in depth.
+ *
  * formData fields:
- *   employeeId   – target employee DB id
- *   date         – optional "YYYY-MM-DD"; defaults to today
+ *   attendanceId – the specific Attendance row id (required)
+ *   employeeId   – target employee DB id (for ownership validation)
+ *   date         – "YYYY-MM-DD" (for ownership validation)
  *   checkOutTime – optional "HH:MM" org-local; defaults to current server time
  *   notes        – optional remarks
  */
@@ -209,41 +246,58 @@ export async function adminCheckOut(
   const session = await getServerSession();
 
   return withPermission(session, "MANAGE_ATTENDANCE", async () => {
-    const employeeId = String(formData.get("employeeId") ?? "").trim();
-    const dateInput  = String(formData.get("date") ?? "").trim() || getOrgLocalDateString();
-    const timeInput  = String(formData.get("checkOutTime") ?? "").trim() || null;
-    const notes      = String(formData.get("notes") ?? "").trim() || null;
+    const attendanceId = String(formData.get("attendanceId") ?? "").trim();
+    const employeeId   = String(formData.get("employeeId") ?? "").trim();
+    const dateInput    =
+      String(formData.get("date") ?? "").trim() || getOrgLocalDateString();
+    const timeInput    = String(formData.get("checkOutTime") ?? "").trim() || null;
+    const notes        = String(formData.get("notes") ?? "").trim() || null;
 
-    if (!employeeId) throw new Error("Employee ID is required.");
+    if (!attendanceId) throw new Error("Attendance record ID is required.");
+    if (!employeeId)   throw new Error("Employee ID is required.");
 
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
       throw new Error("Invalid date format. Use YYYY-MM-DD.");
     }
 
-    const employee = await prisma.employee.findUnique({
-      where: { id: employeeId },
-      select: { id: true, firstName: true, lastName: true, employeeId: true, deletedAt: true },
+    // Load row by id for ownership validation
+    const existing = await prisma.attendance.findUnique({
+      where: { id: attendanceId },
+      select: {
+        id: true,
+        employeeId: true,
+        date: true,
+        session: true,
+        checkIn: true,
+        checkOut: true,
+        employee: {
+          select: { firstName: true, lastName: true, employeeId: true, deletedAt: true },
+        },
+      },
     });
-    if (!employee) throw new Error("Employee not found.");
-    if (employee.deletedAt !== null) {
+
+    if (!existing) throw new Error("Attendance record not found.");
+
+    // Ownership validation
+    if (existing.employeeId !== employeeId) {
+      throw new Error("Attendance record does not belong to the specified employee.");
+    }
+    const rowDateStr = existing.date.toISOString().slice(0, 10);
+    if (rowDateStr !== dateInput) {
+      throw new Error("Attendance record date does not match the supplied date.");
+    }
+    if (existing.employee.deletedAt !== null) {
       throw new Error("Cannot record attendance for an archived employee.");
     }
 
-    const dateValue = parseDateOnly(dateInput);
-
-    const existing = await prisma.attendance.findUnique({
-      where: { employeeId_date: { employeeId, date: dateValue } },
-      select: { id: true, checkIn: true, checkOut: true },
-    });
-
-    if (!existing || existing.checkIn === null) {
+    if (existing.checkIn === null) {
       throw new Error(
-        `${employee.firstName} ${employee.lastName} has no check-in record for ${dateInput}. Check in first.`
+        `${existing.employee.firstName} ${existing.employee.lastName} has no check-in for the ${existing.session.toLowerCase()} session on ${dateInput}. Check in first.`
       );
     }
     if (existing.checkOut !== null) {
       throw new Error(
-        `${employee.firstName} ${employee.lastName} already has a check-out recorded for ${dateInput}.`
+        `${existing.employee.firstName} ${existing.employee.lastName} already has a check-out for the ${existing.session.toLowerCase()} session on ${dateInput}.`
       );
     }
 
@@ -259,7 +313,11 @@ export async function adminCheckOut(
 
     const record = await prisma.attendance.update({
       where: { id: existing.id },
-      data: { checkOut: checkOutTs, recordedById: session!.user.id, ...(notes ? { notes } : {}) },
+      data:  {
+        checkOut:    checkOutTs,
+        recordedById: session!.user.id,
+        ...(notes ? { notes } : {}),
+      },
       select: { id: true },
     });
 
@@ -267,13 +325,14 @@ export async function adminCheckOut(
       "ADMIN_CHECK_OUT",
       record.id,
       {
-        targetEmployeeId: employeeId,
-        targetEmployeeCode: employee.employeeId,
-        targetEmployeeName: `${employee.firstName} ${employee.lastName}`,
-        date: dateInput,
-        checkIn: existing.checkIn.toISOString(),
-        checkOut: checkOutTs.toISOString(),
-        recordedByAdmin: session!.user.id,
+        targetEmployeeId:   employeeId,
+        targetEmployeeCode: existing.employee.employeeId,
+        targetEmployeeName: `${existing.employee.firstName} ${existing.employee.lastName}`,
+        date:               dateInput,
+        session:            existing.session,
+        checkIn:            existing.checkIn.toISOString(),
+        checkOut:           checkOutTs.toISOString(),
+        recordedByAdmin:    session!.user.id,
         notes,
       },
       session!.user.id
@@ -291,6 +350,9 @@ export async function adminCheckOut(
  * ADMIN ONLY — correct an automatically-recorded absence when the employee
  * genuinely attended but forgot to check in.
  *
+ * Session is read from the existing row — never accepted from the client.
+ * Status is recomputed via evaluateSessionCheckIn using the row's session.
+ *
  * formData fields:
  *   attendanceId  – the Attendance row id to correct
  *   checkInTime   – "HH:MM" org-local time (required — cannot correct without a time)
@@ -299,7 +361,7 @@ export async function adminCheckOut(
  *
  * Rules enforced:
  *   - Only operates on rows where autoRecorded=true (rejects manual records)
- *   - Recalculates status via evaluateCheckInStatus so Admin cannot manually set status
+ *   - Recalculates status via evaluateSessionCheckIn so Admin cannot manually set status
  *   - Sets autoRecorded=false, correctedById, correctionNote
  *   - Writes an AuditLog entry with action='ABSENCE_CORRECTION'
  *   - Never deletes or silently overwrites history
@@ -337,6 +399,7 @@ export async function correctAbsenceRecord(
         id: true,
         employeeId: true,
         date: true,
+        session: true,
         status: true,
         autoRecorded: true,
         checkIn: true,
@@ -345,7 +408,6 @@ export async function correctAbsenceRecord(
             firstName: true,
             lastName: true,
             employeeId: true,
-            shift: { select: { startTime: true, isActive: true } },
           },
         },
       },
@@ -367,22 +429,20 @@ export async function correctAbsenceRecord(
 
     // Validate times are not in the future
     const now = getServerNow();
-    if (checkInTs > now) throw new Error("Check-in time cannot be in the future.");
-    if (checkOutTs && checkOutTs > now) throw new Error("Check-out time cannot be in the future.");
+    if (checkInTs > now)  throw new Error("Check-in time cannot be in the future.");
+    if (checkOutTs && checkOutTs > now)   throw new Error("Check-out time cannot be in the future.");
     if (checkOutTs && checkOutTs <= checkInTs) {
       throw new Error("Check-out time must be after check-in time.");
     }
 
-    // Recalculate status — Admin cannot manually pick it
-    const policy = await getAttendancePolicy();
-    const shiftStartTime = existing.employee.shift?.isActive
-      ? existing.employee.shift.startTime
-      : null;
-    const newStatus = evaluateCheckInStatus(checkInTs, policy, dateStr, shiftStartTime);
+    // Recalculate status using the row's own session — Admin cannot manually pick it.
+    // Session is read from the existing row (server-trusted), never from client input.
+    const policy    = await getAttendancePolicy();
+    const newStatus = evaluateSessionCheckIn(checkInTs, policy, existing.session as "MORNING" | "AFTERNOON");
 
     const updated = await prisma.attendance.update({
       where: { id: attendanceId },
-      data: {
+      data:  {
         checkIn:        checkInTs,
         checkOut:       checkOutTs ?? undefined,
         status:         newStatus,
@@ -401,13 +461,14 @@ export async function correctAbsenceRecord(
         targetEmployeeId:   existing.employeeId,
         targetEmployeeCode: existing.employee.employeeId,
         targetEmployeeName: `${existing.employee.firstName} ${existing.employee.lastName}`,
-        date: dateStr,
+        date:               dateStr,
+        session:            existing.session,
         before: { status: existing.status, autoRecorded: true, checkIn: null },
         after:  {
-          status: newStatus,
+          status:      newStatus,
           autoRecorded: false,
-          checkIn: checkInTs.toISOString(),
-          checkOut: checkOutTs?.toISOString() ?? null,
+          checkIn:     checkInTs.toISOString(),
+          checkOut:    checkOutTs?.toISOString() ?? null,
         },
         correctionNote,
         correctedByAdmin: session!.user.id,

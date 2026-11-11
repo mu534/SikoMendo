@@ -8,84 +8,83 @@ import { getServerSession } from "@/lib/session";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
 import { parseTimeToMinutes } from "@/lib/attendance-policy";
 
+// ── Time field validator ───────────────────────────────────────────────────
+
+/** Validates an HH:MM string — format and 00:00–23:59 range. */
+const hhmm = z
+  .string()
+  .regex(/^\d{2}:\d{2}$/, "Time must be in HH:MM format (e.g. 08:00)")
+  .refine(
+    (v) => {
+      const [h, m] = v.split(":").map(Number);
+      return (h ?? 0) >= 0 && (h ?? 0) <= 23 && (m ?? 0) >= 0 && (m ?? 0) <= 59;
+    },
+    "Time must be between 00:00 and 23:59"
+  );
+
 // ── Validation schema ──────────────────────────────────────────────────────
 
-const policySchema = z.object({
-  workStartTime: z
-    .string()
-    .regex(/^\d{2}:\d{2}$/, "Work start time must be in HH:MM format (e.g. 08:00)"),
+const policySchema = z
+  .object({
+    morningStartTime:         hhmm,
+    morningCheckInDeadline:   hhmm,
+    afternoonStartTime:       hhmm,
+    afternoonCheckInDeadline: hhmm,
+    graceMinutes: z
+      .number()
+      .int("Grace period must be a whole number of minutes")
+      .min(0, "Grace period cannot be negative")
+      .max(240, "Grace period cannot exceed 240 minutes (4 hours)"),
+    workingDays: z
+      .array(z.number().int().min(1).max(7))
+      .min(1, "At least one working day is required"),
+  })
+  .superRefine((data, ctx) => {
+    const morningStartMin      = parseTimeToMinutes(data.morningStartTime);
+    const morningDeadlineMin   = parseTimeToMinutes(data.morningCheckInDeadline);
+    const afternoonStartMin    = parseTimeToMinutes(data.afternoonStartTime);
+    const afternoonDeadlineMin = parseTimeToMinutes(data.afternoonCheckInDeadline);
 
-  workEndTime: z
-    .string()
-    .regex(/^\d{2}:\d{2}$/, "Work end time must be in HH:MM format (e.g. 17:00)"),
-
-  absenceDetectionTime: z
-    .string()
-    .regex(/^\d{2}:\d{2}$/, "Absence detection time must be in HH:MM format (e.g. 10:00)"),
-
-  gracePeriodMinutes: z
-    .number({ error: "Grace period must be a number" })
-    .int("Grace period must be a whole number")
-    .min(0, "Grace period cannot be negative")
-    .max(120, "Grace period cannot exceed 120 minutes"),
-
-  halfDayThresholdMinutes: z
-    .number({ error: "Half-day threshold must be a number" })
-    .int("Half-day threshold must be a whole number")
-    .min(1, "Half-day threshold must be at least 1 minute")
-    .max(480, "Half-day threshold cannot exceed 8 hours (480 minutes)")
-    .nullable(),
-
-  workingDays: z
-    .array(
-      z.number().int().min(1).max(7)
-    )
-    .min(1, "At least one working day is required"),
-}).superRefine((data, ctx) => {
-  // Work end must be after work start
-  const startMins = parseTimeToMinutes(data.workStartTime);
-  const endMins   = parseTimeToMinutes(data.workEndTime);
-  if (endMins <= startMins) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["workEndTime"],
-      message: "Work end time must be after work start time",
-    });
-  }
-
-  // Absence detection time must be after work start time
-  const detectionMins = parseTimeToMinutes(data.absenceDetectionTime);
-  if (detectionMins <= startMins) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["absenceDetectionTime"],
-      message: "Absence detection time must be after work start time",
-    });
-  }
-});
+    if (morningDeadlineMin < morningStartMin) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["morningCheckInDeadline"],
+        message: "Morning check-in deadline must be at or after the morning start time",
+      });
+    }
+    if (afternoonStartMin <= morningStartMin) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["afternoonStartTime"],
+        message: "Afternoon start time must be after the morning start time",
+      });
+    }
+    if (afternoonDeadlineMin < afternoonStartMin) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["afternoonCheckInDeadline"],
+        message: "Afternoon check-in deadline must be at or after the afternoon start time",
+      });
+    }
+  });
 
 function extractPolicyFromFormData(formData: FormData) {
-  const raw = {
-    workStartTime: String(formData.get("workStartTime") ?? "").trim(),
-    workEndTime:   String(formData.get("workEndTime") ?? "").trim(),
-    absenceDetectionTime:
-      String(formData.get("absenceDetectionTime") ?? "").trim() || "10:00",
-    gracePeriodMinutes: Number(formData.get("gracePeriodMinutes")),
-    halfDayThresholdMinutes:
-      formData.get("halfDayThresholdMinutes") &&
-      String(formData.get("halfDayThresholdMinutes")).trim() !== ""
-        ? Number(formData.get("halfDayThresholdMinutes"))
-        : null,
-    workingDays: [1, 2, 3, 4, 5, 6, 7]
-      .filter((d) => formData.get(`workingDay_${d}`) === "on"),
+  return {
+    morningStartTime:         String(formData.get("morningStartTime") ?? "").trim(),
+    morningCheckInDeadline:   String(formData.get("morningCheckInDeadline") ?? "").trim(),
+    afternoonStartTime:       String(formData.get("afternoonStartTime") ?? "").trim(),
+    afternoonCheckInDeadline: String(formData.get("afternoonCheckInDeadline") ?? "").trim(),
+    graceMinutes:             parseInt(String(formData.get("graceMinutes") ?? "15"), 10) || 0,
+    workingDays: [1, 2, 3, 4, 5, 6, 7].filter(
+      (d) => formData.get(`workingDay_${d}`) === "on"
+    ),
   };
-  return raw;
 }
 
 // ── Server action ──────────────────────────────────────────────────────────
 
 /**
- * ADMIN ONLY — create or update the singleton attendance policy row.
+ * ADMIN or HR_OFFICER — create or update the singleton attendance policy row.
  *
  * Historical attendance records are NEVER touched by this action.
  * Status is calculated at check-in time and stored permanently.
@@ -97,48 +96,60 @@ export async function upsertAttendancePolicy(
   const session = await getServerSession();
 
   return withPermission(session, "MANAGE_ATTENDANCE_POLICY", async () => {
-    const raw = extractPolicyFromFormData(formData);
+    const raw    = extractPolicyFromFormData(formData);
     const parsed = policySchema.safeParse(raw);
 
     if (!parsed.success) {
       throw new Error(parsed.error.issues[0]?.message ?? "Invalid policy values.");
     }
 
-    const { workStartTime, workEndTime, absenceDetectionTime, gracePeriodMinutes, halfDayThresholdMinutes, workingDays } =
-      parsed.data;
+    const {
+      morningStartTime,
+      morningCheckInDeadline,
+      afternoonStartTime,
+      afternoonCheckInDeadline,
+      graceMinutes,
+      workingDays,
+    } = parsed.data;
 
     const row = await prisma.attendancePolicy.upsert({
-      where: { id: "singleton" },
+      where:  { id: "singleton" },
       create: {
         id: "singleton",
-        workStartTime,
-        workEndTime,
-        absenceDetectionTime,
-        gracePeriodMinutes,
-        halfDayThresholdMinutes,
+        morningStartTime,
+        morningCheckInDeadline,
+        afternoonStartTime,
+        afternoonCheckInDeadline,
+        graceMinutes,
         workingDays: JSON.stringify(workingDays),
         updatedById: session!.user.id,
       },
       update: {
-        workStartTime,
-        workEndTime,
-        absenceDetectionTime,
-        gracePeriodMinutes,
-        halfDayThresholdMinutes,
+        morningStartTime,
+        morningCheckInDeadline,
+        afternoonStartTime,
+        afternoonCheckInDeadline,
+        graceMinutes,
         workingDays: JSON.stringify(workingDays),
         updatedById: session!.user.id,
       },
       select: { id: true },
     });
 
-    await logAudit("UPDATE", "AttendancePolicy", "singleton", {
-      workStartTime,
-      workEndTime,
-      absenceDetectionTime,
-      gracePeriodMinutes,
-      halfDayThresholdMinutes,
-      workingDays,
-    }, session!.user.id);
+    await logAudit(
+      "UPDATE",
+      "AttendancePolicy",
+      "singleton",
+      {
+        morningStartTime,
+        morningCheckInDeadline,
+        afternoonStartTime,
+        afternoonCheckInDeadline,
+        graceMinutes,
+        workingDays,
+      },
+      session!.user.id
+    );
 
     revalidatePath("/attendance/policy");
     return { id: row.id };

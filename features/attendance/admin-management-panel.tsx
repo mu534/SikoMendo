@@ -123,14 +123,16 @@ function CorrectAbsenceForm({
 
 // ── Per-row action cell ────────────────────────────────────────────────────
 
-function AttendanceActionCell({
+function SessionActionCell({
   employee,
   date,
+  session: attendanceSession,
 }: {
   employee: RegisterEmployee;
   date: string;
+  session: "MORNING" | "AFTERNOON";
 }) {
-  const record = employee.attendances[0];
+  const record = employee.attendances.find((a) => a.session === attendanceSession);
   const hasCheckedIn  = !!record?.checkIn;
   const hasCheckedOut = !!record?.checkOut;
   const isOnLeave     = record?.status === "ON_LEAVE";
@@ -138,8 +140,10 @@ function AttendanceActionCell({
   const t = useTranslations("attendance");
   const tC = useTranslations("common");
 
-  const [checkInState,  checkInAction,  checkInPending]  = useActionState(adminCheckIn, null);
-  const [checkOutState, checkOutAction, checkOutPending] = useActionState(adminCheckOut, null);
+  const checkInBound  = adminCheckIn;
+  const checkOutBound = adminCheckOut;
+  const [checkInState,  checkInAction,  checkInPending]  = useActionState(checkInBound, null);
+  const [checkOutState, checkOutAction, checkOutPending] = useActionState(checkOutBound, null);
 
   if (isOnLeave) {
     return <span className="text-xs text-ink-900/40">{t("statuses.ON_LEAVE")}</span>;
@@ -181,6 +185,7 @@ function AttendanceActionCell({
         <>
           {showForm === "checkOut" ? (
             <form action={checkOutAction} className="flex items-center gap-2">
+              <input type="hidden" name="attendanceId" value={record?.id} />
               <input type="hidden" name="employeeId" value={employee.id} />
               <input type="hidden" name="date" value={date} />
               <Input type="time" name="checkOutTime" placeholder={t("checkOut")} className="w-28 text-xs" />
@@ -350,47 +355,66 @@ export function AttendanceManagementPanel({
             </div>
 
             {employees.map((emp) => {
-              const record   = emp.attendances[0];
-              const fullName = [emp.firstName, emp.middleName, emp.lastName].filter(Boolean).join(" ");
+              const morning   = emp.attendances.find((a) => a.session === "MORNING");
+              const afternoon = emp.attendances.find((a) => a.session === "AFTERNOON");
+              const fullName  = [emp.firstName, emp.middleName, emp.lastName].filter(Boolean).join(" ");
+
+              // Day-level status badge: ON_LEAVE > PRESENT > ABSENT > others
+              const dayStatuses = emp.attendances.map((a) => a.status);
+              const dayStatus = dayStatuses.includes("ON_LEAVE") ? "ON_LEAVE"
+                : dayStatuses.includes("PRESENT")                ? "PRESENT"
+                : dayStatuses.length > 0                         ? dayStatuses[0]
+                : null;
 
               return (
                 <div
                   key={emp.id}
-                  className="grid grid-cols-1 items-start gap-3 border-b border-ink-900/6 px-6 py-3 last:border-0 sm:grid-cols-[1.8fr_130px_90px_90px_1fr_80px_160px]"
+                  className="border-b border-ink-900/6 px-6 py-3 last:border-0"
                 >
-                  <div className="flex items-center gap-3">
+                  {/* Employee identity row */}
+                  <div className="flex items-center gap-3 mb-2">
                     <Avatar name={fullName} imageUrl={emp.profileImageUrl ?? undefined} size="sm" version={emp.updatedAt} />
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-ink-900">{fullName}</p>
                       <p className="text-xs text-ink-900/50">
                         {emp.employeeId}{emp.department ? ` · ${emp.department.name}` : ""}
                       </p>
                     </div>
+                    <div>
+                      {dayStatus ? (
+                        <Badge tone={STATUS_TONE[dayStatus] ?? "neutral"}>
+                          {t(`statuses.${dayStatus as "PRESENT" | "LATE" | "HALF_DAY" | "EXCUSED" | "ON_LEAVE" | "ABSENT"}`)}
+                        </Badge>
+                      ) : (
+                        <Badge tone="neutral">{tC("none")}</Badge>
+                      )}
+                    </div>
                   </div>
 
-                  <div>
-                    {record ? (
-                      <Badge tone={STATUS_TONE[record.status as keyof typeof STATUS_TONE] ?? "neutral"}>
-                        {t(`statuses.${record.status as "PRESENT" | "LATE" | "HALF_DAY" | "EXCUSED" | "ON_LEAVE" | "ABSENT"}`)}
-                      </Badge>
-                    ) : (
-                      <Badge tone="neutral">{tC("none")}</Badge>
-                    )}
+                  {/* Per-session rows */}
+                  <div className="ml-10 grid grid-cols-1 gap-1 sm:grid-cols-2">
+                    {(["MORNING", "AFTERNOON"] as const).map((session) => {
+                      const rec = session === "MORNING" ? morning : afternoon;
+                      const sessionLabel = session === "MORNING" ? t("morningSession") : t("afternoonSession");
+                      return (
+                        <div key={session} className="rounded-md border border-ink-900/8 bg-sand-50/50 p-2 space-y-1">
+                          <p className="text-xs font-medium text-ink-900/60 uppercase tracking-wide">{sessionLabel}</p>
+                          <div className="flex items-center gap-3 flex-wrap">
+                            {rec ? (
+                              <Badge tone={STATUS_TONE[rec.status] ?? "neutral"} className="text-xs">
+                                {t(`statuses.${rec.status as "PRESENT" | "LATE" | "HALF_DAY" | "EXCUSED" | "ON_LEAVE" | "ABSENT"}`)}
+                              </Badge>
+                            ) : (
+                              <Badge tone="neutral" className="text-xs">{tC("none")}</Badge>
+                            )}
+                            <span className="text-xs text-ink-900/60">{t("checkIn")}: {toTimeDisplay(rec?.checkIn)}</span>
+                            <span className="text-xs text-ink-900/60">{t("checkOut")}: {toTimeDisplay(rec?.checkOut)}</span>
+                          </div>
+                          <SessionActionCell employee={emp} date={date} session={session} />
+                        </div>
+                      );
+                    })}
                   </div>
-
-                  <span className="text-sm text-ink-900/60">{toTimeDisplay(record?.checkIn)}</span>
-                  <span className="text-sm text-ink-900/60">{toTimeDisplay(record?.checkOut)}</span>
-                  <span className="truncate text-sm text-ink-900/60">{record?.notes || tC("na")}</span>
-
-                  <div>
-                    {record?.autoRecorded && !record?.correctionNote ? (
-                      <Badge tone="warning">{tC("update")}</Badge>
-                    ) : record?.correctionNote ? (
-                      <Badge tone="success">{tC("edit")}</Badge>
-                    ) : null}
-                  </div>
-
-                  <AttendanceActionCell employee={emp} date={date} />
                 </div>
               );
             })}

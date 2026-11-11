@@ -516,6 +516,8 @@
     "employee": "Hojjetaa",
     "checkIn": "Yeroo hojii seenuu",
     "checkOut": "Yeroo hojii keessaa bahuu",
+    "morningSession": "Ganama",
+    "afternoonSession": "Waaree",
     "status": "Haala",
     "notes": "Yaadannoo",
     "recordedBy": "Kan galmeesse",
@@ -534,20 +536,25 @@
     },
     "policy": {
       "title": "Seera Argama Hojii",
-      "workStartTime": "Yeroo hojii jalqabuu",
-      "workEndTime": "Yeroo hojii xumuru",
-      "gracePeriodMinutes": "Yeroo dabalataa (daqiiqaa)",
-      "halfDayThresholdMinutes": "Daangaa walakkaa guyyaa (daqiiqaa)",
+      "morningSession": "Argama Ganama",
+      "afternoonSession": "Argama Waaree",
+      "morningStartTime": "Yeroo eegaluu ganama",
+      "morningCheckInDeadline": "Yeroo daangaa seensaa ganama",
+      "afternoonStartTime": "Yeroo eegaluu waaree",
+      "afternoonCheckInDeadline": "Yeroo daangaa seensaa waaree",
       "workingDays": "Guyyoota hojii",
       "savePolicy": "Seera olkaa'i",
-      "noHalfDay": "Daangaan walakkaa guyyaa hin jiru",
       "monday": "Wiixata",
       "tuesday": "Qibxata",
       "wednesday": "Roobii",
       "thursday": "Kamiisa",
       "friday": "Jimaata",
       "saturday": "Sanbata",
-      "sunday": "Dilbata"
+      "sunday": "Dilbata",
+      "sessions": {
+        "MORNING": "Ganama",
+        "AFTERNOON": "Waaree"
+      }
     },
     "shifts": {
       "title": "Jijjiirama Sa'aatii Hojii",

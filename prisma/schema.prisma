@@ -90,6 +90,11 @@ enum AttendanceStatus {
   ON_LEAVE
 }
 
+enum AttendanceSession {
+  MORNING
+  AFTERNOON
+}
+
 enum DocumentType {
   CONTRACT
   ID_DOCUMENT
@@ -500,11 +505,12 @@ model Cooperative {
 }
 
 model Attendance {
-  id       String           @id @default(cuid())
-  date     DateTime         @db.Date
+  id       String            @id @default(cuid())
+  date     DateTime          @db.Date
+  session  AttendanceSession @default(MORNING)
   checkIn  DateTime?
   checkOut DateTime?
-  status   AttendanceStatus @default(PRESENT)
+  status   AttendanceStatus  @default(PRESENT)
   notes    String?
 
   // Absence automation fields
@@ -523,13 +529,14 @@ model Attendance {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Prevent duplicate attendance for same employee on same date
-  @@unique([employeeId, date])
+  // Allow one row per (employee, date, session); forbid duplicates within a session
+  @@unique([employeeId, date, session])
   @@index([date])
   @@index([date, status])
   @@index([employeeId])
   @@index([recordedById])
   @@index([correctedById])
+  @@index([session])
   @@map("attendance")
 }
 
@@ -728,33 +735,33 @@ model WorkShift {
   @@map("work_shift")
 }
 
-/// Single-row attendance policy — global rules that apply when no shift-specific
-/// override exists (or for employees not assigned to any shift).
+/// Single-row attendance policy — global rules for the two daily sessions.
 /// Use getAttendancePolicy() — never read directly from the client.
 model AttendancePolicy {
   id String @id @default("singleton")
 
-  /// Official work start time in "HH:MM" 24-hour format (org-local, EAT).
-  workStartTime String @default("08:00")
+  /// Morning session start time in "HH:MM" 24-hour format (org-local, EAT).
+  morningStartTime String @default("08:00")
 
-  /// Official work end time in "HH:MM" 24-hour format (org-local, EAT).
-  workEndTime String @default("17:00")
+  /// Morning check-in deadline in "HH:MM" 24-hour format.
+  /// Check-ins at or before this time are PRESENT; after it are ABSENT (or LATE if within grace).
+  morningCheckInDeadline String @default("08:15")
 
-  /// Minutes after workStartTime during which check-in is still PRESENT.
-  /// e.g. 15 → 08:00–08:15 = PRESENT, 08:16+ = LATE
-  gracePeriodMinutes Int @default(15)
+  /// Afternoon session start time in "HH:MM" 24-hour format (org-local, EAT).
+  afternoonStartTime String @default("13:00")
 
-  /// Minutes after (workStartTime + gracePeriod) at which status becomes
-  /// HALF_DAY instead of LATE. Null = no half-day threshold; only PRESENT/LATE.
-  halfDayThresholdMinutes Int?
+  /// Afternoon check-in deadline in "HH:MM" 24-hour format.
+  afternoonCheckInDeadline String @default("13:15")
+
+  /// Grace period in minutes applied after each session's check-in deadline.
+  /// Check-ins within grace → LATE. Check-ins after grace → ABSENT.
+  /// Auto-absence detection fires at deadline + graceMinutes, not at the deadline.
+  /// Min 0 (no grace), max 240 (4 hours). Default: 15 minutes.
+  graceMinutes Int @default(15)
 
   /// Working days as a JSON array of ISO weekday numbers 1=Mon…7=Sun.
   /// Stored as a plain string to avoid a Json column. Default: Mon–Fri.
   workingDays String @default("[1,2,3,4,5]")
-
-  /// Time (HH:MM, org-local EAT) at which the absence-detection job fires.
-  /// Employees with no check-in by this time are flagged as potentially absent.
-  absenceDetectionTime String @default("10:00")
 
   isActive Boolean @default(true)
 

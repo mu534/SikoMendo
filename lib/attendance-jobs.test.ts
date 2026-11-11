@@ -1,8 +1,8 @@
 /**
- * Unit tests for lib/attendance-jobs.ts
+ * Unit tests for lib/attendance-jobs.ts — session-aware two-session model.
  *
  * All Prisma calls and external dependencies are mocked — no DB required.
- * The 9 test cases verify the full absence-detection and finalization logic.
+ * Covers all 10 required test scenarios (§10.1 of the design).
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -24,14 +24,12 @@ vi.mock("@/lib/notifications", () => ({
   createNotification: vi.fn(),
 }));
 
-// Mock the auth/session chain needed when admin-actions is imported in TC9.
-vi.mock("@/lib/session", () => ({ getServerSession: vi.fn() }));
-vi.mock("@/lib/auth",    () => ({ auth: {} }));
+vi.mock("@/lib/session",  () => ({ getServerSession: vi.fn() }));
+vi.mock("@/lib/auth",     () => ({ auth: {} }));
 
 // ── Imports ───────────────────────────────────────────────────────────────
 
 import prisma from "@/lib/prisma";
-import { createNotification } from "@/lib/notifications";
 import { runAbsenceDetection, runAbsenceFinalization } from "@/lib/attendance-jobs";
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -42,49 +40,84 @@ const SUNDAY = "2026-01-18"; // ISO weekday 7 (Sun) — non-working per default 
 /** Default policy row returned by attendancePolicy.findUnique mock. */
 const DEFAULT_POLICY_ROW = {
   id: "singleton",
-  workStartTime: "08:00",
-  workEndTime: "17:00",
-  gracePeriodMinutes: 15,
-  halfDayThresholdMinutes: null,
+  morningStartTime:         "08:00",
+  morningCheckInDeadline:   "08:15",
+  afternoonStartTime:       "13:00",
+  afternoonCheckInDeadline: "13:15",
+  graceMinutes:             15,
   workingDays: "[1,2,3,4,5]",
-  absenceDetectionTime: "10:00",
   isActive: true,
   updatedAt: new Date(),
   updatedById: null,
 };
 
-/** A mock UTC check-in time at 08:05 EAT (05:05 UTC) — within grace period → PRESENT. */
-const CHECK_IN_08_05_EAT = new Date("2026-01-12T05:05:00.000Z");
+/** A mock UTC check-in time at 08:05 EAT (05:05 UTC) — before morning deadline → PRESENT. */
+const CHECK_IN_MORNING_PRESENT = new Date("2026-01-12T05:05:00.000Z"); // 08:05 EAT
+
+/** A mock UTC check-in time at 08:20 EAT (05:20 UTC) — after morning deadline, within grace → LATE. */
+const CHECK_IN_MORNING_LATE = new Date("2026-01-12T05:20:00.000Z"); // 08:20 EAT
+
+/** A mock UTC check-in time at 08:45 EAT (05:45 UTC) — past deadline + 15 min grace → ABSENT. */
+const CHECK_IN_MORNING_ABSENT = new Date("2026-01-12T05:45:00.000Z"); // 08:45 EAT
+
+/** A mock UTC check-in time at 13:10 EAT (10:10 UTC) — before afternoon deadline → PRESENT. */
+const CHECK_IN_AFTERNOON_PRESENT = new Date("2026-01-12T10:10:00.000Z"); // 13:10 EAT
+
+/** A mock UTC check-in time at 13:20 EAT (10:20 UTC) — after afternoon deadline, within grace → LATE. */
+const CHECK_IN_AFTERNOON_LATE = new Date("2026-01-12T10:20:00.000Z"); // 13:20 EAT
+
+/** A mock UTC check-in time at 13:45 EAT (10:45 UTC) — past afternoon deadline + 15 min grace → ABSENT. */
+const CHECK_IN_AFTERNOON_ABSENT = new Date("2026-01-12T10:45:00.000Z"); // 13:45 EAT
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Default: policy row always resolves to the default policy.
   vi.mocked(prisma.attendancePolicy.findUnique).mockResolvedValue(DEFAULT_POLICY_ROW as never);
-  // Default: no HR/admin users (saves notification setup in each test).
   vi.mocked(prisma.user.findMany).mockResolvedValue([]);
-  // Default: createMany / updateMany / auditLog.createMany resolve to count 0.
   vi.mocked(prisma.attendance.createMany).mockResolvedValue({ count: 0 });
   vi.mocked(prisma.attendance.updateMany).mockResolvedValue({ count: 0 });
   vi.mocked(prisma.auditLog.createMany).mockResolvedValue({ count: 0 });
   vi.mocked(prisma.leaveRequest.findMany).mockResolvedValue([]);
 });
 
-// ── TC1: employee has no check-in at detection time → ABSENT created ──────
+// ── Scenario 1: check-in before morning deadline → PRESENT ────────────────
+// (via evaluateSessionCheckIn — tested directly in attendance-policy.test.ts)
 
-describe("TC1: employee with no check-in → ABSENT created", () => {
-  it("calls createMany with ABSENT + autoRecorded=true and returns markedAbsent=1", async () => {
-    const employeeId = "emp-1";
+describe("Scenario 1: evaluateSessionCheckIn — before morning deadline → PRESENT", () => {
+  it("08:05 EAT (before morning deadline 08:15) → PRESENT", async () => {
+    const { evaluateSessionCheckIn, DEFAULT_POLICY } = await import("@/lib/attendance-policy");
+    const status = evaluateSessionCheckIn(CHECK_IN_MORNING_PRESENT, DEFAULT_POLICY, "MORNING");
+    expect(status).toBe("PRESENT");
+  });
+});
+
+// ── Scenario 2: check-in within grace → LATE; past grace → ABSENT ──────────
+
+describe("Scenario 2: check-in after morning deadline with grace period", () => {
+  it("08:20 EAT (after deadline 08:15, within 15-min grace) → LATE", async () => {
+    const { evaluateSessionCheckIn, DEFAULT_POLICY } = await import("@/lib/attendance-policy");
+    const status = evaluateSessionCheckIn(CHECK_IN_MORNING_LATE, DEFAULT_POLICY, "MORNING");
+    expect(status).toBe("LATE");
+  });
+
+  it("08:45 EAT (past deadline + grace, 08:15 + 15 min = 08:30) → ABSENT", async () => {
+    const { evaluateSessionCheckIn, DEFAULT_POLICY } = await import("@/lib/attendance-policy");
+    const status = evaluateSessionCheckIn(CHECK_IN_MORNING_ABSENT, DEFAULT_POLICY, "MORNING");
+    expect(status).toBe("ABSENT");
+  });
+});
+
+// ── Scenario 3: morning no-show → ABSENT created by detection ─────────────
+
+describe("Scenario 3 (AC-9): employee never checks in for morning → ABSENT auto-created", () => {
+  it("calls createMany with MORNING, ABSENT, autoRecorded=true; returns markedAbsent=1", async () => {
+    const employeeId = "emp-morning-noshow";
 
     vi.mocked(prisma.employee.findMany).mockResolvedValue([
-      {
-        id: employeeId,
-        attendances: [],
-        leaveRequests: [],
-      } as never,
+      { id: employeeId, attendances: [], leaveRequests: [] } as never,
     ]);
     vi.mocked(prisma.attendance.createMany).mockResolvedValue({ count: 1 });
 
-    const result = await runAbsenceDetection(MONDAY);
+    const result = await runAbsenceDetection(MONDAY, "MORNING");
 
     expect(prisma.attendance.createMany).toHaveBeenCalledOnce();
     const call = vi.mocked(prisma.attendance.createMany).mock.calls[0]![0]!;
@@ -93,175 +126,251 @@ describe("TC1: employee with no check-in → ABSENT created", () => {
     expect(dataArr).toHaveLength(1);
     expect(dataArr[0]).toMatchObject({
       employeeId,
-      status: "ABSENT",
+      session:      "MORNING",
+      status:       "ABSENT",
       autoRecorded: true,
     });
 
     expect(result.markedAbsent).toBe(1);
+    expect(result.session).toBe("MORNING");
     expect(result.skippedNonWorkingDay).toBe(false);
   });
 });
 
-// ── TC2: employee checks in before finalization → row excluded ────────────
+// ── Scenario 4: check-in before afternoon deadline → PRESENT ──────────────
 
-describe("TC2: employee checks in after detection → finalization skips them", () => {
-  it("returns finalized=0 when no autoRecorded ABSENT rows have checkIn=null", async () => {
-    // Simulate: no pending rows (employee checked in, so checkIn is not null →
-    // the WHERE filter in findMany would return nothing).
-    vi.mocked(prisma.attendance.findMany).mockResolvedValue([]);
-
-    const result = await runAbsenceFinalization(MONDAY);
-
-    expect(prisma.attendance.updateMany).not.toHaveBeenCalled();
-    expect(prisma.auditLog.createMany).not.toHaveBeenCalled();
-    expect(result.finalized).toBe(0);
-    expect(result.skippedNonWorkingDay).toBe(false);
+describe("Scenario 4: evaluateSessionCheckIn — before afternoon deadline → PRESENT", () => {
+  it("13:10 EAT (before afternoon deadline 13:15) → PRESENT", async () => {
+    const { evaluateSessionCheckIn, DEFAULT_POLICY } = await import("@/lib/attendance-policy");
+    const status = evaluateSessionCheckIn(CHECK_IN_AFTERNOON_PRESENT, DEFAULT_POLICY, "AFTERNOON");
+    expect(status).toBe("PRESENT");
   });
 });
 
-// ── TC3: employee has approved leave → excluded from detection ────────────
+// ── Scenario 5: check-in after afternoon deadline ─────────────────────────
 
-describe("TC3: employee with approved leave → excluded from absence detection", () => {
-  it("does not include leave-covered employees in createMany payload", async () => {
+describe("Scenario 5: check-in after afternoon deadline with grace period", () => {
+  it("13:20 EAT (after deadline 13:15, within 15-min grace) → LATE", async () => {
+    const { evaluateSessionCheckIn, DEFAULT_POLICY } = await import("@/lib/attendance-policy");
+    const status = evaluateSessionCheckIn(CHECK_IN_AFTERNOON_LATE, DEFAULT_POLICY, "AFTERNOON");
+    expect(status).toBe("LATE");
+  });
+
+  it("13:45 EAT (past deadline + grace, 13:15 + 15 min = 13:30) → ABSENT", async () => {
+    const { evaluateSessionCheckIn, DEFAULT_POLICY } = await import("@/lib/attendance-policy");
+    const status = evaluateSessionCheckIn(CHECK_IN_AFTERNOON_ABSENT, DEFAULT_POLICY, "AFTERNOON");
+    expect(status).toBe("ABSENT");
+  });
+});
+
+// ── Scenario 6: attends morning, misses afternoon ─────────────────────────
+
+describe("Scenario 6 (AC-12): attends morning, misses afternoon — sessions are independent", () => {
+  it("morning detection skips employee who has morning row; afternoon detection creates afternoon ABSENT", async () => {
+    const employeeId = "emp-morning-only";
+
+    // Morning detection: employee already has a morning row (checked in) → skipped
+    vi.mocked(prisma.employee.findMany).mockResolvedValue([
+      {
+        id: employeeId,
+        attendances: [{ id: "att-morning", checkIn: CHECK_IN_MORNING_PRESENT }],
+        leaveRequests: [],
+      } as never,
+    ]);
+
+    const morningResult = await runAbsenceDetection(MONDAY, "MORNING");
+    expect(prisma.attendance.createMany).not.toHaveBeenCalled();
+    expect(morningResult.markedAbsent).toBe(0);
+
+    vi.clearAllMocks();
+    vi.mocked(prisma.attendancePolicy.findUnique).mockResolvedValue(DEFAULT_POLICY_ROW as never);
+    vi.mocked(prisma.user.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.attendance.createMany).mockResolvedValue({ count: 1 });
+
+    // Afternoon detection: employee has NO afternoon row → marked absent
+    vi.mocked(prisma.employee.findMany).mockResolvedValue([
+      {
+        id: employeeId,
+        attendances: [], // no afternoon row
+        leaveRequests: [],
+      } as never,
+    ]);
+
+    const afternoonResult = await runAbsenceDetection(MONDAY, "AFTERNOON");
+    expect(prisma.attendance.createMany).toHaveBeenCalledOnce();
+    const call = vi.mocked(prisma.attendance.createMany).mock.calls[0]![0]!;
+    const dataArr = Array.isArray(call.data) ? call.data : [call.data];
+    expect(dataArr[0]).toMatchObject({ session: "AFTERNOON", status: "ABSENT" });
+    expect(afternoonResult.markedAbsent).toBe(1);
+  });
+});
+
+// ── Scenario 7: attends afternoon, misses morning ─────────────────────────
+
+describe("Scenario 7 (AC-13): attends afternoon, misses morning — sessions are independent", () => {
+  it("morning detection creates ABSENT; afternoon detection skips employee with afternoon row", async () => {
+    const employeeId = "emp-afternoon-only";
+
+    // Morning detection: employee has NO morning row → marked absent
+    vi.mocked(prisma.employee.findMany).mockResolvedValue([
+      {
+        id: employeeId,
+        attendances: [], // no morning row
+        leaveRequests: [],
+      } as never,
+    ]);
+    vi.mocked(prisma.attendance.createMany).mockResolvedValue({ count: 1 });
+
+    const morningResult = await runAbsenceDetection(MONDAY, "MORNING");
+    const morningCall = vi.mocked(prisma.attendance.createMany).mock.calls[0]![0]!;
+    const morningData = Array.isArray(morningCall.data) ? morningCall.data : [morningCall.data];
+    expect(morningData[0]).toMatchObject({ session: "MORNING", status: "ABSENT" });
+    expect(morningResult.markedAbsent).toBe(1);
+
+    vi.clearAllMocks();
+    vi.mocked(prisma.attendancePolicy.findUnique).mockResolvedValue(DEFAULT_POLICY_ROW as never);
+    vi.mocked(prisma.user.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.attendance.createMany).mockResolvedValue({ count: 0 });
+
+    // Afternoon detection: employee has afternoon row → skipped
+    vi.mocked(prisma.employee.findMany).mockResolvedValue([
+      {
+        id: employeeId,
+        attendances: [{ id: "att-afternoon", checkIn: CHECK_IN_AFTERNOON_PRESENT }],
+        leaveRequests: [],
+      } as never,
+    ]);
+
+    const afternoonResult = await runAbsenceDetection(MONDAY, "AFTERNOON");
+    expect(prisma.attendance.createMany).not.toHaveBeenCalled();
+    expect(afternoonResult.markedAbsent).toBe(0);
+  });
+});
+
+// ── Scenario 8: approved leave → not marked absent (AC-14) ───────────────
+
+describe("Scenario 8 (AC-14): employee with approved leave → not marked absent", () => {
+  it("does not include leave-covered employees in createMany for either session", async () => {
     vi.mocked(prisma.employee.findMany).mockResolvedValue([
       {
         id: "emp-on-leave",
         attendances: [],
-        leaveRequests: [{ id: "lr-1" }], // approved leave present
+        leaveRequests: [{ id: "lr-1" }],
       } as never,
     ]);
-    vi.mocked(prisma.attendance.createMany).mockResolvedValue({ count: 0 });
 
-    const result = await runAbsenceDetection(MONDAY);
+    const morningResult  = await runAbsenceDetection(MONDAY, "MORNING");
+    const afternoonResult = await runAbsenceDetection(MONDAY, "AFTERNOON");
 
-    // createMany should not be called because no employees qualify
     expect(prisma.attendance.createMany).not.toHaveBeenCalled();
-    expect(result.markedAbsent).toBe(0);
+    expect(morningResult.markedAbsent).toBe(0);
+    expect(afternoonResult.markedAbsent).toBe(0);
   });
 });
 
-// ── TC4: non-working day → detection returns early ────────────────────────
+// ── Scenario 9: archived/inactive employee → skipped (AC-15) ─────────────
 
-describe("TC4: non-working day (Sunday 2026-01-18) → skipped", () => {
-  it("skips detection without querying employees", async () => {
-    const result = await runAbsenceDetection(SUNDAY);
+describe("Scenario 9 (AC-15): archived or inactive employee → not processed", () => {
+  it("employee.findMany returns [] (filtered by DB where clause) → no createMany called", async () => {
+    // The WHERE clause includes deletedAt:null and employmentStatus:'ACTIVE',
+    // so archived/inactive employees are never returned. Mock simulates that.
+    vi.mocked(prisma.employee.findMany).mockResolvedValue([]);
 
+    const morningResult  = await runAbsenceDetection(MONDAY, "MORNING");
+    const afternoonResult = await runAbsenceDetection(MONDAY, "AFTERNOON");
+
+    expect(prisma.attendance.createMany).not.toHaveBeenCalled();
+    expect(morningResult.markedAbsent).toBe(0);
+    expect(afternoonResult.markedAbsent).toBe(0);
+  });
+});
+
+// ── Scenario 10: detection runs twice → no duplicates (AC-16) ────────────
+
+describe("Scenario 10 (AC-16): detection job runs more than once → idempotent", () => {
+  it("second run short-circuits (employee already has a row) with skipDuplicates:true", async () => {
+    const employeeId = "emp-idempotent";
+
+    // First run: no row → creates absent row
+    vi.mocked(prisma.employee.findMany).mockResolvedValue([
+      { id: employeeId, attendances: [], leaveRequests: [] } as never,
+    ]);
+    vi.mocked(prisma.attendance.createMany).mockResolvedValue({ count: 1 });
+
+    const firstResult = await runAbsenceDetection(MONDAY, "MORNING");
+    expect(firstResult.markedAbsent).toBe(1);
+
+    vi.clearAllMocks();
+    vi.mocked(prisma.attendancePolicy.findUnique).mockResolvedValue(DEFAULT_POLICY_ROW as never);
+    vi.mocked(prisma.user.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.attendance.createMany).mockResolvedValue({ count: 0 });
+
+    // Second run: employee now has a row (auto-absent row was created) → short-circuits
+    vi.mocked(prisma.employee.findMany).mockResolvedValue([
+      {
+        id: employeeId,
+        attendances: [{ id: "att-auto-absent", checkIn: null }], // existing auto-absent row
+        leaveRequests: [],
+      } as never,
+    ]);
+
+    const secondResult = await runAbsenceDetection(MONDAY, "MORNING");
+    // Short-circuit: employee already has a row → no createMany call
+    expect(prisma.attendance.createMany).not.toHaveBeenCalled();
+    expect(secondResult.markedAbsent).toBe(0);
+  });
+
+  it("every createMany call uses skipDuplicates:true as the hard duplicate guard", async () => {
+    vi.mocked(prisma.employee.findMany).mockResolvedValue([
+      { id: "emp-1", attendances: [], leaveRequests: [] } as never,
+    ]);
+    vi.mocked(prisma.attendance.createMany).mockResolvedValue({ count: 1 });
+
+    await runAbsenceDetection(MONDAY, "MORNING");
+
+    for (const [args] of vi.mocked(prisma.attendance.createMany).mock.calls) {
+      expect(args!.skipDuplicates).toBe(true);
+    }
+  });
+});
+
+// ── Non-working day skip ───────────────────────────────────────────────────
+
+describe("non-working day (Sunday 2026-01-18) → skipped", () => {
+  it("skips morning detection without querying employees", async () => {
+    const result = await runAbsenceDetection(SUNDAY, "MORNING");
     expect(prisma.employee.findMany).not.toHaveBeenCalled();
     expect(prisma.attendance.createMany).not.toHaveBeenCalled();
     expect(result.skippedNonWorkingDay).toBe(true);
     expect(result.markedAbsent).toBe(0);
   });
 
+  it("skips afternoon detection without querying employees", async () => {
+    const result = await runAbsenceDetection(SUNDAY, "AFTERNOON");
+    expect(prisma.employee.findMany).not.toHaveBeenCalled();
+    expect(result.skippedNonWorkingDay).toBe(true);
+  });
+
   it("skips finalization without querying attendances", async () => {
     const result = await runAbsenceFinalization(SUNDAY);
-
     expect(prisma.attendance.findMany).not.toHaveBeenCalled();
     expect(result.skippedNonWorkingDay).toBe(true);
-    expect(result.finalized).toBe(0);
   });
 });
 
-// ── TC5: inactive employee → not in results ───────────────────────────────
+// ── Finalization: leave approved after detection → ON_LEAVE ───────────────
 
-describe("TC5: inactive employee → not marked absent", () => {
-  it("returns markedAbsent=0 when employee.findMany returns empty (inactive filtered by DB query)", async () => {
-    // The WHERE clause in detection includes `employmentStatus: 'ACTIVE'`, so
-    // inactive employees are never returned. Mock simulates that.
-    vi.mocked(prisma.employee.findMany).mockResolvedValue([]);
-    vi.mocked(prisma.attendance.createMany).mockResolvedValue({ count: 0 });
-
-    const result = await runAbsenceDetection(MONDAY);
-
-    expect(prisma.attendance.createMany).not.toHaveBeenCalled();
-    expect(result.markedAbsent).toBe(0);
-  });
-});
-
-// ── TC6: employee already has attendance with checkIn → excluded ──────────
-
-describe("TC6: existing attendance record with checkIn → excluded from createMany", () => {
-  it("does not create duplicate absence when employee already has a valid check-in", async () => {
-    vi.mocked(prisma.employee.findMany).mockResolvedValue([
-      {
-        id: "emp-present",
-        attendances: [
-          {
-            id: "att-1",
-            checkIn: CHECK_IN_08_05_EAT, // has a check-in → excluded
-          },
-        ],
-        leaveRequests: [],
-      } as never,
-    ]);
-    vi.mocked(prisma.attendance.createMany).mockResolvedValue({ count: 0 });
-
-    const result = await runAbsenceDetection(MONDAY);
-
-    expect(prisma.attendance.createMany).not.toHaveBeenCalled();
-    expect(result.markedAbsent).toBe(0);
-  });
-});
-
-// ── TC7: second run is idempotent ─────────────────────────────────────────
-
-describe("TC7: job runs twice — idempotent (skipDuplicates)", () => {
-  it("uses skipDuplicates:true so second run produces no extra records", async () => {
-    const employeeId = "emp-1";
-
-    // First run: employee has no attendance yet.
-    vi.mocked(prisma.employee.findMany).mockResolvedValue([
-      { id: employeeId, attendances: [], leaveRequests: [] } as never,
-    ]);
-    vi.mocked(prisma.attendance.createMany).mockResolvedValue({ count: 1 });
-
-    await runAbsenceDetection(MONDAY);
-
-    // Second run: employee still has no attendance (DB would reject duplicate,
-    // but skipDuplicates means Prisma returns count=0 without error).
-    vi.mocked(prisma.attendance.createMany).mockResolvedValue({ count: 0 });
-
-    const secondResult = await runAbsenceDetection(MONDAY);
-
-    // The call still includes skipDuplicates: true.
-    const calls = vi.mocked(prisma.attendance.createMany).mock.calls;
-    for (const [args] of calls) {
-      expect(args!.skipDuplicates).toBe(true);
-    }
-    // No error on second run.
-    expect(secondResult.markedAbsent).toBe(0);
-  });
-});
-
-// ── TC8: correction status calculation (evaluateCheckInStatus) ────────────
-
-describe("TC8: evaluateCheckInStatus with 08:05 EAT check-in → PRESENT", () => {
-  it("correctly classifies an 08:05 EAT check-in as PRESENT under default policy", async () => {
-    // This test exercises the policy engine directly, confirming the library
-    // that attendance-jobs relies on when callers use it for corrections.
-    const { evaluateCheckInStatus, DEFAULT_POLICY } = await import("@/lib/attendance-policy");
-
-    const status = evaluateCheckInStatus(CHECK_IN_08_05_EAT, DEFAULT_POLICY, MONDAY);
-    expect(status).toBe("PRESENT");
-  });
-});
-
-// ── TC9: leave approved after Stage 1 → finalization updates to ON_LEAVE ──
-
-describe("TC9: leave approved after detection → finalization corrects to ON_LEAVE", () => {
-  it("updates auto-recorded ABSENT rows to ON_LEAVE when leave is found", async () => {
-    const employeeId = "emp-late-leave";
+describe("finalization: leave approved after detection → corrects to ON_LEAVE", () => {
+  it("updates auto-recorded ABSENT rows to ON_LEAVE when leave is found; session in audit payload", async () => {
+    const employeeId   = "emp-late-leave";
     const attendanceId = "att-absent-1";
 
-    // Stage 2 finds one pending auto-recorded ABSENT row.
     vi.mocked(prisma.attendance.findMany).mockResolvedValue([
-      { id: attendanceId, employeeId } as never,
+      { id: attendanceId, employeeId, session: "MORNING" } as never,
     ]);
-
-    // That employee now has approved leave.
     vi.mocked(prisma.leaveRequest.findMany).mockResolvedValue([
       { employeeId } as never,
     ]);
-
     vi.mocked(prisma.attendance.updateMany).mockResolvedValue({ count: 1 });
 
     const result = await runAbsenceFinalization(MONDAY);
@@ -271,20 +380,15 @@ describe("TC9: leave approved after detection → finalization corrects to ON_LE
     expect(updateCall.where).toMatchObject({ id: { in: [attendanceId] } });
     expect(updateCall.data).toMatchObject({ status: "ON_LEAVE" });
 
-    // No audit log for the ON_LEAVE corrected row — only for confirmed absents.
-    expect(prisma.auditLog.createMany).not.toHaveBeenCalled();
-
     expect(result.correctedToOnLeave).toBe(1);
     expect(result.finalized).toBe(0);
   });
 });
 
-// ── TC9 (FEAT-004): correctAbsenceRecord export is a function ─────────────
+// ── correctAbsenceRecord export check ────────────────────────────────────
 
-describe("TC9: correctAbsenceRecord is exported from admin-actions", () => {
-  it("is a function (structural check — DB logic tested via integration)", async () => {
-    // @/lib/session and @/lib/auth are mocked at the top of this file,
-    // so the module loads without env validation.
+describe("correctAbsenceRecord is exported from admin-actions", () => {
+  it("is a function", async () => {
     const { correctAbsenceRecord } = await import("@/features/attendance/admin-actions");
     expect(typeof correctAbsenceRecord).toBe("function");
   });

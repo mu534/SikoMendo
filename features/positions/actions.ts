@@ -82,7 +82,7 @@ export async function setPositionActive(
 
   return withPermission(session, "MANAGE_POSITIONS", async () => {
     await prisma.position.update({ where: { id }, data: { isActive } });
-    await logAudit(isActive ? "ACTIVATE" : "DEACTIVATE", id, { isActive }, session?.user.id);
+    await logAudit(isActive ? "ACTIVATE" : "DEACTIVATE", "Position", id, { isActive }, session?.user.id);
 
     revalidatePath(`/departments/${departmentId}`);
     return { id };

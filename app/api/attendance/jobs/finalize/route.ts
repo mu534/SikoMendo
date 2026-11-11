@@ -5,30 +5,21 @@ import { getOrgLocalDateString } from "@/lib/attendance-date";
 
 /**
  * POST /api/attendance/jobs/finalize
- * GET  /api/attendance/jobs/finalize  (Vercel Cron alias — Vercel sends GET)
+ * GET  /api/attendance/jobs/finalize  (Vercel Cron — Vercel sends GET)
  *
  * Stage-2 absence finalization for the given date (defaults to today in EAT).
+ * Corrects auto-recorded ABSENT rows to ON_LEAVE when leave was approved after
+ * the detection deadline. Writes audit log entries for confirmed absences.
+ *
+ * Session-aware: the query covers auto-recorded ABSENT rows for both sessions;
+ * the session value is included in the audit log payload for each row.
+ *
+ * Scheduled daily (0 16 * * * = 16:00 UTC = 19:00 EAT). The in-function
+ * isWorkingDay guard skips non-working days, so the cron fires daily and the
+ * function self-gates on configured working days — Saturday works if the org
+ * includes it in workingDays, without hardcoding weekday 1–5 in the cron.
+ *
  * Secured with ATTENDANCE_JOB_SECRET bearer token — NOT a user session.
- *
- * ── Deployment ────────────────────────────────────────────────────────────
- *
- * Set ATTENDANCE_JOB_SECRET in your environment (min 32 chars):
- *   openssl rand -hex 32
- *
- * Vercel Cron — add to vercel.json (Vercel injects Authorization automatically):
- *   {
- *     "crons": [
- *       { "path": "/api/attendance/jobs/finalize", "schedule": "0 14 * * 1-5" }
- *     ]
- *   }
- *   (0 14 UTC = 17:00 EAT — matches the default workEndTime of 17:00)
- *
- * Railway / external cron:
- *   curl -X POST https://your-domain/api/attendance/jobs/finalize \
- *        -H "Authorization: Bearer $ATTENDANCE_JOB_SECRET" \
- *        -H "Content-Type: application/json"
- *
- * Optional body: { "date": "YYYY-MM-DD" } — omit to use today's EAT date.
  *
  * ── Idempotency ───────────────────────────────────────────────────────────
  * Running this route multiple times on the same date is safe: finalization only

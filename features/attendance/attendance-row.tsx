@@ -56,7 +56,10 @@ export function AttendanceRow({
   date: string;
   readOnly?: boolean;
 }) {
-  const record = employee.attendances[0];
+  // With two-session model, show the morning record by default in this single-row view.
+  // The admin management panel handles per-session display separately.
+  const record = employee.attendances.find((a) => (a as { session?: string }).session === "MORNING")
+    ?? employee.attendances[0];
 
   if (readOnly) {
     return (

@@ -5,12 +5,14 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
-import { attendanceEntrySchema, attendanceFormDataToObject, combineDateAndTime } from "./schemas";
+import {
+  attendanceEntrySchema,
+  attendanceFormDataToObject,
+  combineDateAndTime,
+} from "./schemas";
 import { parseDateOnly } from "@/lib/attendance-date";
-
-// ── Audit helper ───────────────────────────────────────────────────────────
-
-
+import { routeCheckInToSession } from "@/lib/attendance-policy";
+import { getAttendancePolicy } from "./policy-queries";
 
 // ── Shared: approved-leave check ──────────────────────────────────────────
 
@@ -48,13 +50,12 @@ const MANUAL_RECORDABLE_STATUSES = new Set([
 /**
  * Admin-only: create or update any employee's attendance record for any date.
  *
- * Authorization: requires MANAGE_ATTENDANCE, which is granted ONLY to ADMIN.
- *   - HR Officers and Managers use selfCheckIn/selfCheckOut in self-actions.ts.
- *   - Employees use selfCheckIn/selfCheckOut in self-actions.ts.
+ * Session is server-derived from routeCheckInToSession when a check-in time
+ * is present; otherwise defaults to form-supplied session (or MORNING).
+ * The admin retains the ability to set status manually (this is a manual
+ * record path, not an automatic check-in path).
  *
- * The employeeId and date here ARE accepted from the form because this is an
- * administrative action performed by an Admin on behalf of any employee.
- * Self-attendance actions (self-actions.ts) NEVER accept these from the client.
+ * Authorization: requires MANAGE_ATTENDANCE, which is granted ONLY to ADMIN.
  */
 export async function upsertAttendance(
   _prevState: unknown,
@@ -68,7 +69,8 @@ export async function upsertAttendance(
       throw new Error(parsed.error.issues[0]?.message ?? "Invalid input.");
     }
 
-    const { employeeId, date, status, checkIn, checkOut, notes } = parsed.data;
+    const { employeeId, date, status, checkIn, checkOut, notes, session: formSession } =
+      parsed.data;
 
     // Reject attendance for archived employees
     const employee = await prisma.employee.findUnique({
@@ -83,7 +85,6 @@ export async function upsertAttendance(
     const dateValue = parseDateOnly(date);
 
     // Prevent recording non-ON_LEAVE status for an employee on approved leave.
-    // Cancel the leave request first if you need to override it.
     if (MANUAL_RECORDABLE_STATUSES.has(status)) {
       const onLeave = await isOnApprovedLeave(employeeId, dateValue);
       if (onLeave) {
@@ -93,30 +94,54 @@ export async function upsertAttendance(
       }
     }
 
+    // combineDateAndTime interprets time as UTC not EAT — pre-existing behaviour, tracked separately.
     const checkInValue  = combineDateAndTime(date, checkIn);
     const checkOutValue = combineDateAndTime(date, checkOut);
 
+    // Derive session: server-side from check-in time when available; otherwise
+    // use form-supplied session (defaults to MORNING for status-only entries).
+    let attendanceSession: "MORNING" | "AFTERNOON";
+    if (checkInValue) {
+      const policy = await getAttendancePolicy();
+      attendanceSession = routeCheckInToSession(checkInValue, policy);
+    } else {
+      attendanceSession = (formSession ?? "MORNING") as "MORNING" | "AFTERNOON";
+    }
+
     const record = await prisma.attendance.upsert({
-      where: { employeeId_date: { employeeId, date: dateValue } },
+      where: {
+        employeeId_date_session: {
+          employeeId,
+          date:    dateValue,
+          session: attendanceSession,
+        },
+      },
       create: {
         employeeId,
-        date: dateValue,
+        date:        dateValue,
+        session:     attendanceSession,
         status,
-        checkIn: checkInValue,
-        checkOut: checkOutValue,
+        checkIn:     checkInValue,
+        checkOut:    checkOutValue,
         notes,
         recordedById: session?.user.id,
       },
       update: {
         status,
-        checkIn: checkInValue,
-        checkOut: checkOutValue,
+        checkIn:     checkInValue,
+        checkOut:    checkOutValue,
         notes,
         recordedById: session?.user.id,
       },
     });
 
-    await logAudit("UPSERT", "Attendance", record.id, { employeeId, date, status }, session?.user.id);
+    await logAudit(
+      "UPSERT",
+      "Attendance",
+      record.id,
+      { employeeId, date, session: attendanceSession, status },
+      session?.user.id
+    );
     revalidatePath("/attendance");
     return { id: record.id };
   });
@@ -126,6 +151,9 @@ export async function upsertAttendance(
 
 /**
  * Admin-only: marks every unmarked employee for the given date as PRESENT.
+ * Creates PRESENT rows for BOTH sessions for each eligible (active, not-on-leave)
+ * employee who has no row for (date, session), so a single button press covers
+ * the full day under the two-session model.
  * Skips archived employees and employees on approved leave.
  *
  * Authorization: requires MANAGE_ATTENDANCE (ADMIN only).
@@ -161,26 +189,52 @@ export async function markUnmarkedPresent(
 
     if (eligibleIds.length === 0) return { count: 0 };
 
+    // Find existing rows for the date across both sessions
     const existing = await prisma.attendance.findMany({
       where: { date: dateValue, employeeId: { in: eligibleIds } },
-      select: { employeeId: true },
+      select: { employeeId: true, session: true },
     });
-    const alreadyMarked = new Set(existing.map((e: { employeeId: string }) => e.employeeId));
-    const toMark = eligibleIds.filter((id) => !alreadyMarked.has(id));
 
-    if (toMark.length > 0) {
-      await prisma.attendance.createMany({
-        data: toMark.map((employeeId) => ({
-          employeeId,
-          date: dateValue,
-          status: "PRESENT" as const,
-          recordedById: session?.user.id,
-        })),
-      });
-      await logAudit("BULK_MARK_PRESENT", "Attendance", date, { count: toMark.length }, session?.user.id);
+    // Build set of (employeeId, session) that already exist
+    const alreadyMarked = new Set(
+      existing.map((e: { employeeId: string; session: string }) => `${e.employeeId}:${e.session}`)
+    );
+
+    // Create PRESENT rows for each (eligible employee, session) that doesn't yet exist
+    const toCreate: Array<{
+      employeeId: string;
+      date: Date;
+      session: "MORNING" | "AFTERNOON";
+      status: "PRESENT";
+      recordedById: string | undefined;
+    }> = [];
+
+    for (const empId of eligibleIds) {
+      for (const sess of ["MORNING", "AFTERNOON"] as const) {
+        if (!alreadyMarked.has(`${empId}:${sess}`)) {
+          toCreate.push({
+            employeeId:  empId,
+            date:        dateValue,
+            session:     sess,
+            status:      "PRESENT",
+            recordedById: session?.user.id,
+          });
+        }
+      }
+    }
+
+    if (toCreate.length > 0) {
+      await prisma.attendance.createMany({ data: toCreate });
+      await logAudit(
+        "BULK_MARK_PRESENT",
+        "Attendance",
+        date,
+        { count: toCreate.length },
+        session?.user.id
+      );
     }
 
     revalidatePath("/attendance");
-    return { count: toMark.length };
+    return { count: toCreate.length };
   });
 }

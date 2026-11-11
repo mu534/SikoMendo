@@ -4,10 +4,11 @@
  * Client wrapper for the Attendance Policy page.
  *
  * Owns the "current unsaved rules" state so the live preview updates
- * immediately as the admin changes form values — without any server round-trips.
+ * immediately as the admin/HR officer changes form values — without any
+ * server round-trips.
  *
  * Layout:
- *   Left (~60%)  : Shifts manager + Attendance rules form
+ *   Left (~60%)  : Work Shifts manager + Attendance rules form
  *   Right (~40%) : Read-only overview + live policy preview
  */
 
@@ -30,12 +31,12 @@ function fmtTime(hhmm: string): string {
 }
 
 type PolicyRow = {
-  workStartTime: string;
-  workEndTime: string;
-  absenceDetectionTime: string;
-  gracePeriodMinutes: number;
-  halfDayThresholdMinutes: number | null;
-  workingDays: string;
+  morningStartTime:         string;
+  morningCheckInDeadline:   string;
+  afternoonStartTime:       string;
+  afternoonCheckInDeadline: string;
+  graceMinutes:             number;
+  workingDays:              string;
 } | null;
 
 function parseWorkingDays(raw: string | null | undefined): number[] {
@@ -55,9 +56,12 @@ type Props = {
 
 export function PolicyPageClient({ policy, allShifts, activeShifts }: Props) {
   const savedRules: RulesFormValues = {
-    gracePeriodMinutes:      policy?.gracePeriodMinutes ?? 15,
-    halfDayThresholdMinutes: policy?.halfDayThresholdMinutes ?? "",
-    workingDays:             parseWorkingDays(policy?.workingDays),
+    morningStartTime:         policy?.morningStartTime         ?? "08:00",
+    morningCheckInDeadline:   policy?.morningCheckInDeadline   ?? "08:15",
+    afternoonStartTime:       policy?.afternoonStartTime       ?? "13:00",
+    afternoonCheckInDeadline: policy?.afternoonCheckInDeadline ?? "13:15",
+    graceMinutes:             policy?.graceMinutes             ?? 15,
+    workingDays:              parseWorkingDays(policy?.workingDays),
   };
 
   const [liveRules, setLiveRules] = useState<RulesFormValues>(savedRules);
@@ -77,9 +81,8 @@ export function PolicyPageClient({ policy, allShifts, activeShifts }: Props) {
             <div>
               <h3 className="font-display text-sm font-semibold text-ink-900">Work Shifts</h3>
               <p className="text-xs text-ink-900/50">
-                Define work schedules. Each shift has a start and end time.
-                Employees are assigned to a shift; their shift determines the
-                attendance evaluation window.
+                Define named work schedules for display purposes. Attendance sessions
+                (morning and afternoon) now apply globally to all employees.
               </p>
             </div>
           </div>
@@ -93,8 +96,8 @@ export function PolicyPageClient({ policy, allShifts, activeShifts }: Props) {
           <div className="mb-4">
             <h3 className="font-display text-sm font-semibold text-ink-900">Attendance Rules</h3>
             <p className="mt-0.5 text-xs text-ink-900/50">
-              These rules apply to all shifts. The grace period and thresholds
-              are counted from each shift&apos;s individual start time.
+              Configure morning and afternoon session deadlines. Each session is evaluated
+              independently — morning attendance does not affect afternoon, and vice versa.
             </p>
           </div>
           <AttendanceRulesForm
@@ -114,22 +117,26 @@ export function PolicyPageClient({ policy, allShifts, activeShifts }: Props) {
           </p>
           <dl className="space-y-2.5">
             <div className="flex items-center justify-between text-sm">
-              <dt className="text-ink-900/55">Active shifts</dt>
-              <dd className="font-medium text-ink-900">{activeShifts.length}</dd>
+              <dt className="text-ink-900/55">Morning deadline</dt>
+              <dd className="font-medium text-ink-900">{fmtTime(liveRules.morningCheckInDeadline)}</dd>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <dt className="text-ink-900/55">Afternoon deadline</dt>
+              <dd className="font-medium text-ink-900">{fmtTime(liveRules.afternoonCheckInDeadline)}</dd>
             </div>
             <div className="flex items-center justify-between text-sm">
               <dt className="text-ink-900/55">Grace period</dt>
-              <dd className="font-medium text-ink-900">{liveRules.gracePeriodMinutes} min</dd>
+              <dd className="font-medium text-ink-900">
+                {liveRules.graceMinutes === 0
+                  ? "None"
+                  : liveRules.graceMinutes >= 60
+                  ? `${Math.floor(liveRules.graceMinutes / 60)}h ${liveRules.graceMinutes % 60 > 0 ? `${liveRules.graceMinutes % 60}m` : ""}`.trim()
+                  : `${liveRules.graceMinutes} min`}
+              </dd>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <dt className="text-ink-900/55">Half-day threshold</dt>
-              <dd className="font-medium text-ink-900">
-                {typeof liveRules.halfDayThresholdMinutes === "number" && liveRules.halfDayThresholdMinutes > 0
-                  ? `${liveRules.halfDayThresholdMinutes} min`
-                  : liveRules.halfDayThresholdMinutes !== "" && liveRules.halfDayThresholdMinutes != null
-                    ? `${Number(liveRules.halfDayThresholdMinutes)} min`
-                    : "—"}
-              </dd>
+              <dt className="text-ink-900/55">Active shifts</dt>
+              <dd className="font-medium text-ink-900">{activeShifts.length}</dd>
             </div>
             <div className="flex items-start justify-between gap-2 text-sm">
               <dt className="text-ink-900/55">Working days</dt>
@@ -142,56 +149,18 @@ export function PolicyPageClient({ policy, allShifts, activeShifts }: Props) {
           </dl>
         </div>
 
-        {/* Active shifts cards */}
-        {activeShifts.length > 0 && (
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-ink-900/40">
-              Active Shifts
-            </p>
-            <div className="space-y-2">
-              {activeShifts.map((s) => (
-                <div
-                  key={s.id}
-                  className="rounded-lg border border-ink-900/8 bg-white px-3.5 py-2.5"
-                >
-                  <p className="text-sm font-medium text-ink-900">{s.name}</p>
-                  <p className="mt-0.5 text-xs text-ink-900/50">
-                    {fmtTime(s.startTime)} – {fmtTime(s.endTime)}
-                    <span className="mx-1.5 text-ink-900/20">·</span>
-                    Grace: {liveRules.gracePeriodMinutes} min
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {activeShifts.length === 0 && (
-          <div className="rounded-xl border border-dashed border-ink-900/15 px-4 py-6 text-center">
-            <p className="text-sm text-ink-900/45">
-              No active shifts yet.
-            </p>
-            <p className="mt-1 text-xs text-ink-900/30">
-              Add a shift on the left to see the preview.
-            </p>
-          </div>
-        )}
-
         {/* Policy Preview */}
-        {activeShifts.length > 0 && (
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-ink-900/40">
-              Policy Preview
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-ink-900/40">
+            Policy Preview
+          </p>
+          <div className="rounded-xl border border-ink-900/8 bg-white p-3.5">
+            <p className="mb-3 text-xs text-ink-900/45">
+              Shows how attendance is classified by check-in time. Updates live as you edit.
             </p>
-            <div className="rounded-xl border border-ink-900/8 bg-white p-3.5">
-              <p className="mb-2 text-xs text-ink-900/45">
-                Shows how attendance is classified based on check-in time.
-                Updates as you edit the rules.
-              </p>
-              <PolicyPreview rules={liveRules} activeShifts={activeShifts} />
-            </div>
+            <PolicyPreview rules={liveRules} />
           </div>
-        )}
+        </div>
 
         <p className="text-xs text-ink-900/35 text-center px-2">
           Changes apply to future check-ins only. Historical records are never modified.

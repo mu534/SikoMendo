@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/attendance/jobs/detect",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/attendance/jobs/finalize",
+      "schedule": "0 16 * * *"
+    }
+  ]
+}

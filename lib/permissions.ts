@@ -134,6 +134,9 @@ export const PERMISSIONS: Record<Role, Action[]> = {
     "VIEW_ATTENDANCE",
     "VIEW_ATTENDANCE_MONITOR",
     "SELF_ATTENDANCE",
+    // HR Officer is granted policy configuration access per the user request:
+    // "Allow Admin or authorized HR Officer to configure these times".
+    "MANAGE_ATTENDANCE_POLICY",
     "MANAGE_DOCUMENTS",
     "GENERATE_REPORTS",
     "VIEW_REPORTS",

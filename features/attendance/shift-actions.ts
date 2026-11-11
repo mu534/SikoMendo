@@ -70,7 +70,7 @@ export async function createShift(
       select: { id: true },
     });
 
-    await logAudit("CREATE", shift.id, parsed.data, session!.user.id);
+    await logAudit("CREATE", "WorkShift", shift.id, parsed.data, session!.user.id);
     revalidatePath("/attendance/policy");
     return { id: shift.id };
   });
@@ -109,7 +109,7 @@ export async function updateShift(
       },
     });
 
-    await logAudit("UPDATE", id, parsed.data, session!.user.id);
+    await logAudit("UPDATE", "WorkShift", id, parsed.data, session!.user.id);
     revalidatePath("/attendance/policy");
     return { id };
   });
@@ -128,7 +128,7 @@ export async function setShiftActive(
     if (!existing) throw new Error("Shift not found.");
 
     await prisma.workShift.update({ where: { id }, data: { isActive } });
-    await logAudit(isActive ? "ACTIVATE" : "DEACTIVATE", id, { isActive }, session!.user.id);
+    await logAudit(isActive ? "ACTIVATE" : "DEACTIVATE", "WorkShift", id, { isActive }, session!.user.id);
     revalidatePath("/attendance/policy");
     return { id };
   });
@@ -152,7 +152,7 @@ export async function deleteShift(id: string): Promise<ActionResult<{ id: string
     }
 
     await prisma.workShift.delete({ where: { id } });
-    await logAudit("DELETE", id, { name: shift.name }, session!.user.id);
+    await logAudit("DELETE", "WorkShift", id, { name: shift.name }, session!.user.id);
     revalidatePath("/attendance/policy");
     return { id };
   });

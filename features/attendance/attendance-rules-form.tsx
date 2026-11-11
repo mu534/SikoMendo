@@ -17,12 +17,12 @@ const WEEKDAYS = [
 ];
 
 type PolicyRow = {
-  workStartTime: string;
-  workEndTime: string;
-  absenceDetectionTime: string;
-  gracePeriodMinutes: number;
-  halfDayThresholdMinutes: number | null;
-  workingDays: string;
+  morningStartTime:         string;
+  morningCheckInDeadline:   string;
+  afternoonStartTime:       string;
+  afternoonCheckInDeadline: string;
+  graceMinutes:             number;
+  workingDays:              string;
 } | null;
 
 function parseWorkingDays(raw: string | null | undefined): number[] {
@@ -35,9 +35,12 @@ function parseWorkingDays(raw: string | null | undefined): number[] {
 }
 
 export type RulesFormValues = {
-  gracePeriodMinutes: number;
-  halfDayThresholdMinutes: number | string;
-  workingDays: number[];
+  morningStartTime:         string;
+  morningCheckInDeadline:   string;
+  afternoonStartTime:       string;
+  afternoonCheckInDeadline: string;
+  graceMinutes:             number;
+  workingDays:              number[];
 };
 
 export function AttendanceRulesForm({
@@ -53,21 +56,28 @@ export function AttendanceRulesForm({
   const savedWorkingDays = parseWorkingDays(policy?.workingDays);
 
   // Controlled state for live preview
-  const [grace, setGrace]           = useState(String(policy?.gracePeriodMinutes ?? 15));
-  const [halfDay, setHalfDay]       = useState(
-    policy?.halfDayThresholdMinutes != null ? String(policy.halfDayThresholdMinutes) : ""
-  );
+  const [morningStart,     setMorningStart]     = useState(policy?.morningStartTime         ?? "08:00");
+  const [morningDeadline,  setMorningDeadline]  = useState(policy?.morningCheckInDeadline   ?? "08:15");
+  const [afternoonStart,   setAfternoonStart]   = useState(policy?.afternoonStartTime       ?? "13:00");
+  const [afternoonDeadline,setAfternoonDeadline]= useState(policy?.afternoonCheckInDeadline ?? "13:15");
+  const [graceMinutes,     setGraceMinutes]     = useState(policy?.graceMinutes             ?? 15);
   const [workingDays, setWorkingDays] = useState<number[]>(savedWorkingDays);
 
   function notify(
-    g = grace,
-    hd = halfDay,
-    wd = workingDays
+    ms  = morningStart,
+    md  = morningDeadline,
+    as_ = afternoonStart,
+    ad  = afternoonDeadline,
+    gm  = graceMinutes,
+    wd  = workingDays
   ) {
     onValuesChange?.({
-      gracePeriodMinutes: parseInt(g, 10) || 0,
-      halfDayThresholdMinutes: hd.trim() !== "" ? (parseInt(hd, 10) || "") : "",
-      workingDays: wd,
+      morningStartTime:         ms,
+      morningCheckInDeadline:   md,
+      afternoonStartTime:       as_,
+      afternoonCheckInDeadline: ad,
+      graceMinutes:             gm,
+      workingDays:              wd,
     });
   }
 
@@ -76,7 +86,7 @@ export function AttendanceRulesForm({
       ? workingDays.filter((d) => d !== day)
       : [...workingDays, day].sort((a, b) => a - b);
     setWorkingDays(next);
-    notify(grace, halfDay, next);
+    notify(morningStart, morningDeadline, afternoonStart, afternoonDeadline, graceMinutes, next);
   }
 
   const didSucceed = state?.success === true;
@@ -87,7 +97,7 @@ export function AttendanceRulesForm({
       {didSucceed && (
         <div role="status" className="flex items-center gap-2.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-sm font-medium text-emerald-800">
           <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
-          Attendance rules saved successfully.
+          Attendance policy saved successfully.
         </div>
       )}
       {error && (
@@ -97,64 +107,105 @@ export function AttendanceRulesForm({
         </div>
       )}
 
-      {/* Hidden: keep workStartTime/workEndTime so the existing action still works */}
-      <input type="hidden" name="workStartTime" value={policy?.workStartTime ?? "08:00"} />
-      <input type="hidden" name="workEndTime"   value={policy?.workEndTime   ?? "17:00"} />
+      {/* Morning session */}
+      <fieldset className="rounded-lg border border-ink-900/10 p-4 space-y-4">
+        <legend className="text-sm font-semibold text-ink-900 px-1">Morning Session</legend>
 
-      {/* Absence detection time */}
-      <FieldGroup>
-        <Label htmlFor="absenceDetectionTime">Absence detection time</Label>
-        <Input
-          id="absenceDetectionTime"
-          name="absenceDetectionTime"
-          type="time"
-          defaultValue={policy?.absenceDetectionTime ?? "10:00"}
-          required
-          className="w-36"
-        />
-        <p className="mt-1 text-xs text-ink-900/45">
-          Time (EAT) at which the system automatically marks employees with no
-          check-in as <strong>Absent</strong>. Must be after the work start time.
-          A final confirmation runs at the end of shift.
-        </p>
-      </FieldGroup>
+        <FieldGroup>
+          <Label htmlFor="morningStartTime">Morning start time</Label>
+          <Input
+            id="morningStartTime"
+            name="morningStartTime"
+            type="time"
+            value={morningStart}
+            onChange={(e) => { setMorningStart(e.target.value); notify(e.target.value); }}
+            required
+            className="w-36"
+          />
+          <p className="mt-1 text-xs text-ink-900/45">
+            Time (EAT, 24h) when the morning session begins.
+          </p>
+        </FieldGroup>
 
-      {/* Grace period */}
+        <FieldGroup>
+          <Label htmlFor="morningCheckInDeadline">Morning check-in deadline</Label>
+          <Input
+            id="morningCheckInDeadline"
+            name="morningCheckInDeadline"
+            type="time"
+            value={morningDeadline}
+            onChange={(e) => { setMorningDeadline(e.target.value); notify(undefined, e.target.value); }}
+            required
+            className="w-36"
+          />
+          <p className="mt-1 text-xs text-ink-900/45">
+            Check-ins at or before this time are <strong>Present</strong>.
+            After this time are <strong>Absent</strong>.
+          </p>
+        </FieldGroup>
+      </fieldset>
+
+      {/* Afternoon session */}
+      <fieldset className="rounded-lg border border-ink-900/10 p-4 space-y-4">
+        <legend className="text-sm font-semibold text-ink-900 px-1">Afternoon Session</legend>
+
+        <FieldGroup>
+          <Label htmlFor="afternoonStartTime">Afternoon start time</Label>
+          <Input
+            id="afternoonStartTime"
+            name="afternoonStartTime"
+            type="time"
+            value={afternoonStart}
+            onChange={(e) => { setAfternoonStart(e.target.value); notify(undefined, undefined, e.target.value); }}
+            required
+            className="w-36"
+          />
+          <p className="mt-1 text-xs text-ink-900/45">
+            Check-ins at or after this time are routed to the afternoon session.
+            Must be after the morning start time.
+          </p>
+        </FieldGroup>
+
+        <FieldGroup>
+          <Label htmlFor="afternoonCheckInDeadline">Afternoon check-in deadline</Label>
+          <Input
+            id="afternoonCheckInDeadline"
+            name="afternoonCheckInDeadline"
+            type="time"
+            value={afternoonDeadline}
+            onChange={(e) => { setAfternoonDeadline(e.target.value); notify(undefined, undefined, undefined, e.target.value); }}
+            required
+            className="w-36"
+          />
+          <p className="mt-1 text-xs text-ink-900/45">
+            Check-ins at or before this time are <strong>Present</strong>.
+            After this time are <strong>Absent</strong>.
+          </p>
+        </FieldGroup>
+      </fieldset>
+
+      {/* Working days */}
       <FieldGroup>
-        <Label htmlFor="gracePeriodMinutes">Grace period (minutes)</Label>
+        <Label>Grace period (minutes)</Label>
         <Input
-          id="gracePeriodMinutes"
-          name="gracePeriodMinutes"
+          id="graceMinutes"
+          name="graceMinutes"
           type="number"
           min="0"
-          max="120"
-          value={grace}
-          onChange={(e) => { setGrace(e.target.value); notify(e.target.value, halfDay, workingDays); }}
+          max="240"
+          value={graceMinutes}
+          onChange={(e) => {
+            const v = Math.max(0, Math.min(240, parseInt(e.target.value, 10) || 0));
+            setGraceMinutes(v);
+            notify(undefined, undefined, undefined, undefined, v);
+          }}
           required
           className="w-28"
         />
         <p className="mt-1 text-xs text-ink-900/45">
-          Minutes after shift start within which check-in is still <strong>Present</strong>.
-        </p>
-      </FieldGroup>
-
-      {/* Half-day threshold */}
-      <FieldGroup>
-        <Label htmlFor="halfDayThresholdMinutes">Half-day threshold (minutes, optional)</Label>
-        <Input
-          id="halfDayThresholdMinutes"
-          name="halfDayThresholdMinutes"
-          type="number"
-          min="1"
-          max="480"
-          value={halfDay}
-          onChange={(e) => { setHalfDay(e.target.value); notify(grace, e.target.value, workingDays); }}
-          placeholder="Leave blank to disable"
-          className="w-40"
-        />
-        <p className="mt-1 text-xs text-ink-900/45">
-          Minutes after the grace period cutoff at which a late arrival becomes{" "}
-          <strong>Half Day</strong>. Leave blank for Present / Late only.
+          Minutes after the deadline before auto-absence fires.
+          Check-ins within this window are marked <strong>Late</strong>.
+          Set to 0 to disable grace (deadline = detection time).
         </p>
       </FieldGroup>
 
@@ -188,7 +239,7 @@ export function AttendanceRulesForm({
 
       <div className="pt-1">
         <Button type="submit" disabled={isPending} size="md">
-          {isPending ? "Saving…" : "Save Rules"}
+          {isPending ? "Saving…" : "Save Policy"}
         </Button>
       </div>
     </form>
