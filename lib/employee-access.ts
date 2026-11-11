@@ -480,12 +480,10 @@ export function assertStatusChangeAllowed(
 /**
  * Verifies that an employee is safe to archive directly.
  *
- * ACTIVE employees must go through the offboarding workflow first.
+ * ACTIVE and ON_LEAVE employees must go through the offboarding workflow first.
+ * ONBOARDING employees can be archived directly (e.g. cancelled hire).
  * Terminal statuses (RESIGNED, TERMINATED, RETIRED, INACTIVE) can be archived
  * directly — they have already passed through the offboarding flow.
- *
- * ADMIN users with MANAGE_EMPLOYEES can force-archive any status for exceptional
- * administrative recovery, but it will be flagged in the error message.
  *
  * @param employeeId  The ID of the employee being archived.
  * @param callerRole  The role of the person calling archiveEmployee().
@@ -502,7 +500,7 @@ export async function assertArchiveSafe(
   if (!employee) throw new Error("Employee not found.");
   if (employee.deletedAt) throw new Error("Employee is already archived.");
 
-  const blockedStatuses = new Set(["ACTIVE", "ONBOARDING", "ON_LEAVE"]);
+  const blockedStatuses = new Set(["ACTIVE", "ON_LEAVE"]);
 
   if (blockedStatuses.has(employee.employmentStatus)) {
     // ADMIN can force-archive with a clear error explaining the situation,

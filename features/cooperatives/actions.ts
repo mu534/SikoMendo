@@ -51,6 +51,7 @@ export async function createCooperative(
 
     await logAudit(
       "CREATE",
+      "Cooperative",
       cooperative.id,
       { cooperativeId, name: cooperative.name, legalCertificateKey: asset.publicId },
       session?.user.id
@@ -78,7 +79,7 @@ export async function updateCooperative(
 
     await prisma.cooperative.update({ where: { id }, data: parsed.data });
 
-    await logAudit("UPDATE", id, parsed.data, session?.user.id);
+    await logAudit("UPDATE", "Cooperative", id, parsed.data, session?.user.id);
     revalidatePath("/cooperatives");
     revalidatePath(`/cooperatives/${id}`);
     return { id };
@@ -132,6 +133,7 @@ export async function uploadCooperativeCertificate(
 
     await logAudit(
       "UPLOAD_CERTIFICATE",
+      "Cooperative",
       id,
       { legalCertificateKey: asset.publicId, replaced: oldKey ?? null },
       session?.user.id
@@ -168,7 +170,7 @@ export async function archiveCooperative(id: string): Promise<ActionResult<{ id:
 
   return withPermission(session, "MANAGE_COOPERATIVES", async () => {
     await prisma.cooperative.update({ where: { id }, data: { deletedAt: new Date() } });
-    await logAudit("ARCHIVE", id, {}, session?.user.id);
+    await logAudit("ARCHIVE", "Cooperative", id, {}, session?.user.id);
     revalidatePath("/cooperatives");
     return { id };
   });
@@ -179,7 +181,7 @@ export async function restoreCooperative(id: string): Promise<ActionResult<{ id:
 
   return withPermission(session, "MANAGE_COOPERATIVES", async () => {
     await prisma.cooperative.update({ where: { id }, data: { deletedAt: null } });
-    await logAudit("RESTORE", id, {}, session?.user.id);
+    await logAudit("RESTORE", "Cooperative", id, {}, session?.user.id);
     revalidatePath("/cooperatives");
     return { id };
   });
