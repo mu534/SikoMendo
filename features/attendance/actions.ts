@@ -116,7 +116,7 @@ export async function upsertAttendance(
       },
     });
 
-    await logAudit("UPSERT", record.id, { employeeId, date, status }, session?.user.id);
+    await logAudit("UPSERT", "Attendance", record.id, { employeeId, date, status }, session?.user.id);
     revalidatePath("/attendance");
     return { id: record.id };
   });
@@ -177,7 +177,7 @@ export async function markUnmarkedPresent(
           recordedById: session?.user.id,
         })),
       });
-      await logAudit("BULK_MARK_PRESENT", date, { count: toMark.length }, session?.user.id);
+      await logAudit("BULK_MARK_PRESENT", "Attendance", date, { count: toMark.length }, session?.user.id);
     }
 
     revalidatePath("/attendance");

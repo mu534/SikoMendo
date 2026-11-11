@@ -30,7 +30,7 @@ export async function updateDepartment(
     if (!existing) throw new Error("Department not found.");
 
     await prisma.department.update({ where: { id }, data: parsed.data });
-    await logAudit("UPDATE", id, parsed.data, session?.user.id);
+    await logAudit("UPDATE", "Department", id, parsed.data, session?.user.id);
 
     revalidatePath("/departments");
     revalidatePath(`/departments/${id}`);
@@ -75,7 +75,7 @@ export async function setDepartmentActive(id: string, isActive: boolean): Promis
       }
     }
 
-    await logAudit(isActive ? "ACTIVATE" : "DEACTIVATE", id, { isActive }, session?.user.id);
+    await logAudit(isActive ? "ACTIVATE" : "DEACTIVATE", "Department", id, { isActive }, session?.user.id);
 
     revalidatePath("/departments");
     revalidatePath(`/departments/${id}`);

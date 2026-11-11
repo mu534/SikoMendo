@@ -49,6 +49,7 @@ export async function createContract(
 
     await logAudit(
       "CREATE",
+      "Contract",
       contract.id,
       { contractType: parsed.data.contractType, startDate: parsed.data.startDate },
       session?.user.id
@@ -89,7 +90,7 @@ export async function terminateContract(
       data: { status: "TERMINATED", endDate: full.endDate ?? new Date() },
     });
 
-    await logAudit("TERMINATE", contractId, { terminatedBy: session?.user.name }, session?.user.id);
+    await logAudit("TERMINATE", "Contract", contractId, { terminatedBy: session?.user.name }, session?.user.id);
 
     revalidatePath(`/employees/${employeeId}`);
     return { id: contractId };

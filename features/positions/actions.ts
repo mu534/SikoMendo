@@ -40,7 +40,7 @@ export async function createPosition(
     await assertNameNotTakenInDepartment(parsed.data.departmentId, parsed.data.name);
 
     const position = await prisma.position.create({ data: parsed.data });
-    await logAudit("CREATE", position.id, { name: position.name, department: department.name }, session?.user.id);
+    await logAudit("CREATE", "Position", position.id, { name: position.name, department: department.name }, session?.user.id);
 
     revalidatePath(`/departments/${parsed.data.departmentId}`);
     return { id: position.id };
@@ -66,7 +66,7 @@ export async function updatePosition(
     await assertNameNotTakenInDepartment(parsed.data.departmentId, parsed.data.name, id);
 
     await prisma.position.update({ where: { id }, data: parsed.data });
-    await logAudit("UPDATE", id, parsed.data, session?.user.id);
+    await logAudit("UPDATE", "Position", id, parsed.data, session?.user.id);
 
     revalidatePath(`/departments/${parsed.data.departmentId}`);
     return { id };

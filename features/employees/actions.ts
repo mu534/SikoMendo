@@ -199,6 +199,7 @@ export async function createEmployee(
 
       await logAudit(
         "CREATE",
+        "Employee",
         employee.id,
         { employeeId, name: `${employee.firstName} ${employee.lastName}` },
         userId
@@ -338,7 +339,7 @@ export async function updateEmployee(
       await deleteFromCloudinary(existing.profileImageKey, "image").catch(() => {/* non-fatal */});
     }
 
-    await logAudit("UPDATE", id, { updatedBy: session?.user.name }, userId);
+    await logAudit("UPDATE", "Employee", id, { updatedBy: session?.user.name }, userId);
 
     revalidatePath("/[lang]/employees", "page");
     revalidatePath("/[lang]/employees/[id]", "page");
@@ -398,7 +399,7 @@ export async function archiveEmployee(id: string): Promise<ActionResult<{ id: st
       });
     }, { isolationLevel: "Serializable" });
 
-    await logAudit("ARCHIVE", id, { archivedBy: session?.user.name }, session?.user.id);
+    await logAudit("ARCHIVE", "Employee", id, { archivedBy: session?.user.name }, session?.user.id);
     revalidatePath("/[lang]/employees", "page");
     return { id };
   });
@@ -409,7 +410,7 @@ export async function restoreEmployee(id: string): Promise<ActionResult<{ id: st
   return withPermission(session, "MANAGE_EMPLOYEES", async () => {
     await assertRestoreSafe(id);
     await prisma.employee.update({ where: { id }, data: { deletedAt: null } });
-    await logAudit("RESTORE", id, { restoredBy: session?.user.name }, session?.user.id);
+    await logAudit("RESTORE", "Employee", id, { restoredBy: session?.user.name }, session?.user.id);
     revalidatePath("/[lang]/employees", "page");
     return { id };
   });
