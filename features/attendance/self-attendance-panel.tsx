@@ -12,6 +12,7 @@ import {
   CalendarDays,
   Sun,
   Sunset,
+  CalendarOff,
 } from "lucide-react";
 import { selfCheckIn, selfCheckOut } from "./self-actions";
 import { Badge } from "@/components/ui/badge";
@@ -70,6 +71,7 @@ function SessionCard({
   sessionLabel,
   sessionKey,
   record,
+  onLeaveToday,
   checkInAction,
   checkInPending,
   checkInError,
@@ -81,6 +83,7 @@ function SessionCard({
   sessionLabel: string;
   sessionKey: "MORNING" | "AFTERNOON";
   record: SessionRecord;
+  onLeaveToday: boolean;
   checkInAction: () => void;
   checkInPending: boolean;
   checkInError: string | null;
@@ -94,7 +97,8 @@ function SessionCard({
 
   const hasCheckedIn  = !!record?.checkIn;
   const hasCheckedOut = !!record?.checkOut;
-  const isOnLeave     = record?.status === "ON_LEAVE";
+  // ON_LEAVE is true when the DB row says so OR when the page confirmed today is leave
+  const isOnLeave     = record?.status === "ON_LEAVE" || onLeaveToday;
   const isHoliday     = record?.status === "HOLIDAY";
 
   return (
@@ -106,7 +110,10 @@ function SessionCard({
             {icon}
             <h4 className="font-display text-sm font-semibold text-ink-900">{sessionLabel}</h4>
           </div>
-          {record ? (
+          {/* Show ON_LEAVE badge even when no DB row exists yet */}
+          {isOnLeave && !record ? (
+            <Badge tone="brand">{t("statuses.ON_LEAVE")}</Badge>
+          ) : record ? (
             <Badge tone={STATUS_TONE[record.status] ?? "neutral"}>
               {t(`statuses.${record.status as "PRESENT" | "LATE" | "HALF_DAY" | "EXCUSED" | "ON_LEAVE" | "ABSENT" | "HOLIDAY"}`)}
             </Badge>
@@ -127,6 +134,16 @@ function SessionCard({
                 <p className="mt-0.5 font-medium text-ink-900">{fmtTime(record?.checkOut)}</p>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Leave notice — shown instead of action buttons */}
+        {isOnLeave && (
+          <div className="mt-4 flex items-start gap-2 rounded-lg bg-brand-50 px-3 py-2.5">
+            <CalendarOff className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
+            <p className="text-xs text-brand-700">
+              You are on approved leave today. No check-in is required.
+            </p>
           </div>
         )}
 
@@ -156,10 +173,10 @@ function SessionCard({
             )}
 
             {checkInError && (
-              <p role="alert" className="text-xs text-red-600">{checkInError}</p>
+              <p role="alert" className="w-full text-xs text-red-600">{checkInError}</p>
             )}
             {checkOutError && (
-              <p role="alert" className="text-xs text-red-600">{checkOutError}</p>
+              <p role="alert" className="w-full text-xs text-red-600">{checkOutError}</p>
             )}
           </div>
         )}
@@ -174,10 +191,12 @@ function TodaySessions({
   todayStr,
   morningRecord,
   afternoonRecord,
+  onLeaveToday,
 }: {
   todayStr: string;
   morningRecord: SessionRecord;
   afternoonRecord: SessionRecord;
+  onLeaveToday: boolean;
 }) {
   const [checkInState,  checkInAction,  checkInPending]  = useActionState(selfCheckIn, null);
   const checkOutMorning   = selfCheckOut.bind(null, "MORNING");
@@ -191,6 +210,12 @@ function TodaySessions({
     weekday: "long", day: "2-digit", month: "long", year: "numeric",
   });
 
+  // The shared check-in action covers both sessions; show its error on whichever
+  // card the user tried (or on both if ambiguous — better than showing none).
+  const checkInError = checkInState && !checkInState.success
+    ? checkInState.error.message
+    : null;
+
   return (
     <div>
       <p className="mb-3 text-sm font-medium text-ink-900/60">{displayDate}</p>
@@ -199,9 +224,10 @@ function TodaySessions({
           sessionLabel={t("morningSession")}
           sessionKey="MORNING"
           record={morningRecord}
+          onLeaveToday={onLeaveToday}
           checkInAction={checkInAction as () => void}
           checkInPending={checkInPending}
-          checkInError={checkInState && !checkInState.success ? checkInState.error.message : null}
+          checkInError={checkInError}
           checkOutAction={checkOutMorningAction as () => void}
           checkOutPending={checkOutMorningPending}
           checkOutError={checkOutMorningState && !checkOutMorningState.success ? checkOutMorningState.error.message : null}
@@ -211,9 +237,10 @@ function TodaySessions({
           sessionLabel={t("afternoonSession")}
           sessionKey="AFTERNOON"
           record={afternoonRecord}
+          onLeaveToday={onLeaveToday}
           checkInAction={checkInAction as () => void}
           checkInPending={checkInPending}
-          checkInError={null}
+          checkInError={checkInError}
           checkOutAction={checkOutAfternoonAction as () => void}
           checkOutPending={checkOutAfternoonPending}
           checkOutError={checkOutAfternoonState && !checkOutAfternoonState.success ? checkOutAfternoonState.error.message : null}
@@ -230,6 +257,7 @@ export function SelfAttendancePanel({
   todayStr,
   morningRecord,
   afternoonRecord,
+  onLeaveToday,
   stats,
   historyItems,
   historyTotal,
@@ -244,6 +272,7 @@ export function SelfAttendancePanel({
   todayStr: string;
   morningRecord: SessionRecord;
   afternoonRecord: SessionRecord;
+  onLeaveToday: boolean;
   stats: AttendanceStats | null;
   historyItems: HistoryItem[];
   historyTotal: number;
@@ -285,6 +314,7 @@ export function SelfAttendancePanel({
         todayStr={todayStr}
         morningRecord={morningRecord}
         afternoonRecord={afternoonRecord}
+        onLeaveToday={onLeaveToday}
       />
 
       {stats && (

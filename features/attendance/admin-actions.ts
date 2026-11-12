@@ -26,8 +26,42 @@ import { getOrgLocalDateString, parseDateOnly, getServerNow } from "@/lib/attend
 import {
   routeCheckInToSession,
   evaluateSessionCheckIn,
+  isWorkingDay,
 } from "@/lib/attendance-policy";
 import { getAttendancePolicy } from "./policy-queries";
+import { isHolidayDate } from "./calendar-queries";
+
+// ── Shared: working-day + holiday guard ───────────────────────────────────
+
+/**
+ * Throws a descriptive error when `dateStr` is a non-working weekday (per
+ * policy) or a configured holiday (per AttendanceCalendar).
+ * Admin-specific message — does not block absence corrections or check-outs.
+ */
+async function assertAttendanceDateAllowed(
+  dateStr: string,
+  policy: Awaited<ReturnType<typeof getAttendancePolicy>>
+): Promise<void> {
+  if (!isWorkingDay(dateStr, policy)) {
+    const DAY_NAMES = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    const d = new Date(`${dateStr}T00:00:00.000Z`);
+    const dow = d.getUTCDay();
+    const dayName = DAY_NAMES[dow === 0 ? 7 : dow] ?? "this day";
+    throw new Error(
+      `${dateStr} is a ${dayName} — a non-working day per the attendance policy. ` +
+      "Adjust the working days in Attendance Policy if this date should be counted, " +
+      "or use the absence correction form for an exceptional case."
+    );
+  }
+
+  const holiday = await isHolidayDate(dateStr);
+  if (holiday) {
+    throw new Error(
+      `${dateStr} is a configured holiday. No attendance records should be created on holidays. ` +
+      "Remove the holiday from the Attendance Calendar first if attendance is required on this date."
+    );
+  }
+}
 
 // ── Shared audit helper ────────────────────────────────────────────────────
 
@@ -147,6 +181,9 @@ export async function adminCheckIn(
 
     // Server-derive session from the check-in timestamp
     const policy   = await getAttendancePolicy();
+
+    // Block on non-working days and holidays
+    await assertAttendanceDateAllowed(dateInput, policy);
     const attendanceSession = routeCheckInToSession(checkInTs, policy);
 
     // Check for existing row for (employeeId, date, session)

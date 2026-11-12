@@ -9,9 +9,11 @@ import { getOrgLocalDateString, getServerNow, parseDateOnly } from "@/lib/attend
 import {
   routeCheckInToSession,
   evaluateSessionCheckIn,
+  isWorkingDay,
   type AttendanceSession,
 } from "@/lib/attendance-policy";
 import { getAttendancePolicy } from "./policy-queries";
+import { isHolidayDate } from "./calendar-queries";
 
 // ── Resolve employee from session — NEVER from client input ─────────────────
 
@@ -97,11 +99,33 @@ export async function selfCheckIn(): Promise<ActionResult<{ id: string }>> {
       );
     }
 
+    // Load active policy (needed for working-day check and session routing)
+    const policy = await getAttendancePolicy();
+
+    // Block check-in on non-working weekdays (per attendance policy)
+    if (!isWorkingDay(todayStr, policy)) {
+      const DAY_NAMES = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+      const d = new Date(`${todayStr}T00:00:00.000Z`);
+      const dow = d.getUTCDay();
+      const dayName = DAY_NAMES[dow === 0 ? 7 : dow] ?? "today";
+      throw new Error(
+        `Today (${dayName}) is not a working day. ` +
+        "No attendance is required. Please come back on a working day."
+      );
+    }
+
+    // Block check-in on configured holidays (attendance calendar)
+    const holiday = await isHolidayDate(todayStr);
+    if (holiday) {
+      throw new Error(
+        "Today is a public holiday. No attendance is required. " +
+        "Enjoy your day off and come back on the next working day."
+      );
+    }
+
     // Server timestamp — never from client
     const now = getServerNow();
 
-    // Load active policy and derive session from time of day
-    const policy = await getAttendancePolicy();
     const attendanceSession = routeCheckInToSession(now, policy);
 
     // Check for existing row for (employeeId, date, session)

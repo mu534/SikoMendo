@@ -11,8 +11,33 @@ import {
   combineDateAndTime,
 } from "./schemas";
 import { parseDateOnly } from "@/lib/attendance-date";
-import { routeCheckInToSession } from "@/lib/attendance-policy";
+import { routeCheckInToSession, isWorkingDay } from "@/lib/attendance-policy";
 import { getAttendancePolicy } from "./policy-queries";
+import { isHolidayDate } from "./calendar-queries";
+
+// ── Shared: working-day + holiday guard ───────────────────────────────────
+
+async function assertAttendanceDateAllowed(
+  dateStr: string,
+  policy: Awaited<ReturnType<typeof getAttendancePolicy>>
+): Promise<void> {
+  if (!isWorkingDay(dateStr, policy)) {
+    const DAY_NAMES = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    const d = new Date(`${dateStr}T00:00:00.000Z`);
+    const dow = d.getUTCDay();
+    const dayName = DAY_NAMES[dow === 0 ? 7 : dow] ?? "this day";
+    throw new Error(
+      `${dateStr} is a ${dayName} — a non-working day per the attendance policy. ` +
+      "Adjust working days in Attendance Policy or use the absence correction form for exceptional cases."
+    );
+  }
+  const holiday = await isHolidayDate(dateStr);
+  if (holiday) {
+    throw new Error(
+      `${dateStr} is a configured holiday. Remove it from the Attendance Calendar first if attendance is required on this date.`
+    );
+  }
+}
 
 // ── Shared: approved-leave check ──────────────────────────────────────────
 
@@ -94,7 +119,11 @@ export async function upsertAttendance(
       }
     }
 
-    // combineDateAndTime interprets time as UTC not EAT — pre-existing behaviour, tracked separately.
+    // Block on non-working days and holidays
+    const policy = await getAttendancePolicy();
+    await assertAttendanceDateAllowed(date, policy);
+
+    // combineDateAndTime interprets time as EAT (UTC+3) — fixed in schemas.ts
     const checkInValue  = combineDateAndTime(date, checkIn);
     const checkOutValue = combineDateAndTime(date, checkOut);
 
@@ -102,7 +131,6 @@ export async function upsertAttendance(
     // use form-supplied session (defaults to MORNING for status-only entries).
     let attendanceSession: "MORNING" | "AFTERNOON";
     if (checkInValue) {
-      const policy = await getAttendancePolicy();
       attendanceSession = routeCheckInToSession(checkInValue, policy);
     } else {
       attendanceSession = (formSession ?? "MORNING") as "MORNING" | "AFTERNOON";
@@ -166,6 +194,10 @@ export async function markUnmarkedPresent(
 
   return withPermission(session, "MANAGE_ATTENDANCE", async () => {
     const dateValue = parseDateOnly(date);
+
+    // Block bulk-mark on non-working days and holidays
+    const policy = await getAttendancePolicy();
+    await assertAttendanceDateAllowed(date, policy);
 
     // Drop archived employees
     const activeEmployees = await prisma.employee.findMany({
