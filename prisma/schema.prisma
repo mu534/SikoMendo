@@ -88,6 +88,15 @@ enum AttendanceStatus {
   HALF_DAY
   EXCUSED
   ON_LEAVE
+  HOLIDAY
+}
+
+enum CalendarType {
+  PUBLIC_HOLIDAY
+  RELIGIOUS_HOLIDAY
+  ORG_HOLIDAY
+  SPECIAL_NON_WORKING
+  SPECIAL_WORKING
 }
 
 enum AttendanceSession {
@@ -192,6 +201,8 @@ model User {
   recordedEmploymentChanges EmploymentHistory[] @relation("EmploymentChangeRecordedBy")
   // Backup back-relation
   createdBackups          BackupRecord[]      @relation("BackupCreatedBy")
+  // Calendar entries created by this user
+  attendanceCalendars     AttendanceCalendar[] @relation("CalendarCreatedBy")
 
   @@map("user")
 }
@@ -757,7 +768,14 @@ model AttendancePolicy {
   /// Check-ins within grace → LATE. Check-ins after grace → ABSENT.
   /// Auto-absence detection fires at deadline + graceMinutes, not at the deadline.
   /// Min 0 (no grace), max 240 (4 hours). Default: 15 minutes.
-  graceMinutes Int @default(15)
+  /// @deprecated Use morningGraceMinutes / afternoonGraceMinutes instead.
+  graceMinutes Int?
+
+  /// Grace period (minutes) for the morning session. Default: 15.
+  morningGraceMinutes Int @default(15)
+
+  /// Grace period (minutes) for the afternoon session. Default: 15.
+  afternoonGraceMinutes Int @default(15)
 
   /// Working days as a JSON array of ISO weekday numbers 1=Mon…7=Sun.
   /// Stored as a plain string to avoid a Json column. Default: Mon–Fri.
@@ -892,4 +910,23 @@ model BackupRecord {
   @@index([createdById])
   @@index([createdAt])
   @@map("backup_record")
+}
+// ─── Attendance Calendar ──────────────────────────────────────────────────────
+/// Configures public holidays, religious holidays, org-specific non-working
+/// and special working days. Each row is one calendar entry for one date.
+/// Absence detection checks this table before creating auto-ABSENT records.
+model AttendanceCalendar {
+  id           String       @id @default(cuid())
+  date         DateTime     @db.Date
+  name         String
+  calendarType CalendarType
+  description  String?
+  isWorkingDay Boolean      @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  createdBy   User?    @relation("CalendarCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  @@unique([date])
+  @@index([date])
+  @@map("attendance_calendar")
 }

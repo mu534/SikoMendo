@@ -30,7 +30,8 @@ export const DEFAULT_POLICY: PolicyValues = {
   morningCheckInDeadline:   "08:15",
   afternoonStartTime:       "13:00",
   afternoonCheckInDeadline: "13:15",
-  graceMinutes:             15,
+  morningGraceMinutes:      15,
+  afternoonGraceMinutes:    15,
   workingDays:              [1, 2, 3, 4, 5],
   isActive:                 true,
 };
@@ -40,7 +41,10 @@ export type PolicyValues = {
   morningCheckInDeadline:   string; // "HH:MM"
   afternoonStartTime:       string; // "HH:MM"
   afternoonCheckInDeadline: string; // "HH:MM"
-  graceMinutes:             number; // minutes after deadline where check-in → LATE
+  morningGraceMinutes:      number; // grace period (minutes) for the morning session
+  afternoonGraceMinutes:    number; // grace period (minutes) for the afternoon session
+  /** @deprecated Use morningGraceMinutes / afternoonGraceMinutes instead. */
+  graceMinutes?:            number;
   workingDays:              number[]; // ISO weekday 1=Mon … 7=Sun
   isActive:                 boolean;
 };
@@ -123,8 +127,11 @@ export function evaluateSessionCheckIn(
       ? policy.morningCheckInDeadline
       : policy.afternoonCheckInDeadline
   );
+  const graceMin = session === "MORNING"
+    ? policy.morningGraceMinutes
+    : policy.afternoonGraceMinutes;
   if (checkInMin <= deadlineMin) return "PRESENT";
-  if (checkInMin <= deadlineMin + policy.graceMinutes) return "LATE";
+  if (checkInMin <= deadlineMin + graceMin) return "LATE";
   return "ABSENT";
 }
 
@@ -142,7 +149,10 @@ export function detectionThresholdMinutes(
       ? policy.morningCheckInDeadline
       : policy.afternoonCheckInDeadline
   );
-  return deadlineMin + policy.graceMinutes;
+  const graceMin = session === "MORNING"
+    ? policy.morningGraceMinutes
+    : policy.afternoonGraceMinutes;
+  return deadlineMin + graceMin;
 }
 
 /**
@@ -176,7 +186,9 @@ export function normalisePolicyRow(row: {
   morningCheckInDeadline:   string;
   afternoonStartTime:       string;
   afternoonCheckInDeadline: string;
-  graceMinutes:             number;
+  morningGraceMinutes:      number;
+  afternoonGraceMinutes:    number;
+  graceMinutes?:            number | null;
   workingDays:              string;
   isActive:                 boolean;
 }): PolicyValues {
@@ -195,7 +207,8 @@ export function normalisePolicyRow(row: {
     morningCheckInDeadline:   row.morningCheckInDeadline,
     afternoonStartTime:       row.afternoonStartTime,
     afternoonCheckInDeadline: row.afternoonCheckInDeadline,
-    graceMinutes:             Math.max(0, row.graceMinutes ?? 15),
+    morningGraceMinutes:      Math.max(0, row.morningGraceMinutes ?? row.graceMinutes ?? 15),
+    afternoonGraceMinutes:    Math.max(0, row.afternoonGraceMinutes ?? row.graceMinutes ?? 15),
     workingDays,
     isActive:                 row.isActive,
   };

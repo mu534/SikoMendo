@@ -8,7 +8,7 @@ const optionalTime = z
 export const attendanceEntrySchema = z.object({
   employeeId: z.string().min(1),
   date: z.string().min(1), // "YYYY-MM-DD"
-  status: z.enum(["PRESENT", "ABSENT", "LATE", "HALF_DAY", "EXCUSED", "ON_LEAVE"]),
+  status: z.enum(["PRESENT", "ABSENT", "LATE", "HALF_DAY", "EXCUSED", "ON_LEAVE", "HOLIDAY"]),
   session: z.enum(["MORNING", "AFTERNOON"]).optional(),
   checkIn: optionalTime,
   checkOut: optionalTime,
@@ -35,10 +35,12 @@ export function attendanceFormDataToObject(formData: FormData) {
 /**
  * Combines a "YYYY-MM-DD" date with an "HH:mm" time into a Date, or null.
  *
- * combineDateAndTime interprets time as UTC not EAT — pre-existing behaviour,
- * tracked separately.
+ * The input time is interpreted as EAT (Africa/Addis_Ababa, UTC+3) so that
+ * a manually entered "08:00" is stored as 05:00 UTC — matching how live
+ * check-in timestamps are stored. Without the +03:00 suffix the runtime
+ * would treat the time as UTC, causing a 3-hour drift in evaluateSessionCheckIn.
  */
 export function combineDateAndTime(dateStr: string, time: string | null): Date | null {
   if (!time) return null;
-  return new Date(`${dateStr}T${time}:00`);
+  return new Date(`${dateStr}T${time}:00+03:00`);
 }

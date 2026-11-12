@@ -5,6 +5,46 @@ import prisma from "@/lib/prisma";
 import type { LeaveStatusValue, LeaveTypeValue } from "@/features/leave/schemas";
 import type { ReportType, ReportFormat, Prisma } from "@prisma/client";
 
+// ── Day-status helper (mirrors queries.ts getDayStatus without DB) ────────────
+
+/**
+ * Local implementation of getDayStatus for use in report building.
+ * Mirrors the logic in features/attendance/queries.ts getDayStatus.
+ */
+function getDayStatusForReport(
+  attendances: Array<{ status: string; session: string }>
+): string {
+  if (attendances.length === 0) return "ABSENT";
+  const statuses = attendances.map((a) => a.status);
+  if (statuses.includes("ON_LEAVE")) return "ON_LEAVE";
+  if (statuses.includes("HOLIDAY"))  return "HOLIDAY";
+
+  const morningRecord   = attendances.find((a) => a.session === "MORNING");
+  const afternoonRecord = attendances.find((a) => a.session === "AFTERNOON");
+
+  const mStatus = morningRecord?.status   ?? "ABSENT";
+  const aStatus = afternoonRecord?.status ?? "ABSENT";
+
+  const isPresent = (s: string) => s === "PRESENT";
+  const isLate    = (s: string) => s === "LATE";
+  const isAbsent  = (s: string) => s === "ABSENT";
+
+  if ((isPresent(mStatus) || isLate(mStatus)) && (isPresent(aStatus) || isLate(aStatus))) {
+    return (isLate(mStatus) || isLate(aStatus)) ? "LATE" : "PRESENT";
+  }
+  if (
+    (isPresent(mStatus) || isLate(mStatus)) && isAbsent(aStatus) ||
+    isAbsent(mStatus) && (isPresent(aStatus) || isLate(aStatus))
+  ) {
+    return "HALF_DAY";
+  }
+  if (isAbsent(mStatus) && isAbsent(aStatus)) return "ABSENT";
+
+  if (statuses.includes("EXCUSED"))  return "EXCUSED";
+  if (statuses.includes("HALF_DAY")) return "HALF_DAY";
+  return statuses[0] ?? "ABSENT";
+}
+
 // ── Filter types ─────────────────────────────────────────────────────────────
 
 export type ReportFilters = {
@@ -174,6 +214,7 @@ const REPORT_STRINGS: Record<"en" | "om", ReportStrings> = {
         HALF_DAY: "Half Day",
         EXCUSED: "Excused",
         ON_LEAVE: "On Leave",
+        HOLIDAY: "Holiday",
       },
       cooperativeStatus: {
         active: "Active",
@@ -270,6 +311,7 @@ const REPORT_STRINGS: Record<"en" | "om", ReportStrings> = {
         HALF_DAY: "Walakkaa Guyyaa",
         EXCUSED: "Hayyamame",
         ON_LEAVE: "Hayyama Irra",
+        HOLIDAY: "Ayyaana",
       },
       cooperativeStatus: {
         active: "Socho\u2019aa",
@@ -452,7 +494,8 @@ async function buildAttendanceSummaryContent(
 
   if (filters.employeeId) andClauses.push({ employeeId: filters.employeeId });
   if (filters.departmentId) andClauses.push({ employee: { departmentId: filters.departmentId } });
-  if (filters.attendanceStatus) andClauses.push({ status: filters.attendanceStatus as Prisma.EnumAttendanceStatusFilter["equals"] });
+  // Note: attendanceStatus filter is applied after grouping, not in the DB query
+  // (we need all sessions to derive the day status, then filter the result).
 
   const dateRange = resolveDateRange(filters);
   if (dateRange.gte || dateRange.lte) {
@@ -474,8 +517,93 @@ async function buildAttendanceSummaryContent(
         },
       },
     },
-    orderBy: [{ date: "desc" }, { employee: { firstName: "asc" } }],
+    orderBy: [{ date: "desc" }, { employee: { firstName: "asc" } }, { session: "asc" }],
   });
+
+  // ── Group by (employeeId, date) ───────────────────────────────────────────
+  // Map: employeeId → Map: dateStr → attendance rows[]
+  const grouped = new Map<string, Map<string, typeof records>>();
+  for (const r of records) {
+    const dateStr = r.date.toISOString().slice(0, 10);
+    let empMap = grouped.get(r.employeeId);
+    if (!empMap) {
+      empMap = new Map();
+      grouped.set(r.employeeId, empMap);
+    }
+    const dateRows = empMap.get(dateStr) ?? [];
+    dateRows.push(r);
+    empMap.set(dateStr, dateRows);
+  }
+
+  // ── Build one row per (employeeId, date) ──────────────────────────────────
+  type DayRow = {
+    dateStr: string;
+    employeeId: string;
+    name: string;
+    department: string;
+    dayStatus: string;
+    checkIn: string;
+    checkOut: string;
+    notes: string;
+  };
+
+  const dayRows: DayRow[] = [];
+  for (const [, dateMap] of grouped) {
+    for (const [dateStr, sessionRows] of dateMap) {
+      const firstRow = sessionRows[0]!;
+      const emp = firstRow.employee;
+
+      // Derive consolidated day status using the same getDayStatus logic
+      const attendancesForStatus = sessionRows.map((r) => ({
+        status:  r.status as string,
+        session: r.session as string,
+      }));
+      const dayStatus = getDayStatusForReport(attendancesForStatus);
+
+      // Check-in: use MORNING session's checkIn
+      const morningRow   = sessionRows.find((r) => r.session === "MORNING");
+      const afternoonRow = sessionRows.find((r) => r.session === "AFTERNOON");
+
+      const checkIn  = morningRow?.checkIn
+        ? morningRow.checkIn.toISOString().slice(11, 16)
+        : (sessionRows[0]?.checkIn ? sessionRows[0].checkIn.toISOString().slice(11, 16) : "—");
+
+      // Check-out: prefer AFTERNOON session's checkOut, fall back to MORNING
+      const checkOut = afternoonRow?.checkOut
+        ? afternoonRow.checkOut.toISOString().slice(11, 16)
+        : morningRow?.checkOut
+          ? morningRow.checkOut.toISOString().slice(11, 16)
+          : "—";
+
+      const notes = sessionRows
+        .map((r) => r.notes)
+        .filter(Boolean)
+        .join("; ") || "—";
+
+      dayRows.push({
+        dateStr,
+        employeeId: emp.employeeId,
+        name:       `${emp.firstName} ${emp.lastName}`,
+        department: emp.department?.name ?? "—",
+        dayStatus,
+        checkIn,
+        checkOut,
+        notes,
+      });
+    }
+  }
+
+  // Sort by date desc, then employee name
+  dayRows.sort((a, b) => {
+    const dateDiff = b.dateStr.localeCompare(a.dateStr);
+    if (dateDiff !== 0) return dateDiff;
+    return a.name.localeCompare(b.name);
+  });
+
+  // Apply attendanceStatus filter (day-level) after consolidation
+  const filteredRows = filters.attendanceStatus
+    ? dayRows.filter((r) => r.dayStatus === filters.attendanceStatus)
+    : dayRows;
 
   const descParts: string[] = [];
   if (filters.departmentId) descParts.push("department filter");
@@ -505,25 +633,25 @@ async function buildAttendanceSummaryContent(
       strings.headers.checkOut,
       strings.headers.notes,
     ],
-    rows: records.map((a) => [
-      a.date.toISOString().slice(0, 10),
-      a.employee.employeeId,
-      `${a.employee.firstName} ${a.employee.lastName}`,
-      a.employee.department?.name ?? "—",
-      strings.statusLabels.attendanceStatus[a.status] ?? a.status.replace(/_/g, " "),
-      a.checkIn ? a.checkIn.toISOString().slice(11, 16) : "—",
-      a.checkOut ? a.checkOut.toISOString().slice(11, 16) : "—",
-      a.notes ?? "—",
+    rows: filteredRows.map((r) => [
+      r.dateStr,
+      r.employeeId,
+      r.name,
+      r.department,
+      strings.statusLabels.attendanceStatus[r.dayStatus] ?? r.dayStatus.replace(/_/g, " "),
+      r.checkIn,
+      r.checkOut,
+      r.notes,
     ]),
     parameters: {
-      totalRecords: records.length,
+      totalRecords: filteredRows.length,
       filters: {
-        employeeId: filters.employeeId,
-        departmentId: filters.departmentId,
+        employeeId:       filters.employeeId,
+        departmentId:     filters.departmentId,
         attendanceStatus: filters.attendanceStatus,
-        year: filters.year,
-        startDate: filters.startDate,
-        endDate: filters.endDate,
+        year:             filters.year,
+        startDate:        filters.startDate,
+        endDate:          filters.endDate,
       },
     },
   };

@@ -35,7 +35,8 @@ type PolicyRow = {
   morningCheckInDeadline:   string;
   afternoonStartTime:       string;
   afternoonCheckInDeadline: string;
-  graceMinutes:             number;
+  morningGraceMinutes:      number;
+  afternoonGraceMinutes:    number;
   workingDays:              string;
 } | null;
 
@@ -60,7 +61,8 @@ export function PolicyPageClient({ policy, allShifts, activeShifts }: Props) {
     morningCheckInDeadline:   policy?.morningCheckInDeadline   ?? "08:15",
     afternoonStartTime:       policy?.afternoonStartTime       ?? "13:00",
     afternoonCheckInDeadline: policy?.afternoonCheckInDeadline ?? "13:15",
-    graceMinutes:             policy?.graceMinutes             ?? 15,
+    morningGraceMinutes:      policy?.morningGraceMinutes      ?? 15,
+    afternoonGraceMinutes:    policy?.afternoonGraceMinutes    ?? 15,
     workingDays:              parseWorkingDays(policy?.workingDays),
   };
 
@@ -125,13 +127,23 @@ export function PolicyPageClient({ policy, allShifts, activeShifts }: Props) {
               <dd className="font-medium text-ink-900">{fmtTime(liveRules.afternoonCheckInDeadline)}</dd>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <dt className="text-ink-900/55">Grace period</dt>
+              <dt className="text-ink-900/55">Morning grace</dt>
               <dd className="font-medium text-ink-900">
-                {liveRules.graceMinutes === 0
+                {liveRules.morningGraceMinutes === 0
                   ? "None"
-                  : liveRules.graceMinutes >= 60
-                  ? `${Math.floor(liveRules.graceMinutes / 60)}h ${liveRules.graceMinutes % 60 > 0 ? `${liveRules.graceMinutes % 60}m` : ""}`.trim()
-                  : `${liveRules.graceMinutes} min`}
+                  : liveRules.morningGraceMinutes >= 60
+                  ? `${Math.floor(liveRules.morningGraceMinutes / 60)}h ${liveRules.morningGraceMinutes % 60 > 0 ? `${liveRules.morningGraceMinutes % 60}m` : ""}`.trim()
+                  : `${liveRules.morningGraceMinutes} min`}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <dt className="text-ink-900/55">Afternoon grace</dt>
+              <dd className="font-medium text-ink-900">
+                {liveRules.afternoonGraceMinutes === 0
+                  ? "None"
+                  : liveRules.afternoonGraceMinutes >= 60
+                  ? `${Math.floor(liveRules.afternoonGraceMinutes / 60)}h ${liveRules.afternoonGraceMinutes % 60 > 0 ? `${liveRules.afternoonGraceMinutes % 60}m` : ""}`.trim()
+                  : `${liveRules.afternoonGraceMinutes} min`}
               </dd>
             </div>
             <div className="flex items-center justify-between text-sm">

@@ -55,6 +55,7 @@ const ATTENDANCE_STATUS_VALUES = [
   "HALF_DAY",
   "EXCUSED",
   "ON_LEAVE",
+  "HOLIDAY",
 ] as const;
 
 // Build a list of recent years for the year filter (current year and 4 prior)

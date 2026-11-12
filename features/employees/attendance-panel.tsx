@@ -51,6 +51,7 @@ export async function AttendancePanel({
     ABSENT:   { tone: "danger"  as const, icon: XCircle      },
     ON_LEAVE: { tone: "brand"   as const, icon: Clock        },
     EXCUSED:  { tone: "neutral" as const, icon: CheckCircle2 },
+    HOLIDAY:  { tone: "neutral" as const, icon: Clock        },
   };
 
   const totalRecorded = Object.values(counts).reduce((a, b) => a + b, 0);

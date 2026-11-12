@@ -17,6 +17,7 @@ vi.mock("@/lib/prisma", () => ({
     auditLog: { createMany: vi.fn() },
     user: { findMany: vi.fn() },
     attendancePolicy: { findUnique: vi.fn() },
+    attendanceCalendar: { findUnique: vi.fn() },
   },
 }));
 
@@ -44,6 +45,8 @@ const DEFAULT_POLICY_ROW = {
   morningCheckInDeadline:   "08:15",
   afternoonStartTime:       "13:00",
   afternoonCheckInDeadline: "13:15",
+  morningGraceMinutes:      15,
+  afternoonGraceMinutes:    15,
   graceMinutes:             15,
   workingDays: "[1,2,3,4,5]",
   isActive: true,
@@ -77,6 +80,8 @@ beforeEach(() => {
   vi.mocked(prisma.attendance.updateMany).mockResolvedValue({ count: 0 });
   vi.mocked(prisma.auditLog.createMany).mockResolvedValue({ count: 0 });
   vi.mocked(prisma.leaveRequest.findMany).mockResolvedValue([]);
+  // No calendar holiday by default (returns null = not a holiday)
+  vi.mocked(prisma.attendanceCalendar.findUnique).mockResolvedValue(null);
 });
 
 // ── Scenario 1: check-in before morning deadline → PRESENT ────────────────

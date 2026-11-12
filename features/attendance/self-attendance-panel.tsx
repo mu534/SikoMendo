@@ -10,6 +10,8 @@ import {
   CalendarX,
   TrendingUp,
   CalendarDays,
+  Sun,
+  Sunset,
 } from "lucide-react";
 import { selfCheckIn, selfCheckOut } from "./self-actions";
 import { Badge } from "@/components/ui/badge";
@@ -23,8 +25,9 @@ import type { getMyAttendanceStats } from "./queries";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type TodayRecord = {
+type SessionRecord = {
   id: string;
+  session: string;
   status: string;
   checkIn: Date | null;
   checkOut: Date | null;
@@ -34,6 +37,7 @@ type TodayRecord = {
 type HistoryItem = {
   id: string;
   date: Date;
+  session: string;
   status: string;
   checkIn: Date | null;
   checkOut: Date | null;
@@ -51,6 +55,7 @@ const STATUS_TONE: Record<string, "success" | "warning" | "neutral" | "danger" |
   EXCUSED:  "neutral",
   ON_LEAVE: "brand",
   ABSENT:   "danger",
+  HOLIDAY:  "neutral",
 };
 
 function fmtTime(date: Date | null | undefined): string {
@@ -59,108 +64,102 @@ function fmtTime(date: Date | null | undefined): string {
   return shifted.toISOString().slice(11, 16);
 }
 
-// ── Today card ────────────────────────────────────────────────────────────────
+// ── Session card ──────────────────────────────────────────────────────────────
 
-function TodayCard({
-  todayStr,
-  todayRecord,
+function SessionCard({
+  sessionLabel,
+  sessionKey,
+  record,
+  checkInAction,
+  checkInPending,
+  checkInError,
+  checkOutAction,
+  checkOutPending,
+  checkOutError,
+  icon,
 }: {
-  todayStr: string;
-  todayRecord: TodayRecord;
+  sessionLabel: string;
+  sessionKey: "MORNING" | "AFTERNOON";
+  record: SessionRecord;
+  checkInAction: () => void;
+  checkInPending: boolean;
+  checkInError: string | null;
+  checkOutAction: () => void;
+  checkOutPending: boolean;
+  checkOutError: string | null;
+  icon: React.ReactNode;
 }) {
-  const [checkInState,  checkInAction,  checkInPending]  = useActionState(selfCheckIn, null);
-  const checkOutMorning   = selfCheckOut.bind(null, "MORNING");
-  const checkOutAfternoon = selfCheckOut.bind(null, "AFTERNOON");
-  const [checkOutMorningState,   checkOutMorningAction,   checkOutMorningPending]   = useActionState(checkOutMorning,   null);
-  // checkOutAfternoon and its state are wired for future session-aware UI expansion.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [_checkOutAfternoonState, _checkOutAfternoonAction, _checkOutAfternoonPending] = useActionState(checkOutAfternoon, null);
-  const t = useTranslations("attendance");
   const tC = useTranslations("common");
+  const t  = useTranslations("attendance");
 
-  const hasCheckedIn  = !!todayRecord?.checkIn;
-  const hasCheckedOut = !!todayRecord?.checkOut;
-  const isOnLeave     = todayRecord?.status === "ON_LEAVE";
-
-  const [y, m, d] = todayStr.split("-").map(Number);
-  const displayDate = new Date(Date.UTC(y!, m! - 1, d!)).toLocaleDateString("en-GB", {
-    weekday: "long", day: "2-digit", month: "long", year: "numeric",
-  });
+  const hasCheckedIn  = !!record?.checkIn;
+  const hasCheckedOut = !!record?.checkOut;
+  const isOnLeave     = record?.status === "ON_LEAVE";
+  const isHoliday     = record?.status === "HOLIDAY";
 
   return (
     <Card className="overflow-hidden">
-      <div className="h-1 bg-brand-700" />
-      <div className="p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h3 className="font-display text-base font-semibold text-ink-900">
-              {t("myAttendanceTitle")}
-            </h3>
-            <p className="mt-0.5 text-sm text-ink-900/55">{displayDate}</p>
+      <div className="h-1 bg-brand-700/60" />
+      <div className="p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2">
+            {icon}
+            <h4 className="font-display text-sm font-semibold text-ink-900">{sessionLabel}</h4>
           </div>
-
-          {isOnLeave ? (
-            <Badge tone="brand">{t("statuses.ON_LEAVE")}</Badge>
-          ) : hasCheckedOut ? (
-            <Badge tone="success">{t("checkOut")}</Badge>
-          ) : hasCheckedIn ? (
-            <Badge tone="warning">{t("checkIn")}</Badge>
+          {record ? (
+            <Badge tone={STATUS_TONE[record.status] ?? "neutral"}>
+              {t(`statuses.${record.status as "PRESENT" | "LATE" | "HALF_DAY" | "EXCUSED" | "ON_LEAVE" | "ABSENT" | "HOLIDAY"}`)}
+            </Badge>
           ) : (
             <Badge tone="neutral">{tC("none")}</Badge>
           )}
         </div>
 
         {(hasCheckedIn || hasCheckedOut) && (
-          <div className="mt-4 flex flex-wrap gap-6 text-sm">
+          <div className="mt-3 flex flex-wrap gap-5 text-sm">
             <div>
               <p className="text-xs font-medium text-ink-900/45">{t("checkIn")}</p>
-              <p className="mt-0.5 font-medium text-ink-900">{fmtTime(todayRecord?.checkIn)}</p>
+              <p className="mt-0.5 font-medium text-ink-900">{fmtTime(record?.checkIn)}</p>
             </div>
             {hasCheckedOut && (
               <div>
                 <p className="text-xs font-medium text-ink-900/45">{t("checkOut")}</p>
-                <p className="mt-0.5 font-medium text-ink-900">{fmtTime(todayRecord?.checkOut)}</p>
+                <p className="mt-0.5 font-medium text-ink-900">{fmtTime(record?.checkOut)}</p>
               </div>
             )}
           </div>
         )}
 
-        {isOnLeave && (
-          <p className="mt-4 text-sm text-ink-900/55">{t("statuses.ON_LEAVE")}</p>
-        )}
-
-        {!isOnLeave && (
-          <div className="mt-5 flex flex-wrap items-center gap-3">
+        {!isOnLeave && !isHoliday && (
+          <div className="mt-4 flex flex-wrap items-center gap-3">
             {!hasCheckedIn && (
               <form action={checkInAction}>
-                <Button type="submit" disabled={checkInPending} size="md">
-                  <LogIn className="h-4 w-4" />
+                <input type="hidden" name="_session" value={sessionKey} />
+                <Button type="submit" disabled={checkInPending} size="sm">
+                  <LogIn className="h-3.5 w-3.5" />
                   {checkInPending ? tC("loading") : t("checkIn")}
                 </Button>
               </form>
             )}
 
             {hasCheckedIn && !hasCheckedOut && (
-              <form action={checkOutMorningAction}>
-                <Button type="submit" variant="secondary" disabled={checkOutMorningPending} size="md">
-                  <LogOut className="h-4 w-4" />
-                  {checkOutMorningPending ? tC("loading") : t("checkOut")}
+              <form action={checkOutAction}>
+                <Button type="submit" variant="secondary" disabled={checkOutPending} size="sm">
+                  <LogOut className="h-3.5 w-3.5" />
+                  {checkOutPending ? tC("loading") : t("checkOut")}
                 </Button>
               </form>
             )}
 
             {hasCheckedOut && (
-              <p className="text-sm text-emerald-700">{t("statuses.PRESENT")}</p>
+              <p className="text-xs text-emerald-700">{t("statuses.PRESENT")}</p>
             )}
 
-            {checkInState && !checkInState.success && (
-              <p role="alert" className="text-sm text-red-600">{checkInState.error.message}</p>
+            {checkInError && (
+              <p role="alert" className="text-xs text-red-600">{checkInError}</p>
             )}
-            {checkOutMorningState && !checkOutMorningState.success && (
-              <p role="alert" className="text-sm text-red-600">{checkOutMorningState.error.message}</p>
-            )}
-            {_checkOutAfternoonState && !_checkOutAfternoonState.success && (
-              <p role="alert" className="text-sm text-red-600">{_checkOutAfternoonState.error.message}</p>
+            {checkOutError && (
+              <p role="alert" className="text-xs text-red-600">{checkOutError}</p>
             )}
           </div>
         )}
@@ -169,11 +168,68 @@ function TodayCard({
   );
 }
 
+// ── Today sessions block ──────────────────────────────────────────────────────
+
+function TodaySessions({
+  todayStr,
+  morningRecord,
+  afternoonRecord,
+}: {
+  todayStr: string;
+  morningRecord: SessionRecord;
+  afternoonRecord: SessionRecord;
+}) {
+  const [checkInState,  checkInAction,  checkInPending]  = useActionState(selfCheckIn, null);
+  const checkOutMorning   = selfCheckOut.bind(null, "MORNING");
+  const checkOutAfternoon = selfCheckOut.bind(null, "AFTERNOON");
+  const [checkOutMorningState,   checkOutMorningAction,   checkOutMorningPending]   = useActionState(checkOutMorning,   null);
+  const [checkOutAfternoonState, checkOutAfternoonAction, checkOutAfternoonPending] = useActionState(checkOutAfternoon, null);
+  const t = useTranslations("attendance");
+
+  const [y, m, d] = todayStr.split("-").map(Number);
+  const displayDate = new Date(Date.UTC(y!, m! - 1, d!)).toLocaleDateString("en-GB", {
+    weekday: "long", day: "2-digit", month: "long", year: "numeric",
+  });
+
+  return (
+    <div>
+      <p className="mb-3 text-sm font-medium text-ink-900/60">{displayDate}</p>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <SessionCard
+          sessionLabel={t("morningSession")}
+          sessionKey="MORNING"
+          record={morningRecord}
+          checkInAction={checkInAction as () => void}
+          checkInPending={checkInPending}
+          checkInError={checkInState && !checkInState.success ? checkInState.error.message : null}
+          checkOutAction={checkOutMorningAction as () => void}
+          checkOutPending={checkOutMorningPending}
+          checkOutError={checkOutMorningState && !checkOutMorningState.success ? checkOutMorningState.error.message : null}
+          icon={<Sun className="h-4 w-4 text-gold-500" />}
+        />
+        <SessionCard
+          sessionLabel={t("afternoonSession")}
+          sessionKey="AFTERNOON"
+          record={afternoonRecord}
+          checkInAction={checkInAction as () => void}
+          checkInPending={checkInPending}
+          checkInError={null}
+          checkOutAction={checkOutAfternoonAction as () => void}
+          checkOutPending={checkOutAfternoonPending}
+          checkOutError={checkOutAfternoonState && !checkOutAfternoonState.success ? checkOutAfternoonState.error.message : null}
+          icon={<Sunset className="h-4 w-4 text-brand-600" />}
+        />
+      </div>
+    </div>
+  );
+}
+
 // ── Main panel ─────────────────────────────────────────────────────────────────
 
 export function SelfAttendancePanel({
   todayStr,
-  todayRecord,
+  morningRecord,
+  afternoonRecord,
   stats,
   historyItems,
   historyTotal,
@@ -186,7 +242,8 @@ export function SelfAttendancePanel({
   basePath = "/attendance",
 }: {
   todayStr: string;
-  todayRecord: TodayRecord;
+  morningRecord: SessionRecord;
+  afternoonRecord: SessionRecord;
   stats: AttendanceStats | null;
   historyItems: HistoryItem[];
   historyTotal: number;
@@ -224,7 +281,11 @@ export function SelfAttendancePanel({
         <p className="mt-1 text-sm text-ink-900/60">{t("description")}</p>
       </div>
 
-      <TodayCard todayStr={todayStr} todayRecord={todayRecord} />
+      <TodaySessions
+        todayStr={todayStr}
+        morningRecord={morningRecord}
+        afternoonRecord={afternoonRecord}
+      />
 
       {stats && (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -259,6 +320,7 @@ export function SelfAttendancePanel({
               <option value="EXCUSED">{t("statuses.EXCUSED")}</option>
               <option value="ON_LEAVE">{t("statuses.ON_LEAVE")}</option>
               <option value="ABSENT">{t("statuses.ABSENT")}</option>
+              <option value="HOLIDAY">{t("statuses.HOLIDAY")}</option>
             </Select>
           </div>
           <button type="submit" className="text-sm font-medium text-brand-700 hover:underline">
@@ -269,6 +331,7 @@ export function SelfAttendancePanel({
         <Table>
           <THead>
             <TH>{tC("date")}</TH>
+            <TH>{t("session")}</TH>
             <TH>{t("status")}</TH>
             <TH>{t("checkIn")}</TH>
             <TH>{t("checkOut")}</TH>
@@ -276,7 +339,7 @@ export function SelfAttendancePanel({
           </THead>
           <TBody>
             {historyItems.length === 0 && (
-              <EmptyRow colSpan={5}>
+              <EmptyRow colSpan={6}>
                 <CalendarDays className="mx-auto mb-2 h-8 w-8 text-ink-900/20" />
                 {t("noAttendance")}
               </EmptyRow>
@@ -284,9 +347,12 @@ export function SelfAttendancePanel({
             {historyItems.map((record) => (
               <TR key={record.id}>
                 <TD>{formatDate(record.date)}</TD>
+                <TD className="text-sm text-ink-900/60">
+                  {record.session === "MORNING" ? t("morningSession") : t("afternoonSession")}
+                </TD>
                 <TD>
                   <Badge tone={STATUS_TONE[record.status] ?? "neutral"}>
-                    {t(`statuses.${record.status as "PRESENT" | "LATE" | "HALF_DAY" | "EXCUSED" | "ON_LEAVE" | "ABSENT"}`)}
+                    {t(`statuses.${record.status as "PRESENT" | "LATE" | "HALF_DAY" | "EXCUSED" | "ON_LEAVE" | "ABSENT" | "HOLIDAY"}`)}
                   </Badge>
                 </TD>
                 <TD>{fmtTime(record.checkIn)}</TD>

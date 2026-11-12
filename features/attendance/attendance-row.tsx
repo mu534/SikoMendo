@@ -14,6 +14,7 @@ const STATUS_OPTIONS = [
   { value: "EXCUSED", label: "Excused" },
   { value: "ON_LEAVE", label: "On leave" },
   { value: "ABSENT", label: "Absent" },
+  { value: "HOLIDAY", label: "Holiday" },
 ];
 
 const STATUS_TONE = {
@@ -23,6 +24,7 @@ const STATUS_TONE = {
   EXCUSED: "neutral",
   ON_LEAVE: "brand",
   ABSENT: "danger",
+  HOLIDAY: "neutral",
 } as const;
 
 function toTimeInputValue(date: Date | null | undefined) {

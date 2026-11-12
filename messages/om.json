@@ -532,8 +532,13 @@
       "LATE": "Ture",
       "HALF_DAY": "Walakkaa guyyaa",
       "EXCUSED": "Dhiifama argate",
-      "ON_LEAVE": "Hayyama irra"
+      "ON_LEAVE": "Hayyama irra",
+      "HOLIDAY": "Ayyaana"
     },
+    "morningSession": "Argama Ganama",
+    "afternoonSession": "Argama Waaree",
+    "calendarTitle": "Kalendarii Argama Hojii",
+    "session": "Argama",
     "policy": {
       "title": "Seera Argama Hojii",
       "morningSession": "Argama Ganama",
@@ -970,7 +975,8 @@
       "LATE": "Harkifate",
       "HALF_DAY": "Walakkaa Guyyaa",
       "EXCUSED": "Hayyamame",
-      "ON_LEAVE": "Hayyama Irra"
+      "ON_LEAVE": "Hayyama Irra",
+      "HOLIDAY": "Ayyaana"
     },
     "cooperativeStatus": {
       "active": "Socho\u2019aa",

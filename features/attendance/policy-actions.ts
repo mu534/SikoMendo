@@ -30,11 +30,16 @@ const policySchema = z
     morningCheckInDeadline:   hhmm,
     afternoonStartTime:       hhmm,
     afternoonCheckInDeadline: hhmm,
-    graceMinutes: z
+    morningGraceMinutes: z
       .number()
-      .int("Grace period must be a whole number of minutes")
-      .min(0, "Grace period cannot be negative")
-      .max(240, "Grace period cannot exceed 240 minutes (4 hours)"),
+      .int("Morning grace period must be a whole number of minutes")
+      .min(0, "Morning grace period cannot be negative")
+      .max(240, "Morning grace period cannot exceed 240 minutes (4 hours)"),
+    afternoonGraceMinutes: z
+      .number()
+      .int("Afternoon grace period must be a whole number of minutes")
+      .min(0, "Afternoon grace period cannot be negative")
+      .max(240, "Afternoon grace period cannot exceed 240 minutes (4 hours)"),
     workingDays: z
       .array(z.number().int().min(1).max(7))
       .min(1, "At least one working day is required"),
@@ -74,7 +79,8 @@ function extractPolicyFromFormData(formData: FormData) {
     morningCheckInDeadline:   String(formData.get("morningCheckInDeadline") ?? "").trim(),
     afternoonStartTime:       String(formData.get("afternoonStartTime") ?? "").trim(),
     afternoonCheckInDeadline: String(formData.get("afternoonCheckInDeadline") ?? "").trim(),
-    graceMinutes:             parseInt(String(formData.get("graceMinutes") ?? "15"), 10) || 0,
+    morningGraceMinutes:      parseInt(String(formData.get("morningGraceMinutes") ?? "15"), 10) || 0,
+    afternoonGraceMinutes:    parseInt(String(formData.get("afternoonGraceMinutes") ?? "15"), 10) || 0,
     workingDays: [1, 2, 3, 4, 5, 6, 7].filter(
       (d) => formData.get(`workingDay_${d}`) === "on"
     ),
@@ -108,7 +114,8 @@ export async function upsertAttendancePolicy(
       morningCheckInDeadline,
       afternoonStartTime,
       afternoonCheckInDeadline,
-      graceMinutes,
+      morningGraceMinutes,
+      afternoonGraceMinutes,
       workingDays,
     } = parsed.data;
 
@@ -120,7 +127,8 @@ export async function upsertAttendancePolicy(
         morningCheckInDeadline,
         afternoonStartTime,
         afternoonCheckInDeadline,
-        graceMinutes,
+        morningGraceMinutes,
+        afternoonGraceMinutes,
         workingDays: JSON.stringify(workingDays),
         updatedById: session!.user.id,
       },
@@ -129,7 +137,8 @@ export async function upsertAttendancePolicy(
         morningCheckInDeadline,
         afternoonStartTime,
         afternoonCheckInDeadline,
-        graceMinutes,
+        morningGraceMinutes,
+        afternoonGraceMinutes,
         workingDays: JSON.stringify(workingDays),
         updatedById: session!.user.id,
       },
@@ -145,7 +154,8 @@ export async function upsertAttendancePolicy(
         morningCheckInDeadline,
         afternoonStartTime,
         afternoonCheckInDeadline,
-        graceMinutes,
+        morningGraceMinutes,
+        afternoonGraceMinutes,
         workingDays,
       },
       session!.user.id

@@ -28,6 +28,7 @@ import prisma from "@/lib/prisma";
 import { parseDateOnly } from "@/lib/attendance-date";
 import { getAttendancePolicy } from "@/features/attendance/policy-queries";
 import { isWorkingDay } from "@/lib/attendance-policy";
+import { isHolidayDate } from "@/features/attendance/calendar-queries";
 import { createNotification } from "@/lib/notifications";
 import type { AttendanceSession } from "@/lib/attendance-policy";
 
@@ -71,6 +72,19 @@ export async function runAbsenceDetection(
 
   if (!isWorkingDay(dateStr, policy)) {
     console.log(`[absence-detection] ${dateStr} ${session} is not a working day — skipping.`);
+    return {
+      date: dateStr,
+      session,
+      skippedNonWorkingDay: true,
+      markedAbsent: 0,
+      notifiedUsers: 0,
+    };
+  }
+
+  // Check calendar for holidays — if this date is a holiday, skip detection.
+  const isHoliday = await isHolidayDate(dateStr);
+  if (isHoliday) {
+    console.log(`[absence-detection] ${dateStr} ${session} is a calendar holiday — skipping.`);
     return {
       date: dateStr,
       session,

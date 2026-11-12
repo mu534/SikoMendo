@@ -134,7 +134,7 @@ describe("evaluateSessionCheckIn — morning session", () => {
 
   // Zero grace: any check-in after deadline → ABSENT immediately
   it("zero grace: 08:16 EAT → ABSENT", () => {
-    const noGrace = { ...policy, graceMinutes: 0 };
+    const noGrace = { ...policy, morningGraceMinutes: 0, afternoonGraceMinutes: 0 };
     expect(evaluateSessionCheckIn(checkInAtEAT(8, 16), noGrace, "MORNING")).toBe("ABSENT");
   });
 });
@@ -212,6 +212,8 @@ describe("normalisePolicyRow", () => {
     morningCheckInDeadline:   "08:15",
     afternoonStartTime:       "13:00",
     afternoonCheckInDeadline: "13:15",
+    morningGraceMinutes:      15,
+    afternoonGraceMinutes:    15,
     graceMinutes:             15,
     workingDays:              "[1,2,3,4,5]",
     isActive:                 true,
@@ -223,7 +225,8 @@ describe("normalisePolicyRow", () => {
     expect(result.morningCheckInDeadline).toBe("08:15");
     expect(result.afternoonStartTime).toBe("13:00");
     expect(result.afternoonCheckInDeadline).toBe("13:15");
-    expect(result.graceMinutes).toBe(15);
+    expect(result.morningGraceMinutes).toBe(15);
+    expect(result.afternoonGraceMinutes).toBe(15);
     expect(result.workingDays).toEqual([1, 2, 3, 4, 5]);
     expect(result.isActive).toBe(true);
   });
@@ -243,13 +246,21 @@ describe("normalisePolicyRow", () => {
     expect(result.afternoonCheckInDeadline).toBe("14:00");
   });
 
-  it("clamps negative graceMinutes to 0", () => {
-    const result = normalisePolicyRow({ ...base, graceMinutes: -5 });
-    expect(result.graceMinutes).toBe(0);
+  it("clamps negative morningGraceMinutes to 0", () => {
+    const result = normalisePolicyRow({ ...base, morningGraceMinutes: -5 });
+    expect(result.morningGraceMinutes).toBe(0);
   });
 
-  it("preserves custom graceMinutes", () => {
-    const result = normalisePolicyRow({ ...base, graceMinutes: 30 });
-    expect(result.graceMinutes).toBe(30);
+  it("preserves custom morningGraceMinutes and afternoonGraceMinutes", () => {
+    const result = normalisePolicyRow({ ...base, morningGraceMinutes: 30, afternoonGraceMinutes: 20 });
+    expect(result.morningGraceMinutes).toBe(30);
+    expect(result.afternoonGraceMinutes).toBe(20);
+  });
+
+  it("falls back to graceMinutes when per-session grace not set", () => {
+    const result = normalisePolicyRow({ ...base, morningGraceMinutes: 0, afternoonGraceMinutes: 0, graceMinutes: 10 });
+    // 0 is a valid value — should not fall back
+    expect(result.morningGraceMinutes).toBe(0);
+    expect(result.afternoonGraceMinutes).toBe(0);
   });
 });

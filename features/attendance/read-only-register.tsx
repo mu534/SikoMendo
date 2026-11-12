@@ -21,6 +21,7 @@ const STATUS_TONE: Record<string, "success" | "warning" | "neutral" | "danger" |
   EXCUSED:  "neutral",
   ON_LEAVE: "brand",
   ABSENT:   "danger",
+  HOLIDAY:  "neutral",
 };
 
 function shiftDate(date: string, days: number): string {

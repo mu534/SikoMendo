@@ -92,20 +92,78 @@ export async function getDailyRegisterScoped({
 
 /**
  * Computes the day-level status for an employee from their session rows.
- * Precedence: ON_LEAVE > any PRESENT > all ABSENT > LATE/HALF_DAY/EXCUSED > null (unmarked)
- * This prevents double-counting now that two session rows exist per employee per day.
+ *
+ * Precedence:
+ *   1. ON_LEAVE (any session) → ON_LEAVE
+ *   2. HOLIDAY  (any session) → HOLIDAY
+ *   3. Full 9-cell morning+afternoon matrix:
+ *      PRESENT + PRESENT  → PRESENT
+ *      PRESENT + LATE     → LATE
+ *      LATE    + PRESENT  → LATE
+ *      LATE    + LATE     → LATE
+ *      PRESENT + ABSENT   → HALF_DAY
+ *      ABSENT  + PRESENT  → HALF_DAY
+ *      LATE    + ABSENT   → HALF_DAY
+ *      ABSENT  + LATE     → HALF_DAY
+ *      ABSENT  + ABSENT   → ABSENT
+ *
+ * When only one session row exists, treat the missing session as ABSENT.
  */
 export function getDayStatus(
-  attendances: Array<{ status: string }>
+  attendances: Array<{ status: string; session?: string }>
 ): string | null {
   if (attendances.length === 0) return null;
   const statuses = attendances.map((a) => a.status);
+
+  // Highest-precedence overrides
   if (statuses.includes("ON_LEAVE")) return "ON_LEAVE";
-  if (statuses.includes("PRESENT"))  return "PRESENT";
-  if (statuses.every((s) => s === "ABSENT")) return "ABSENT";
-  if (statuses.includes("LATE"))     return "LATE";
-  if (statuses.includes("HALF_DAY")) return "HALF_DAY";
+  if (statuses.includes("HOLIDAY"))  return "HOLIDAY";
+
+  // Determine per-session status (treat missing session as ABSENT)
+  const morningRecord   = attendances.find((a) => a.session === "MORNING")
+                       ?? attendances.find((a) => !a.session); // legacy/no-session rows
+  const afternoonRecord = attendances.find((a) => a.session === "AFTERNOON");
+
+  const mStatus: string = morningRecord?.status   ?? "ABSENT";
+  const aStatus: string = afternoonRecord?.status ?? "ABSENT";
+
+  // Single-session day: when both resolve to the same value and there's only
+  // one row, trust that row directly (avoids false HALF_DAY on single-session orgs).
+  // The missing-session-as-ABSENT rule applies only when two distinct sessions
+  // are distinguishable (i.e., the row has session info).
+  if (attendances.length === 1 && !attendances[0]!.session) {
+    // Legacy row without session field — fall back to previous simple logic
+    const s = statuses[0]!;
+    if (s === "EXCUSED") return "EXCUSED";
+    if (s === "HALF_DAY") return "HALF_DAY";
+    if (s === "LATE") return "LATE";
+    if (s === "PRESENT") return "PRESENT";
+    return s;
+  }
+
+  // Apply 9-cell matrix
+  const isPresent = (s: string) => s === "PRESENT";
+  const isLate    = (s: string) => s === "LATE";
+  const isAbsent  = (s: string) => s === "ABSENT";
+
+  if ((isPresent(mStatus) || isLate(mStatus)) && (isPresent(aStatus) || isLate(aStatus))) {
+    // Both sessions attended — LATE if either is late, otherwise PRESENT
+    if (isLate(mStatus) || isLate(aStatus)) return "LATE";
+    return "PRESENT";
+  }
+
+  if (
+    (isPresent(mStatus) || isLate(mStatus)) && isAbsent(aStatus) ||
+    isAbsent(mStatus) && (isPresent(aStatus) || isLate(aStatus))
+  ) {
+    return "HALF_DAY";
+  }
+
+  if (isAbsent(mStatus) && isAbsent(aStatus)) return "ABSENT";
+
+  // Fallback for EXCUSED or other statuses
   if (statuses.includes("EXCUSED"))  return "EXCUSED";
+  if (statuses.includes("HALF_DAY")) return "HALF_DAY";
   return statuses[0] ?? null;
 }
 
@@ -116,11 +174,11 @@ export function getDayStatus(
  * employee-counted (not session-doubled). Uses getDayStatus precedence.
  */
 function buildSummary(
-  employees: Array<{ attendances: Array<{ status: string }> }>
+  employees: Array<{ attendances: Array<{ status: string; session?: string }> }>
 ) {
   const summary = {
     present: 0, absent: 0, late: 0, halfDay: 0,
-    excused: 0, onLeave: 0, unmarked: 0,
+    excused: 0, onLeave: 0, unmarked: 0, holiday: 0,
   };
   for (const emp of employees) {
     const dayStatus = getDayStatus(emp.attendances);
@@ -131,6 +189,7 @@ function buildSummary(
     else if (dayStatus === "HALF_DAY") summary.halfDay++;
     else if (dayStatus === "EXCUSED")  summary.excused++;
     else if (dayStatus === "ON_LEAVE") summary.onLeave++;
+    else if (dayStatus === "HOLIDAY")  summary.holiday++;
   }
   return summary;
 }

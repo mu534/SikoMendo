@@ -2,7 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { requireSession } from "@/lib/session";
 import prisma from "@/lib/prisma";
 import {
-  getTodayAttendance,
+  getTodayAttendanceBoth,
   getMyAttendanceHistory,
   getMyAttendanceStats,
 } from "@/features/attendance/queries";
@@ -34,9 +34,9 @@ export default async function MyAttendancePage({
   const status    = parseStringParam(params.status);
   const page      = parsePageParam(params.page);
 
-  const [todayRecord, historyResult, stats] = employee
+  const [todayBoth, historyResult, stats] = employee
     ? await Promise.all([
-        getTodayAttendance(employee.id, today),
+        getTodayAttendanceBoth(employee.id, today),
         getMyAttendanceHistory({
           employeeId: employee.id,
           startDate:  startDate || undefined,
@@ -46,12 +46,13 @@ export default async function MyAttendancePage({
         }),
         getMyAttendanceStats(employee.id),
       ])
-    : [null, { items: [], total: 0, totalPages: 1 }, null];
+    : [{ morning: null, afternoon: null }, { items: [], total: 0, totalPages: 1 }, null];
 
   return (
     <SelfAttendancePanel
       todayStr={today}
-      todayRecord={todayRecord}
+      morningRecord={todayBoth.morning}
+      afternoonRecord={todayBoth.afternoon}
       stats={stats}
       historyItems={historyResult.items}
       historyTotal={historyResult.total}

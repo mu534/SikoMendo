@@ -20,7 +20,7 @@ type Summary         = Awaited<ReturnType<typeof getDailyRegister>>["summary"];
 
 const STATUS_TONE: Record<string, "success" | "warning" | "neutral" | "danger" | "brand"> = {
   PRESENT: "success", LATE: "warning", HALF_DAY: "warning",
-  EXCUSED: "neutral", ON_LEAVE: "brand", ABSENT: "danger",
+  EXCUSED: "neutral", ON_LEAVE: "brand", ABSENT: "danger", HOLIDAY: "neutral",
 };
 
 function shiftDate(date: string, days: number): string {

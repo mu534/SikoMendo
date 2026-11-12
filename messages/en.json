@@ -538,8 +538,13 @@
       "LATE": "Late",
       "HALF_DAY": "Half Day",
       "EXCUSED": "Excused",
-      "ON_LEAVE": "On Leave"
+      "ON_LEAVE": "On Leave",
+      "HOLIDAY": "Holiday"
     },
+    "morningSession": "Morning Session",
+    "afternoonSession": "Afternoon Session",
+    "calendarTitle": "Attendance Calendar",
+    "session": "Session",
     "policy": {
       "title": "Attendance Policy",
       "morningSession": "Morning Session",
@@ -981,7 +986,8 @@
       "LATE": "Late",
       "HALF_DAY": "Half Day",
       "EXCUSED": "Excused",
-      "ON_LEAVE": "On Leave"
+      "ON_LEAVE": "On Leave",
+      "HOLIDAY": "Holiday"
     },
     "cooperativeStatus": {
       "active": "Active",
