@@ -72,7 +72,7 @@
     "roles": {
       "ADMIN": "Bulchaa",
       "HR_OFFICER": "Ogeessa Qabeenya Namaa",
-      "MANAGER": "Hogganaa",
+      "MANAGER": "Bulchaa Waliigalaa",
       "DEPT_MANAGER": "Hogganaa Kutaa Hojii",
       "EMPLOYEE": "Hojjetaa"
     }
@@ -136,11 +136,11 @@
   },
   "auth": {
     "orgBadge": "Gamtaa Siko Mendo",
-    "heroTitle": "Sirna Bulchiinsa Odeeffannoo Qabeenya Namaa",
+    "heroTitle": "Sirna Bulchiinsa Qabeenya Humna Namaa",
     "heroSubtitle": "Gamtaa Siko Mendo — Roobee Baalee, Itoophiyaa keessatti miseensota, waldaalee hojii gamtaa, argama hojii fi gabaasota bakka tokkotti bulchuuf.",
     "copyright": "© {year} Siko Mendo Union",
     "signIn": {
-      "title": "Baga deebitee dhuftan",
+      "title": "Baga Nagahaan dhuftan",
       "subtitle": "Maqaa fayyadamaa fi jecha icciitii bulchaan siif uumeen seeni.",
       "usernameLabel": "Maqaa fayyadamaa",
       "usernamePlaceholder": "Fakkeenyaaf emp-0001",
@@ -171,7 +171,7 @@
     }
   },
   "dashboard": {
-    "welcomeBack": "Baga deebitee dhuftan, {name}",
+    "welcomeBack": "Baga Nagahaan dhuftan, {name}",
     "orgSubtitle": "Kunoo wantoota har'a Gamtaa Siko Mendo keessatti raawwatamaa jiran.",
     "empSubtitle": "Kunoo wantoota bakka hojii kee keessatti argaman gabaabinaan.",
     "stats": {
@@ -793,8 +793,8 @@
     "description": "Herrega fayyadamtootaa fi hayyama seensaa sirnaa bulchi.",
     "descriptionSuspended": "Herrega dhaabbatee seenuu hin dandeenye.",
     "descriptionArchived": "Herrega fayyadamtootaa kuufaman. Deebisuun hayyama seensaa isaaniif kenni.",
-    "newUser": "Hogganaa Haaraa",
-    "newUserDescription": "Hogganaa Waliigalaa yookaan Hogganaa Kutaa Hojii haaraa uumi — galmee hojjetaa fi herrega seensaa isaanii tarkaanfii tokkotti qindaa'u.",
+    "newUser": "Fayyadamaa Haaraa",
+    "newUserDescription": "Bulchaa Waliigalaa yookaan Hogganaa Kutaa Hojii haaraa uumi — galmee hojjetaa fi herrega seensaa isaanii tarkaanfii tokkotti qindaa'u.",
     "noUsers": "Fayyadamaan hin argamne.",
     "noSuspendedUsers": "Herregni dhaabbate hin jiru.",
     "noArchivedUsers": "Herregni kuufame hin jiru.",
@@ -822,8 +822,8 @@
       "noEmployeesAvailable": "Hojjetaan filatamuu danda'u hin jiru. Hojjettoota hojii irra jiran fi hojii jalqabsiifamaa jiran hundi herrega qabu.",
       "accountSettings": "Qindaa'ina Herregaa",
       "derivedUsername": "Maqaan fayyadamaa ofumaan ID hojjetaatii (qubee xixiqqaatiin) ramadama — jijjiiruun hin danda'amu.",
-      "roleManager": "Hogganaa Waliigalaa",
-      "roleManagerDesc": "Hogganaa dhaabbata guutuu. Hogganaan Waliigalaa tokko qofa yeroo tokkotti hojii irra ta'uu danda'a.",
+      "roleManager": "Bulchaa Waliigalaa",
+      "roleManagerDesc": "Bulchaa dhaabbata guutuu. Bulchaan Waliigalaa tokko qofa yeroo tokkotti hojii irra ta'uu danda'a.",
       "roleDeptManager": "Hogganaa Kutaa Hojii",
       "roleDeptManagerDesc": "Kutaa hojii tokko hogganaa. Kutaa hojii tokkotti Hogganaan Kutaa Hojii tokko qofa hayyamama.",
       "selectDepartment": "Kutaa hojii filadhu",
@@ -859,8 +859,8 @@
       "selectPosition": "Sadarkaa hojii filadhu",
       "selectDepartmentFirst": "Jalqaba kutaa hojii filadhu",
       "usernameWillBeAssigned": "Maqaan fayyadamaa gara ID hojjetaa ramadameen (fkn emp-0001) booda qindaa'a.",
-      "gmAlreadyExists": "Hogganaan Waliigalaa tokko duraanis jira. Hogganaan Waliigalaa tokko qofa hayyamama.",
-      "noDeptManagerNeedsGM": "Hogganaan Kutaa Hojii ramadamuuf dura Hogganaan Waliigalaa uumamuu qaba.",
+      "gmAlreadyExists": "Bulchaan Waliigalaa tokko duraanis jira. Bulchaan Waliigalaa tokko qofa hayyamama.",
+      "noDeptManagerNeedsGM": "Hogganaan Kutaa Hojii ramadamuuf dura Bulchaan Waliigalaa uumamuu qaba.",
       "dobTooYoung": "Hogganaan waggaa 20 ol ta'uu qaba."
     },
     "actions": {
@@ -1276,7 +1276,7 @@
     "current": "Ammaa",
     "previous": "Kan duraa",
     "managerWillUpdate": "Hogganaan gabaasa kutaa hojii haaraatti hogganaa kutaa hojii sanaa ta'a.",
-    "deptManagerAppointmentHint": "Hogganaa Kutaa Hojii muuduun hogganaa gabaasa isaanii hogganaa waliigalaatti jijjiira."
+    "deptManagerAppointmentHint": "Hogganaa Kutaa Hojii muuduun hogganaa gabaasa isaanii bulchaa waliigalaatti jijjiira."
   },
 
   "backupRestore": {
@@ -1382,16 +1382,16 @@
     },
     "employmentHistory": {
       "deptHasNoManager": "Kutaan hojii filatame hogganaa kutaa hojii hojii irra jiru hin qabu. Hojjetaa kuusuu dura hogganaa kutaa hojii ramadi.",
-      "noGeneralManager": "Hogganaan Waliigalaa hojii irra jiru hin jiru. Hogganaa Kutaa Hojii muuduu dura Hogganaa Waliigalaa ramaduu barbaachisa.",
+      "noGeneralManager": "Bulchaan Waliigalaa hojii irra jiru hin jiru. Hogganaa Kutaa Hojii muuduu dura Bulchaa Waliigalaa ramaduu barbaachisa.",
       "deptManagerAlreadyExists": "Kutaan hojii kun hogganaa kutaa hojii hojii irra jiru duraan qaba.",
       "selfAssignment": "Hojjetaan ofumaa hogganaa isaatitti ramadamuu hin danda'u.",
-      "cannotReassignGeneralManager": "Hogganaan Waliigalaa Hogganaa Kutaa Hojii ta'uu hin danda'u."
+      "cannotReassignGeneralManager": "Bulchaan Waliigalaa Hogganaa Kutaa Hojii ta'uu hin danda'u."
     },
     "hierarchy": {
-      "deptHasNoActiveManager": "The selected department has no active Department Manager. Assign a Department Manager before registering employees into this department.",
-      "selfAssignment": "An employee cannot be assigned as their own reporting manager.",
-      "managerNotInDepartment": "The assigned manager does not belong to this employee's department. Only the department's designated Department Manager may be assigned as the direct reporting manager.",
-      "bulkImportNoDeptManager": "The department \"{{dept}}\" has no active Department Manager. Employees cannot be imported into a department without one."
+      "deptHasNoActiveManager": "Kutaan hojii filatame bulchaa kutaa hojii yeroo ammaa hojiirra jiru hin qabu.",
+      "selfAssignment": "Hojjetaan tokko ofii isaa akka itti gaafatamaa kallattiitti of ramaduu hin danda'u.",
+      "managerNotInDepartment": "Bulchaan ramadame kutaa hojii hojjetaan kun keessatti ramadame keessa hin jiru.",
+      "bulkImportNoDeptManager": "Kutaan hojii '{{dept}}' bulchaa kutaa hojii yeroo ammaa hojiirra jiru hin qabu."
     },
     "backups": {
       "configIncomplete": "Kuusaan nageenyaa qindaa'uu hin qabne: furii jifarsuu yookaan karaa pg_dump hin argamne.",
