@@ -271,8 +271,16 @@ export async function updateEmployee(
       throw new Error("An employee cannot be assigned as their own manager.");
     }
 
-    // FEAT-001 Rule 8: Cross-dept guard — managerId must be the dept's own DM
-    await assertManagerBelongsToDept(parsed.data.managerId, parsed.data.departmentId);
+    // FEAT-001 Rule 8: Cross-dept guard — managerId must be the dept's own DM.
+    // Skip for Department Managers: their reporting manager is a General Manager
+    // outside their department — not bound by the same-dept constraint.
+    const isDeptManager = await prisma.department.findFirst({
+      where: { managerId: id },   // id = the employee being edited
+      select: { id: true },
+    });
+    if (!isDeptManager) {
+      await assertManagerBelongsToDept(parsed.data.managerId, parsed.data.departmentId);
+    }
 
     // Keep existing cycle detection and archived-manager checks
     await validateManagerAssignment(id, parsed.data.managerId);
