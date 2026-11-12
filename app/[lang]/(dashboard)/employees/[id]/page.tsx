@@ -118,6 +118,7 @@ export default async function EmployeeDetailPage({
   const canViewLifecycle    = can(effectiveRole, "VIEW_LIFECYCLE") && tabPerms.canViewLifecycle;
   const canManageOnboarding  = can(effectiveRole, "MANAGE_ONBOARDING");
   const canManageOffboarding = can(effectiveRole, "MANAGE_OFFBOARDING");
+  const canApproveOffboarding = can(effectiveRole, "APPROVE_OFFBOARDING");
   const canViewAttendance   = can(effectiveRole, "VIEW_ATTENDANCE");
   const canViewLeave        = can(effectiveRole, "VIEW_ALL_LEAVE") || can(effectiveRole, "MANAGE_LEAVE");
 
@@ -517,12 +518,22 @@ export default async function EmployeeDetailPage({
                   notes:           lifecycleRecord.offboardingRecord.notes,
                   startedBy:       lifecycleRecord.offboardingRecord.startedBy,
                   completedBy:     lifecycleRecord.offboardingRecord.completedBy,
+                  // Approval fields
+                  approvalStatus:  (lifecycleRecord.offboardingRecord as { approvalStatus?: string }).approvalStatus ?? "PENDING",
+                  submittedAt:     (lifecycleRecord.offboardingRecord as { submittedAt?: Date | null }).submittedAt ?? null,
+                  submittedBy:     (lifecycleRecord.offboardingRecord as { submittedBy?: { id: string; name: string } | null }).submittedBy ?? null,
+                  approvedAt:      (lifecycleRecord.offboardingRecord as { approvedAt?: Date | null }).approvedAt ?? null,
+                  approvedBy:      (lifecycleRecord.offboardingRecord as { approvedBy?: { id: string; name: string } | null }).approvedBy ?? null,
+                  rejectedAt:      (lifecycleRecord.offboardingRecord as { rejectedAt?: Date | null }).rejectedAt ?? null,
+                  rejectedBy:      (lifecycleRecord.offboardingRecord as { rejectedBy?: { id: string; name: string } | null }).rejectedBy ?? null,
+                  rejectionReason: (lifecycleRecord.offboardingRecord as { rejectionReason?: string | null }).rejectionReason ?? null,
                 }
               : null
             }
             canManage={canManage}
             canManageOnboarding={canManageOnboarding}
             canManageOffboarding={canManageOffboarding}
+            canApprove={canApproveOffboarding}
             cancelOffboardingAction={cancelOffboarding.bind(null, employee.id)}
             employmentHistory={employee.employmentHistory}
             hireDate={employee.hireDate}

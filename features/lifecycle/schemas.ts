@@ -95,3 +95,28 @@ export const EMPLOYMENT_STATUS_TONES: Record<string, "success" | "warning" | "da
   TERMINATED:  "danger",
   INACTIVE:    "neutral",
 };
+
+// ── Offboarding Approval ───────────────────────────────────────────────────
+
+export const submitOffboardingSchema = z.object({});
+export type SubmitOffboardingInput = z.infer<typeof submitOffboardingSchema>;
+export function submitOffboardingFormDataToObject(_formData: FormData) { return {}; }
+
+export const approveOffboardingSchema = z.object({});
+export type ApproveOffboardingInput = z.infer<typeof approveOffboardingSchema>;
+export function approveOffboardingFormDataToObject(_formData: FormData) { return {}; }
+
+export const rejectOffboardingSchema = z.object({
+  rejectionReason: z.string().min(1, "Rejection reason is required."),
+});
+export type RejectOffboardingInput = z.infer<typeof rejectOffboardingSchema>;
+export function rejectOffboardingFormDataToObject(formData: FormData) {
+  return { rejectionReason: String(formData.get("rejectionReason") ?? "") };
+}
+
+export const OFFBOARDING_APPROVAL_STATUS_LABELS: Record<string, string> = {
+  PENDING:   "Pending",
+  SUBMITTED: "Submitted for Approval",
+  APPROVED:  "Approved",
+  REJECTED:  "Rejected",
+};

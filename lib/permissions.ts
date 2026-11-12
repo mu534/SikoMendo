@@ -84,6 +84,8 @@ export type Action =
   | "MANAGE_ONBOARDING"
   // MANAGE_OFFBOARDING: initiate/complete offboarding, archive employees
   | "MANAGE_OFFBOARDING"
+  // APPROVE_OFFBOARDING: GM review — approve or reject submitted offboarding requests
+  | "APPROVE_OFFBOARDING"
   // VIEW_LIFECYCLE: access the lifecycle dashboard and the lifecycle tab on profiles
   | "VIEW_LIFECYCLE"
   // MANAGE_BACKUP_RESTORE: create/download/restore database backups (admin-only)
@@ -121,6 +123,7 @@ export const PERMISSIONS: Record<Role, Action[]> = {
     "MANAGE_SETTINGS",
     "MANAGE_ONBOARDING",
     "MANAGE_OFFBOARDING",
+    "APPROVE_OFFBOARDING",
     "VIEW_LIFECYCLE",
     "MANAGE_BACKUP_RESTORE",
   ],
@@ -174,6 +177,8 @@ export const PERMISSIONS: Record<Role, Action[]> = {
     "MANAGE_OWN_LEAVE",
     "MANAGE_LEAVE_POLICY",
     "VIEW_DEPARTMENTS",
+    "APPROVE_OFFBOARDING",
+    "VIEW_LIFECYCLE",
   ],
   // Base DEPT_MANAGER set — equivalent to a normal employee.
   // A DEPT_MANAGER assigned to the HR department receives HR_OFFICER permissions

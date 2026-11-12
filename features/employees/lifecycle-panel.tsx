@@ -26,6 +26,15 @@ type OffboardingRecord = {
   notes: string | null;
   startedBy: { id: string; name: string } | null;
   completedBy: { id: string; name: string } | null;
+  // Approval fields
+  approvalStatus: string;
+  submittedAt: Date | null;
+  submittedBy: { id: string; name: string } | null;
+  approvedAt: Date | null;
+  approvedBy: { id: string; name: string } | null;
+  rejectedAt: Date | null;
+  rejectedBy: { id: string; name: string } | null;
+  rejectionReason: string | null;
 } | null;
 
 type HistoryRow = {
@@ -297,6 +306,7 @@ export async function LifecyclePanel({
   canManage,
   canManageOnboarding,
   canManageOffboarding,
+  canApprove,
   cancelOffboardingAction,
   employmentHistory,
   hireDate,
@@ -310,6 +320,7 @@ export async function LifecyclePanel({
   canManage: boolean;
   canManageOnboarding: boolean;
   canManageOffboarding: boolean;
+  canApprove: boolean;
   cancelOffboardingAction: () => Promise<unknown>;
   employmentHistory: HistoryRow[];
   hireDate: Date | null;
@@ -346,6 +357,7 @@ export async function LifecyclePanel({
               checklist={offboardingChecklist}
               record={offboardingRecord}
               canManage={canManageOffboarding}
+              canApprove={canApprove}
               cancelAction={cancelOffboardingAction}
             />
           </div>

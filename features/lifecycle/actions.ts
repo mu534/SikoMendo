@@ -17,6 +17,8 @@ import {
   startOffboardingFormDataToObject,
   completeOffboardingSchema,
   completeOffboardingFormDataToObject,
+  rejectOffboardingSchema,
+  rejectOffboardingFormDataToObject,
 } from "./schemas";
 
 // ── Shared audit helper ────────────────────────────────────────────────────
@@ -239,6 +241,7 @@ export async function startOffboarding(
             lastWorkingDate,
             notes: parsed.data.notes,
             startedById: session!.user.id,
+            approvalStatus: "PENDING",
           },
         }),
         tx.employee.update({
@@ -309,6 +312,11 @@ export async function completeOffboarding(
 
     // P1-7: Recompute checklist from DB — never trust client
     await requireOffboardingComplete(employeeId);
+
+    // Guard: completion only allowed when status is APPROVED
+    if ((activeRecord as { approvalStatus?: string }).approvalStatus !== "APPROVED") {
+      throw new Error("Offboarding cannot be completed: it has not been approved by the General Manager yet.");
+    }
 
     const now = new Date();
 
@@ -406,5 +414,134 @@ export async function cancelOffboarding(
     revalidatePath(`/employees/${employeeId}`);
     revalidatePath("/employees/lifecycle");
     return { id: recordId };
+  });
+}
+
+/**
+ * Submits an in-progress offboarding for GM approval.
+ * Requires the offboarding checklist to be complete.
+ * Transitions from PENDING or REJECTED → SUBMITTED.
+ */
+export async function submitOffboardingForApproval(
+  employeeId: string
+): Promise<ActionResult<{ id: string }>> {
+  const session = await getServerSession();
+  return withPermission(session, "MANAGE_OFFBOARDING", async () => {
+    const activeRecord = await getActiveOffboardingRecord(employeeId);
+    if (!activeRecord) throw new Error("No active offboarding record found.");
+    // Only allow transition from PENDING or REJECTED
+    const currentStatus = (activeRecord as { approvalStatus?: string }).approvalStatus;
+    if (currentStatus !== "PENDING" && currentStatus !== "REJECTED") {
+      throw new Error(`Cannot submit for approval: current status is ${currentStatus}.`);
+    }
+    // Validate checklist is complete before submitting
+    await requireOffboardingComplete(employeeId);
+    const updated = await prisma.offboardingRecord.update({
+      where: { id: activeRecord.id },
+      data: {
+        approvalStatus: "SUBMITTED",
+        submittedAt: new Date(),
+        submittedById: session!.user.id,
+        rejectionReason: null,
+      },
+    });
+    await logAudit(
+      "OFFBOARDING_SUBMITTED",
+      "OffboardingRecord",
+      activeRecord.id,
+      { submittedBy: session?.user.name, employeeId },
+      session?.user.id
+    );
+    revalidatePath(`/employees/${employeeId}`);
+    revalidatePath("/employees/lifecycle");
+    return { id: updated.id };
+  });
+}
+
+/**
+ * GM approves a submitted offboarding request.
+ * Transitions from SUBMITTED → APPROVED.
+ * Self-approval guard: blocks if the approver's linked employee IS the target.
+ */
+export async function approveOffboarding(
+  employeeId: string
+): Promise<ActionResult<{ id: string }>> {
+  const session = await getServerSession();
+  return withPermission(session, "APPROVE_OFFBOARDING", async () => {
+    const activeRecord = await getActiveOffboardingRecord(employeeId);
+    if (!activeRecord) throw new Error("No active offboarding record found.");
+    const currentStatus = (activeRecord as { approvalStatus?: string }).approvalStatus;
+    if (currentStatus !== "SUBMITTED") {
+      throw new Error(`Cannot approve: current status is ${currentStatus}.`);
+    }
+    // Self-approval guard: block if the approver's linked employee is the target employee
+    const approverUser = await prisma.user.findUnique({
+      where: { id: session!.user.id },
+      select: { employee: { select: { id: true } } },
+    });
+    if (approverUser?.employee?.id === employeeId) {
+      throw new Error("You cannot approve your own offboarding.");
+    }
+    const updated = await prisma.offboardingRecord.update({
+      where: { id: activeRecord.id },
+      data: {
+        approvalStatus: "APPROVED",
+        approvedAt: new Date(),
+        approvedById: session!.user.id,
+      },
+    });
+    await logAudit(
+      "OFFBOARDING_APPROVED",
+      "OffboardingRecord",
+      activeRecord.id,
+      { approvedBy: session?.user.name, employeeId },
+      session?.user.id
+    );
+    revalidatePath(`/employees/${employeeId}`);
+    revalidatePath("/employees/lifecycle");
+    return { id: updated.id };
+  });
+}
+
+/**
+ * GM rejects a submitted offboarding request with a mandatory reason.
+ * Transitions from SUBMITTED → REJECTED.
+ */
+export async function rejectOffboarding(
+  employeeId: string,
+  _prevState: unknown,
+  formData: FormData
+): Promise<ActionResult<{ id: string }>> {
+  const session = await getServerSession();
+  return withPermission(session, "APPROVE_OFFBOARDING", async () => {
+    const parsed = rejectOffboardingSchema.safeParse(
+      rejectOffboardingFormDataToObject(formData)
+    );
+    if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid input.");
+    const activeRecord = await getActiveOffboardingRecord(employeeId);
+    if (!activeRecord) throw new Error("No active offboarding record found.");
+    const currentStatus = (activeRecord as { approvalStatus?: string }).approvalStatus;
+    if (currentStatus !== "SUBMITTED") {
+      throw new Error(`Cannot reject: current status is ${currentStatus}.`);
+    }
+    const updated = await prisma.offboardingRecord.update({
+      where: { id: activeRecord.id },
+      data: {
+        approvalStatus: "REJECTED",
+        rejectedAt: new Date(),
+        rejectedById: session!.user.id,
+        rejectionReason: parsed.data.rejectionReason,
+      },
+    });
+    await logAudit(
+      "OFFBOARDING_REJECTED",
+      "OffboardingRecord",
+      activeRecord.id,
+      { rejectedBy: session?.user.name, reason: parsed.data.rejectionReason, employeeId },
+      session?.user.id
+    );
+    revalidatePath(`/employees/${employeeId}`);
+    revalidatePath("/employees/lifecycle");
+    return { id: updated.id };
   });
 }
