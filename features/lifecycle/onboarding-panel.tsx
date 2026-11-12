@@ -52,15 +52,15 @@ export function OnboardingPanel({
     "contractRequired" | "completedSteps" | "totalSteps" | "isComplete"
   >;
   const CHECKLIST_KEYS: Array<{ key: ChecklistBooleanKey; label: string }> = [
-    { key: "hasName",        label: tC("name") },
-    { key: "hasDepartment",  label: tC("noDepartment") },
-    { key: "hasPosition",    label: tC("noPosition") },
-    { key: "hasHireDate",    label: tC("date") },
+    { key: "hasName",        label: t("checklistName") },
+    { key: "hasDepartment",  label: t("checklistDepartment") },
+    { key: "hasPosition",    label: t("checklistPosition") },
+    { key: "hasHireDate",    label: t("checklistHireDate") },
     ...(checklist.contractRequired
-      ? [{ key: "hasContract" as ChecklistBooleanKey, label: tC("active") }]
+      ? [{ key: "hasContract" as ChecklistBooleanKey, label: t("checklistContract") }]
       : []),
-    { key: "hasIdDocument",  label: tC("required") },
-    { key: "hasUserAccount", label: tC("status") },
+    { key: "hasIdDocument",  label: t("checklistIdDocument") },
+    { key: "hasUserAccount", label: t("checklistUserAccount") },
   ];
 
   return (

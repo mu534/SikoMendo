@@ -1206,7 +1206,14 @@
       "responsibleHr": "Responsible HR",
       "startedAt": "Started",
       "completedAt": "Completed",
-      "notes": "Notes"
+      "notes": "Notes",
+      "checklistName":        "Full name recorded",
+      "checklistDepartment":  "Department assigned",
+      "checklistPosition":    "Position assigned",
+      "checklistHireDate":    "Hire date set",
+      "checklistContract":    "Active contract on file",
+      "checklistIdDocument":  "ID document uploaded",
+      "checklistUserAccount": "System account created"
     },
     "offboarding": {
       "title": "Offboarding",

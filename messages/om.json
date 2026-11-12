@@ -1190,7 +1190,14 @@
       "responsibleHr": "HR Itti Gaafatamaa",
       "startedAt": "Jalqabame",
       "completedAt": "Xumurame",
-      "notes": "Yaadannoo"
+      "notes": "Yaadannoo",
+      "checklistName":        "Maqaan guutuu galmeeffame",
+      "checklistDepartment":  "Kutaan ramadame",
+      "checklistPosition":    "Gosa hojii ramadame",
+      "checklistHireDate":    "Guyyaan hojii eegalame qindaa'e",
+      "checklistContract":    "Waliigalteen hojii irra jiru jira",
+      "checklistIdDocument":  "Sanada eenyummaa olkaa'ame",
+      "checklistUserAccount": "Herreega sirna uumame"
     },
     "offboarding": {
       "title": "Hojii Irraa Baasuu",
