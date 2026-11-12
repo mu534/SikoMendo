@@ -125,6 +125,24 @@ export async function generateNextEmployeeId() {
   return `EMP-${String(nextval).padStart(4, "0")}`;
 }
 
+/**
+ * Returns a preview of the next employee ID WITHOUT advancing the sequence.
+ * Uses `last_value + 1` from the sequence metadata table — safe to call on
+ * every page load because it does not consume a sequence value.
+ *
+ * Note: if the sequence has never been used, `last_value` is 1 and
+ * `is_called` is false, meaning the first real ID will be EMP-0001.
+ * We account for this: when `is_called` is false the next value is
+ * `last_value` itself (not `last_value + 1`).
+ */
+export async function peekNextEmployeeId() {
+  const [row] = await prisma.$queryRaw<{ last_value: bigint; is_called: boolean }[]>`
+    SELECT last_value, is_called FROM employee_id_seq
+  `;
+  const next = row.is_called ? row.last_value + BigInt(1) : row.last_value;
+  return `EMP-${String(next).padStart(4, "0")}`;
+}
+
 // ── Reporting hierarchy ──────────────────────────────────────────────────────
 
 /**
