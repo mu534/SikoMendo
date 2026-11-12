@@ -8,6 +8,7 @@ import {
   Building2,
   Layers,
   CalendarCheck,
+  CalendarDays,
   CalendarOff,
   FileBarChart,
   FileText,
@@ -101,10 +102,11 @@ export const NAV_ITEMS: AnyNavItem[] = [
     icon: CalendarCheck,
     activePrefix: "/attendance",
     children: [
-      { href: "/attendance/mine",       labelKey: "nav.myAttendance",         icon: CalendarCheck                                          },
-      { href: "/attendance/management", labelKey: "nav.attendanceManagement", icon: CalendarCheck, requires: "MANAGE_ATTENDANCE"          },
-      { href: "/attendance/monitoring", labelKey: "nav.attendanceMonitoring", icon: CalendarCheck, requires: "VIEW_ATTENDANCE_MONITOR"    },
-      { href: "/attendance/policy",     labelKey: "nav.attendancePolicy",     icon: ShieldCheck,   requires: "MANAGE_ATTENDANCE_POLICY"   },
+      { href: "/attendance/mine",       labelKey: "nav.myAttendance",         icon: CalendarCheck                                                       },
+      { href: "/attendance/management", labelKey: "nav.attendanceManagement", icon: CalendarCheck, requires: "MANAGE_ATTENDANCE"               },
+      { href: "/attendance/monitoring", labelKey: "nav.attendanceMonitoring", icon: CalendarCheck, requires: "VIEW_ATTENDANCE_MONITOR"         },
+      { href: "/attendance/policy",     labelKey: "nav.attendancePolicy",     icon: ShieldCheck,   requires: "MANAGE_ATTENDANCE_POLICY"        },
+      { href: "/attendance/calendar",   labelKey: "nav.holidayCalendar",      icon: CalendarDays,  requires: "MANAGE_ATTENDANCE_POLICY"        },
     ],
   },
 
