@@ -424,7 +424,13 @@ export const employeeSchemaObject = z.object({
   positionId: z.preprocess((v) => (v ? String(v).trim() : ""), z.string().min(1, "Position is required")),
   hireDate: z.preprocess(
     (v) => (v && String(v).trim() !== "" ? new Date(String(v)) : null),
-    z.date({ error: "Hire date is required" }).nullable().refine((d) => d !== null, "Hire date is required")
+    z.date({ error: "Hire date is required" })
+      .nullable()
+      .refine((d) => d !== null, "Hire date is required")
+      .refine(
+        (d) => d === null || d <= new Date(),
+        "Hire date cannot be in the future"
+      )
   ),
   employmentStatus: z.preprocess(
     (v) => (v && String(v).trim() !== "" ? String(v).trim() : "ONBOARDING"),

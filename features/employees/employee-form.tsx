@@ -550,7 +550,7 @@ export function EmployeeForm({
 
             <FieldGroup>
               <Label htmlFor="hireDate">{t("form.hireDate")}<RequiredMark /></Label>
-              <Input id="hireDate" name="hireDate" type="date" required defaultValue={toDateInputValue(employee?.hireDate)} />
+              <Input id="hireDate" name="hireDate" type="date" required max={new Date().toISOString().split('T')[0]} defaultValue={toDateInputValue(employee?.hireDate)} />
             </FieldGroup>
 
             {isEdit && (
