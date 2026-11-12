@@ -11,14 +11,21 @@ UPDATE "attendance_policy"
 ALTER TABLE "attendance_policy"
   ALTER COLUMN "graceMinutes" DROP NOT NULL;
 
--- Add HOLIDAY to AttendanceStatus enum
+-- Add HOLIDAY to AttendanceStatus enum (IF NOT EXISTS supported since PG 9.3)
 ALTER TYPE "AttendanceStatus" ADD VALUE IF NOT EXISTS 'HOLIDAY';
 
 -- Create CalendarType enum
-CREATE TYPE IF NOT EXISTS "CalendarType" AS ENUM (
-  'PUBLIC_HOLIDAY', 'RELIGIOUS_HOLIDAY', 'ORG_HOLIDAY',
-  'SPECIAL_NON_WORKING', 'SPECIAL_WORKING'
-);
+-- PostgreSQL does not support CREATE TYPE IF NOT EXISTS; guard via DO block
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'CalendarType') THEN
+    CREATE TYPE "CalendarType" AS ENUM (
+      'PUBLIC_HOLIDAY', 'RELIGIOUS_HOLIDAY', 'ORG_HOLIDAY',
+      'SPECIAL_NON_WORKING', 'SPECIAL_WORKING'
+    );
+  END IF;
+END
+$$;
 
 -- Create attendance_calendar table
 CREATE TABLE IF NOT EXISTS "attendance_calendar" (
