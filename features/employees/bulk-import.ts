@@ -588,6 +588,13 @@ export async function importEmployeeRows(
             emergencyContactPhone: parsed.data.emergencyContactPhone ?? null,
             emergencyContactRelationship: parsed.data.emergencyContactRelationship ?? null,
             emergencyContactAddress: parsed.data.emergencyContactAddress ?? null,
+            emergencyContactConsentRecorded: parsed.data.emergencyContactConsentRecorded ?? false,
+            ...(parsed.data.emergencyContactConsentRecorded
+              ? {
+                  emergencyContactConsentAt:       new Date(),
+                  emergencyContactConsentByUserId: actorUserId,
+                }
+              : {}),
             departmentId: resolved.departmentId,
             positionId: resolved.positionId,
             hireDate: parsed.data.hireDate ?? null,

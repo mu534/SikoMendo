@@ -6,7 +6,7 @@ import { getServerSession } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { withPermission, type ActionResult } from "@/lib/action-utils";
 import { uploadToCloudinary, deleteFromCloudinary } from "@/lib/cloudinary";
-import { employeeSchema, employeeFormDataToObject } from "./schemas";
+import { employeeSchema, employeeUpdateSchema, employeeFormDataToObject, employeeUpdateFormDataToObject } from "./schemas";
 import { generateNextEmployeeId } from "./queries";
 import { parseEmployeeCsv, importEmployeeRows, validateEmployeeCsvRows, type ImportRowResult, type ParsedEmployeeRow } from "./bulk-import";
 import { validateCsvImportFile, validateEmployeeDocumentFile, validatePhotoFile } from "@/lib/file-limits";
@@ -31,7 +31,7 @@ import type {
   DocumentType,
 } from "@prisma/client";
 
-// ── Allowed MIME types and extensions for document upload (P3-17) ─────────────
+// ΓöÇΓöÇ Allowed MIME types and extensions for document upload (P3-17) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 // Limits are defined in lib/file-limits.ts and enforced via validateEmployeeDocumentFile.
 
 function validateDocumentFile(file: File): void {
@@ -49,8 +49,8 @@ function validateDocumentTitle(title: string): void {
 
 
 
-// ── Profile photo validation ──────────────────────────────────────────────────
-// Limit defined in lib/file-limits.ts — validatePhotoFile is imported directly.
+// ΓöÇΓöÇ Profile photo validation ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// Limit defined in lib/file-limits.ts ΓÇö validatePhotoFile is imported directly.
 
 function getPhotoFile(formData: FormData): File | null {
   const file = formData.get("photo");
@@ -62,7 +62,7 @@ function validatePhotoFileThrow(file: File): void {
   if (err) throw new Error(err);
 }
 
-// ── Create ────────────────────────────────────────────────────────────────────
+// ΓöÇΓöÇ Create ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 export async function createEmployee(
   _prevState: unknown,
@@ -117,7 +117,7 @@ export async function createEmployee(
 
         // FEAT-001: Reject if the submitted position is a manager-type position
         // and the department already has an active Department Manager (even if the
-        // current manager has no positionId set — assertNotManagerPosition alone
+        // current manager has no positionId set ΓÇö assertNotManagerPosition alone
         // would not catch that case).
         await assertDeptManagerSlotAvailable(tx, parsed.data.departmentId, parsed.data.positionId);
 
@@ -229,7 +229,7 @@ export async function createEmployee(
   });
 }
 
-// ── Update ────────────────────────────────────────────────────────────────────
+// ΓöÇΓöÇ Update ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 export async function updateEmployee(
   id: string,
@@ -242,7 +242,7 @@ export async function updateEmployee(
     if (!session?.user?.id) throw new Error("Unauthorized");
     const userId = session.user.id;
 
-    const parsed = employeeSchema.safeParse(employeeFormDataToObject(formData));
+    const parsed = employeeUpdateSchema.safeParse(employeeUpdateFormDataToObject(formData));
     if (!parsed.success) {
       // Surface the consent field error if present, otherwise the first field error.
       const consentIssue = parsed.error.issues.find(
@@ -254,16 +254,6 @@ export async function updateEmployee(
     const existing = await prisma.employee.findUnique({ where: { id } });
     if (!existing) throw new Error("Employee not found.");
 
-    if (
-      parsed.data.departmentId !== existing.departmentId ||
-      parsed.data.positionId !== existing.positionId ||
-      (parsed.data.employmentType ?? null) !== (existing.employmentType ?? null)
-    ) {
-      throw new Error(
-        "Department, position, and employment type can't be changed from this form. Use \"Record employment change\" on this employee's profile instead — it keeps their employment history accurate."
-      );
-    }
-
     assertStatusChangeAllowed(existing.employmentStatus, parsed.data.employmentStatus);
 
     // FEAT-001 Rule 6: Self-assignment guard
@@ -271,15 +261,17 @@ export async function updateEmployee(
       throw new Error("An employee cannot be assigned as their own manager.");
     }
 
-    // FEAT-001 Rule 8: Cross-dept guard — managerId must be the dept's own DM.
+    // FEAT-001 Rule 8: Cross-dept guard ΓÇö managerId must be the dept's own DM.
     // Skip for Department Managers: their reporting manager is a General Manager
-    // outside their department — not bound by the same-dept constraint.
+    // outside their department ΓÇö not bound by the same-dept constraint.
+    // Use existing.departmentId (DB-authoritative) rather than parsed.data.departmentId
+    // (user-supplied) so a tampered form field cannot bypass the guard.
     const isDeptManager = await prisma.department.findFirst({
       where: { managerId: id },   // id = the employee being edited
       select: { id: true },
     });
-    if (!isDeptManager) {
-      await assertManagerBelongsToDept(parsed.data.managerId, parsed.data.departmentId);
+    if (!isDeptManager && existing.departmentId) {
+      await assertManagerBelongsToDept(parsed.data.managerId, existing.departmentId);
     }
 
     // Keep existing cycle detection and archived-manager checks
@@ -335,7 +327,7 @@ export async function updateEmployee(
       });
 
       // Replace all education records atomically: delete existing, insert new.
-      // This is simpler and safer than diffing — UI always sends the full set.
+      // This is simpler and safer than diffing ΓÇö UI always sends the full set.
       await tx.education.deleteMany({ where: { employeeId: id } });
       if (parsed.data.educations.length > 0) {
         await tx.education.createMany({
@@ -353,10 +345,10 @@ export async function updateEmployee(
     });
 
     if (asset && existing.profileImageKey) {
-      // Replaced with a new photo — delete the old one
+      // Replaced with a new photo ΓÇö delete the old one
       await deleteFromCloudinary(existing.profileImageKey, "image").catch(() => {/* non-fatal */});
     } else if (formData.get("removePhoto") === "1" && existing.profileImageKey) {
-      // User explicitly removed the photo — delete from Cloudinary
+      // User explicitly removed the photo ΓÇö delete from Cloudinary
       await deleteFromCloudinary(existing.profileImageKey, "image").catch(() => {/* non-fatal */});
     }
 
@@ -368,7 +360,7 @@ export async function updateEmployee(
   });
 }
 
-// ── Archive / Restore ─────────────────────────────────────────────────────────
+// ΓöÇΓöÇ Archive / Restore ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 export async function archiveEmployee(id: string): Promise<ActionResult<{ id: string }>> {
   const session = await getServerSession();
@@ -380,7 +372,7 @@ export async function archiveEmployee(id: string): Promise<ActionResult<{ id: st
     //   1. Null out Department.managerId (removes the DM pointer)
     //   2. Null out Employee.managerId for all their direct reports
     //      (prevents orphaned reporting relationships)
-    // Then soft-delete the employee — all atomically.
+    // Then soft-delete the employee ΓÇö all atomically.
     await prisma.$transaction(async (tx) => {
       // Check if this employee is a department manager
       const managedDept = await tx.department.findFirst({
@@ -437,7 +429,7 @@ export async function restoreEmployee(id: string): Promise<ActionResult<{ id: st
   });
 }
 
-// ── Documents ─────────────────────────────────────────────────────────────────
+// ΓöÇΓöÇ Documents ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 export async function uploadEmployeeDocument(
   employeeId: string,
@@ -512,7 +504,7 @@ export async function deleteEmployeeDocument(
   });
 }
 
-// ── Validate Import CSV (preview step — no DB writes) ────────────────────────
+// ΓöÇΓöÇ Validate Import CSV (preview step ΓÇö no DB writes) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 export async function validateImportCsv(
   _prevState: unknown,
