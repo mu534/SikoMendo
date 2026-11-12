@@ -83,6 +83,19 @@ export async function createEmployee(
       throw new Error(consentIssue?.message ?? parsed.error.issues[0]?.message ?? "Invalid input.");
     }
 
+    // Duplicate email check: reject if another active employee already has this email.
+    if (parsed.data.email && parsed.data.email.trim() !== "") {
+      const existingWithEmail = await prisma.employee.findFirst({
+        where: { email: { equals: parsed.data.email, mode: "insensitive" }, deletedAt: null },
+        select: { firstName: true, lastName: true, employeeId: true },
+      });
+      if (existingWithEmail) {
+        throw new Error(
+          `An employee with the email "${parsed.data.email}" already exists: ${existingWithEmail.firstName} ${existingWithEmail.lastName} (${existingWithEmail.employeeId}).`
+        );
+      }
+    }
+
     // P2-11: Validate department/position relationship server-side
     await assertPositionInDepartment(parsed.data.positionId, parsed.data.departmentId);
 

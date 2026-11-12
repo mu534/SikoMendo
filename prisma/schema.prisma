@@ -269,7 +269,7 @@ model Employee {
   firstName        String
   middleName       String?
   lastName         String
-  email            String?
+  email            String? @unique
   phone            String?
   gender           Gender?
   dateOfBirth      DateTime?
