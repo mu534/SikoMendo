@@ -126,6 +126,25 @@ export async function createEmployeeLoginAccount(
           where: { id: deptId },
           data: { managerId: employee.id },
         });
+
+        // Auto-assign the department's manager-type position to this employee.
+        const managerPosition = await tx.position.findFirst({
+          where: {
+            departmentId: deptId,
+            isActive: true,
+            name: { contains: 'Manager', mode: 'insensitive' },
+          },
+        });
+        if (managerPosition) {
+          await tx.employee.update({
+            where: { id: employee.id },
+            data:  { positionId: managerPosition.id },
+          });
+        } else {
+          console.warn(
+            `[createManagerAccount] No manager-type position found for department ${deptId}; positionId left as-is.`
+          );
+        }
       }
     }, { isolationLevel: "Serializable", timeout: 15000 });
 
@@ -693,9 +712,30 @@ export async function createManagerAccount(
 
     // ── Assign department manager role (DEPT_MANAGER only) ────────────────────
     if (role === "DEPT_MANAGER" && departmentId) {
-      await prisma.department.update({
-        where: { id: departmentId },
-        data:  { managerId: employee.id },
+      await prisma.$transaction(async (tx) => {
+        await tx.department.update({
+          where: { id: departmentId },
+          data:  { managerId: employee.id },
+        });
+
+        // Auto-assign the department's manager-type position to this employee.
+        const managerPosition = await tx.position.findFirst({
+          where: {
+            departmentId,
+            isActive: true,
+            name: { contains: 'Manager', mode: 'insensitive' },
+          },
+        });
+        if (managerPosition) {
+          await tx.employee.update({
+            where: { id: employee.id },
+            data:  { positionId: managerPosition.id },
+          });
+        } else {
+          console.warn(
+            `[createManagerAccount] No manager-type position found for department ${departmentId}; positionId left as-is.`
+          );
+        }
       });
     }
 
@@ -894,6 +934,27 @@ export async function createManagerWithEmployee(
             where: { id: departmentId },
             data:  { managerId: employee.id },
           });
+
+          // Auto-assign the department's manager-type position to this employee.
+          // Each department has its own named manager position (e.g. "Finance Manager").
+          // If none is found, leave positionId as-is — do not throw.
+          const managerPosition = await tx.position.findFirst({
+            where: {
+              departmentId,
+              isActive: true,
+              name: { contains: 'Manager', mode: 'insensitive' },
+            },
+          });
+          if (managerPosition) {
+            await tx.employee.update({
+              where: { id: employee.id },
+              data:  { positionId: managerPosition.id },
+            });
+          } else {
+            console.warn(
+              `[createManagerWithEmployee] No manager-type position found for department ${departmentId}; positionId left as-is.`
+            );
+          }
         }
       });
     } catch (err) {
