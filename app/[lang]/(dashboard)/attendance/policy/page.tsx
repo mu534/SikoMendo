@@ -1,15 +1,13 @@
 import { getTranslations } from "next-intl/server";
 import { requirePermission } from "@/lib/session";
 import { getAttendancePolicyRaw } from "@/features/attendance/policy-queries";
-import { listShifts, listActiveShifts } from "@/features/attendance/shift-queries";
 import { PolicyPageClient } from "@/features/attendance/policy-page-client";
 
 /**
- * Attendance Policy — Admin and General Manager (MANAGE_ATTENDANCE_POLICY).
+ * Attendance Policy — Admin and HR Officer (MANAGE_ATTENDANCE_POLICY).
  *
- * Layout:
- *   Left ~60%  — Work Shifts management + Attendance Rules form
- *   Right ~40% — Read-only overview + live policy preview
+ * Configures morning and afternoon session times, deadlines, and grace periods.
+ * Work Shifts have been removed — sessions now apply globally to all employees.
  *
  * Policy changes apply to future check-ins only.
  * Historical attendance records are never modified.
@@ -19,11 +17,7 @@ export default async function AttendancePolicyPage() {
 
   const t = await getTranslations("attendance");
 
-  const [policy, allShifts, activeShifts] = await Promise.all([
-    getAttendancePolicyRaw(),
-    listShifts(),
-    listActiveShifts(),
-  ]);
+  const policy = await getAttendancePolicyRaw();
 
   return (
     <div className="space-y-6">
@@ -33,17 +27,12 @@ export default async function AttendancePolicyPage() {
           {t("policyTitle")}
         </h2>
         <p className="mt-1 text-sm text-ink-900/60">
-          Configure work shifts and attendance rules. Changes apply to future check-ins
-          only — historical records are never changed automatically.
+          Configure attendance rules for morning and afternoon sessions. Changes apply to
+          future check-ins only — historical records are never changed automatically.
         </p>
       </div>
 
-      {/* Two-column layout (client component owns all reactive state) */}
-      <PolicyPageClient
-        policy={policy}
-        allShifts={allShifts}
-        activeShifts={activeShifts}
-      />
+      <PolicyPageClient policy={policy} />
     </div>
   );
 }

@@ -13,11 +13,8 @@
  */
 
 import { useState } from "react";
-import { Shield } from "lucide-react";
-import { ShiftsManager } from "./shifts-manager";
 import { AttendanceRulesForm, type RulesFormValues } from "./attendance-rules-form";
 import { PolicyPreview } from "./policy-preview";
-import type { ShiftRow } from "./shift-queries";
 
 const DAY_LABELS: Record<number, string> = {
   1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat", 7: "Sun",
@@ -51,11 +48,9 @@ function parseWorkingDays(raw: string | null | undefined): number[] {
 
 type Props = {
   policy: PolicyRow;
-  allShifts: ShiftRow[];
-  activeShifts: ShiftRow[];
 };
 
-export function PolicyPageClient({ policy, allShifts, activeShifts }: Props) {
+export function PolicyPageClient({ policy }: Props) {
   const savedRules: RulesFormValues = {
     morningStartTime:         policy?.morningStartTime         ?? "08:00",
     morningCheckInDeadline:   policy?.morningCheckInDeadline   ?? "08:15",
@@ -73,25 +68,6 @@ export function PolicyPageClient({ policy, allShifts, activeShifts }: Props) {
 
       {/* ── Left column: configuration ─────────────────────────────── */}
       <div className="space-y-8 min-w-0">
-
-        {/* Shifts section */}
-        <section>
-          <div className="mb-4 flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
-              <Shield className="h-3.5 w-3.5" />
-            </div>
-            <div>
-              <h3 className="font-display text-sm font-semibold text-ink-900">Work Shifts</h3>
-              <p className="text-xs text-ink-900/50">
-                Define named work schedules for display purposes. Attendance sessions
-                (morning and afternoon) now apply globally to all employees.
-              </p>
-            </div>
-          </div>
-          <ShiftsManager shifts={allShifts} />
-        </section>
-
-        <div className="h-px bg-ink-900/8" />
 
         {/* Rules section */}
         <section>
@@ -145,10 +121,6 @@ export function PolicyPageClient({ policy, allShifts, activeShifts }: Props) {
                   ? `${Math.floor(liveRules.afternoonGraceMinutes / 60)}h ${liveRules.afternoonGraceMinutes % 60 > 0 ? `${liveRules.afternoonGraceMinutes % 60}m` : ""}`.trim()
                   : `${liveRules.afternoonGraceMinutes} min`}
               </dd>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <dt className="text-ink-900/55">Active shifts</dt>
-              <dd className="font-medium text-ink-900">{activeShifts.length}</dd>
             </div>
             <div className="flex items-start justify-between gap-2 text-sm">
               <dt className="text-ink-900/55">Working days</dt>
