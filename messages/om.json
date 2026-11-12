@@ -82,6 +82,7 @@
     "users": "Fayyadamtoota",
     "allAccounts": "Herrega hunda",
     "suspendedAccounts": "Herrega dhaabbate",
+    "archivedAccounts": "Herrega kuufaman",
     "newUser": "Fayyadamaa Haaraa",
     "employees": "Hojjettoota",
     "employeeList": "Tarree Hojjettootaa",
@@ -788,12 +789,15 @@
   "users": {
     "title": "Herrega Fayyadamtootaa",
     "titleSuspended": "Herrega dhaabbate",
+    "titleArchived": "Herrega kuufaman",
     "description": "Herrega fayyadamtootaa fi hayyama seensaa sirnaa bulchi.",
     "descriptionSuspended": "Herrega dhaabbatee seenuu hin dandeenye.",
+    "descriptionArchived": "Herrega fayyadamtootaa kuufaman. Deebisuun hayyama seensaa isaaniif kenni.",
     "newUser": "Hogganaa Haaraa",
     "newUserDescription": "Hogganaa Waliigalaa yookaan Hogganaa Kutaa Hojii haaraa uumi — galmee hojjetaa fi herrega seensaa isaanii tarkaanfii tokkotti qindaa'u.",
     "noUsers": "Fayyadamaan hin argamne.",
     "noSuspendedUsers": "Herregni dhaabbate hin jiru.",
+    "noArchivedUsers": "Herregni kuufame hin jiru.",
     "columns": {
       "user": "Fayyadamaa",
       "username": "Maqaa fayyadamaa",

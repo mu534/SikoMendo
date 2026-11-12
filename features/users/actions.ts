@@ -522,6 +522,7 @@ export async function deleteUserAccount(
     ]);
 
     revalidatePath("/users");
+    revalidatePath("/users/archive");
     return { id: userId };
   });
 }
@@ -558,6 +559,7 @@ export async function restoreUserAccount(
     );
 
     revalidatePath("/users");
+    revalidatePath("/users/archive");
     return { id: userId };
   });
 }

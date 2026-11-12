@@ -57,9 +57,10 @@ export const NAV_ITEMS: AnyNavItem[] = [
     requires: "MANAGE_USERS",
     activePrefix: "/users",
     children: [
-      { href: "/users",           labelKey: "nav.allAccounts",       icon: Users,  requires: "MANAGE_USERS" },
-      { href: "/users/suspended", labelKey: "nav.suspendedAccounts", icon: UserX,  requires: "MANAGE_USERS" },
-      { href: "/users/new",       labelKey: "nav.newUser",           icon: UserPlus, requires: "MANAGE_USERS" },
+      { href: "/users",                labelKey: "nav.allAccounts",       icon: Users,    requires: "MANAGE_USERS" },
+      { href: "/users/suspended",      labelKey: "nav.suspendedAccounts", icon: UserX,    requires: "MANAGE_USERS" },
+      { href: "/users/archive",        labelKey: "nav.archivedAccounts",  icon: Archive,  requires: "MANAGE_USERS" },
+      { href: "/users/new",            labelKey: "nav.newUser",            icon: UserPlus, requires: "MANAGE_USERS" },
     ],
   },
 

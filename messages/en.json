@@ -82,6 +82,7 @@
     "users": "Users",
     "allAccounts": "All Accounts",
     "suspendedAccounts": "Suspended Accounts",
+    "archivedAccounts": "Archived Accounts",
     "newUser": "New User",
     "employees": "Employees",
     "employeeList": "Employee List",
@@ -798,12 +799,15 @@
   "users": {
     "title": "User Accounts",
     "titleSuspended": "Suspended Accounts",
+    "titleArchived": "Archived Accounts",
     "description": "Manage system user accounts and access.",
     "descriptionSuspended": "Accounts that have been suspended and cannot sign in.",
+    "descriptionArchived": "Archived user accounts. Restore to give them access again.",
     "newUser": "New Manager",
     "newUserDescription": "Create a new General Manager or Department Manager — their employee record and login account are set up together in one step.",
     "noUsers": "No users found.",
     "noSuspendedUsers": "No suspended accounts.",
+    "noArchivedUsers": "No archived accounts.",
     "columns": {
       "user": "User",
       "username": "Username",
