@@ -42,11 +42,13 @@ function formatFileSize(bytes: number): string {
   return formatBytes(bytes);
 }
 
-function isCsvFile(file: File): boolean {
+function isImportFile(file: File): boolean {
   return (
     file.type === "text/csv" ||
     file.type === "application/vnd.ms-excel" ||
-    file.name.toLowerCase().endsWith(".csv")
+    file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+    file.name.toLowerCase().endsWith(".csv") ||
+    file.name.toLowerCase().endsWith(".xlsx")
   );
 }
 
@@ -85,7 +87,7 @@ function UploadStep({
       e.preventDefault();
       setIsDragOver(false);
       const file = e.dataTransfer.files?.[0];
-      if (file && isCsvFile(file)) {
+      if (file && isImportFile(file)) {
         const err = validateCsvImportFile(file);
         if (err) { onFileError(err); return; }
         onFileSelect(file);
@@ -97,7 +99,7 @@ function UploadStep({
   const handleFileChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
-      if (file && isCsvFile(file)) {
+      if (file && isImportFile(file)) {
         const err = validateCsvImportFile(file);
         if (err) {
           onFileError(err);
@@ -134,7 +136,7 @@ function UploadStep({
       <input
         ref={fileInputRef}
         type="file"
-        accept=".csv,text/csv"
+        accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         className="sr-only"
         tabIndex={-1}
         onChange={handleFileChange}
@@ -146,7 +148,7 @@ function UploadStep({
         <div
           role="button"
           tabIndex={0}
-          aria-label="Upload CSV file: drag and drop or click to browse"
+          aria-label="Upload CSV or Excel file: drag and drop or click to browse"
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
@@ -168,10 +170,10 @@ function UploadStep({
           />
           <div>
             <p className="text-sm font-medium text-ink-900">
-              Drag a CSV file here or{" "}
+              Drag a CSV or Excel file here or{" "}
               <span className="text-brand-700 underline underline-offset-2">browse files</span>
             </p>
-            <p className="mt-1 text-xs text-ink-900/45">Accepts .csv files only · max {formatBytes(CSV_IMPORT_MAX_BYTES)}</p>
+            <p className="mt-1 text-xs text-ink-900/45">Accepts .csv or .xlsx files · max {formatBytes(CSV_IMPORT_MAX_BYTES)}</p>
           </div>
         </div>
       ) : (

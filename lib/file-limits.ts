@@ -29,10 +29,9 @@ export const LEAVE_DOCUMENT_MAX_BYTES = 5 * 1024 * 1024;
 export const ORG_LOGO_MAX_BYTES = 2 * 1024 * 1024;
 
 /**
- * Employee CSV import file — 5 MB.
- * A CSV of 5 MB at ~200 bytes per row is ~25 000 rows — far beyond any
- * realistic single import batch. This protects against accidental uploads of
- * the wrong file type.
+ * Employee import file — 5 MB.
+ * Accepts .csv and .xlsx. A CSV of 5 MB at ~200 bytes per row is ~25 000 rows
+ * — far beyond any realistic single import batch.
  */
 export const CSV_IMPORT_MAX_BYTES = 5 * 1024 * 1024;
 
@@ -163,13 +162,13 @@ export function validateOrgLogoFile(file: File): FileValidationError | null {
 }
 
 export function validateCsvImportFile(file: File): FileValidationError | null {
-  if (file.size === 0) return "CSV file is empty.";
+  if (file.size === 0) return "Import file is empty.";
   if (file.size > CSV_IMPORT_MAX_BYTES) {
-    return `CSV file is too large (${formatBytes(file.size)}). Maximum allowed size is ${formatBytes(CSV_IMPORT_MAX_BYTES)}.`;
+    return `Import file is too large (${formatBytes(file.size)}). Maximum allowed size is ${formatBytes(CSV_IMPORT_MAX_BYTES)}.`;
   }
   const name = file.name.toLowerCase();
-  if (!name.endsWith(".csv")) {
-    return `Only .csv files are accepted. Selected file: "${file.name}".`;
+  if (!name.endsWith(".csv") && !name.endsWith(".xlsx")) {
+    return `Only .csv or .xlsx files are accepted. Selected file: "${file.name}".`;
   }
   return null;
 }

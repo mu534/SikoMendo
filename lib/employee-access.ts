@@ -14,6 +14,14 @@ import { can, type Role, HR_DEPARTMENT_NAME, resolveEffectiveRoleSync } from "@/
 import type { AuthSession } from "@/lib/auth";
 import { LocalizedError } from "@/lib/errors";
 
+/**
+ * Employment statuses that count as "working" for the purpose of DM validation.
+ * ONBOARDING = newly hired, completing pre-boarding checklist.
+ * ON_LEAVE   = temporarily absent but still employed.
+ * Both are valid states for a Department Manager — the department is not headless.
+ */
+export const VALID_DM_STATUSES = new Set(["ACTIVE", "ONBOARDING", "ON_LEAVE"]);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 0. Effective-role resolution — dynamic HR dept manager detection
 // ─────────────────────────────────────────────────────────────────────────────
@@ -847,7 +855,7 @@ export async function assertActiveDeptManagerExists(
   const isActive =
     dept?.managerId !== null &&
     dept?.manager?.deletedAt === null &&
-    dept?.manager?.employmentStatus === "ACTIVE";
+    VALID_DM_STATUSES.has(dept?.manager?.employmentStatus ?? "");
 
   if (!isActive) {
     throw new LocalizedError(
@@ -889,7 +897,7 @@ export async function resolveReportingManager(
   const activeDM =
     dept?.managerId !== null &&
     dept?.manager?.deletedAt === null &&
-    dept?.manager?.employmentStatus === "ACTIVE"
+    VALID_DM_STATUSES.has(dept?.manager?.employmentStatus ?? "")
       ? dept.managerId
       : null;
 

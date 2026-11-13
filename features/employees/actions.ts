@@ -8,7 +8,7 @@ import { withPermission, type ActionResult } from "@/lib/action-utils";
 import { uploadToCloudinary, deleteFromCloudinary } from "@/lib/cloudinary";
 import { employeeSchema, employeeUpdateSchema, employeeFormDataToObject, employeeUpdateFormDataToObject } from "./schemas";
 import { generateNextEmployeeId } from "./queries";
-import { parseEmployeeCsv, importEmployeeRows, validateEmployeeCsvRows, type ImportRowResult, type ParsedEmployeeRow } from "./bulk-import";
+import { parseEmployeeCsv, parseEmployeeXlsx, importEmployeeRows, validateEmployeeCsvRows, type ImportRowResult, type ParsedEmployeeRow } from "./bulk-import";
 import { validateCsvImportFile, validateEmployeeDocumentFile, validatePhotoFile } from "@/lib/file-limits";
 import {
   validateManagerAssignment,
@@ -521,21 +521,30 @@ export async function validateImportCsv(
   return withPermission(session, "MANAGE_EMPLOYEES", async () => {
     const file = formData.get("file");
     if (!(file instanceof File) || file.size === 0) {
-      throw new Error("Upload a CSV file to validate.");
+      throw new Error("Upload a CSV or Excel file to validate.");
     }
 
     const sizeErr = validateCsvImportFile(file);
     if (sizeErr) throw new Error(sizeErr);
 
-    const text = await file.text();
-    const { rows, parseErrors } = parseEmployeeCsv(text);
+    const isXlsx = file.name.toLowerCase().endsWith(".xlsx");
+    let rows: Record<string, string>[];
+    let parseErrors: string[];
+
+    if (isXlsx) {
+      const buffer = await file.arrayBuffer();
+      ({ rows, parseErrors } = await parseEmployeeXlsx(buffer));
+    } else {
+      const text = await file.text();
+      ({ rows, parseErrors } = parseEmployeeCsv(text));
+    }
 
     if (parseErrors.length > 0) {
-      throw new Error(`CSV parse errors: ${parseErrors.join("; ")}`);
+      throw new Error(`Parse errors: ${parseErrors.join("; ")}`);
     }
 
     if (rows.length === 0) {
-      throw new Error("The CSV file is empty or contains no data rows.");
+      throw new Error("The file is empty or contains no data rows.");
     }
 
     // Extract header names from the first parsed row's keys (PapaParse header mode)
@@ -564,15 +573,25 @@ export async function bulkImportEmployees(
 
   return withPermission(session, "MANAGE_EMPLOYEES", async () => {
     const file = formData.get("file");
-    if (!(file instanceof File) || file.size === 0) throw new Error("Upload a CSV file.");
+    if (!(file instanceof File) || file.size === 0) throw new Error("Upload a CSV or Excel file.");
 
     const sizeErr = validateCsvImportFile(file);
     if (sizeErr) throw new Error(sizeErr);
 
-    const text = await file.text();
-    const { rows, parseErrors } = parseEmployeeCsv(text);
-    if (rows.length === 0) throw new Error("CSV is empty or has no data rows.");
-    if (parseErrors.length > 0) throw new Error(`CSV parse errors: ${parseErrors.join("; ")}`);
+    const isXlsx = file.name.toLowerCase().endsWith(".xlsx");
+    let rows: Record<string, string>[];
+    let parseErrors: string[];
+
+    if (isXlsx) {
+      const buffer = await file.arrayBuffer();
+      ({ rows, parseErrors } = await parseEmployeeXlsx(buffer));
+    } else {
+      const text = await file.text();
+      ({ rows, parseErrors } = parseEmployeeCsv(text));
+    }
+
+    if (rows.length === 0) throw new Error("File is empty or has no data rows.");
+    if (parseErrors.length > 0) throw new Error(`Parse errors: ${parseErrors.join("; ")}`);
 
     const results = await importEmployeeRows(rows, session!.user.id);
     const createdCount = results.filter((r) => r.status === "created").length;
