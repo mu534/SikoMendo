@@ -69,7 +69,7 @@ async function resolveManagerScope(
   userId: string,
   role: string
 ): Promise<string[] | null> {
-  if (role !== "MANAGER") return null; // unrestricted for Admin/HR
+  if (role !== "DEPT_MANAGER") return null; // unrestricted for Admin, HR, and GM
 
   const ownEmployee = await prisma.employee.findUnique({
     where: { userId },

@@ -62,23 +62,8 @@ export default async function EmployeesPage({
   const showArchived   = parseStringParam(params.archived) === "1";
   const page           = parsePageParam(params.page);
 
-  // Managers only see employees within their own reporting hierarchy
-  let restrictToIds: string[] | undefined;
-  if (session.user.role === "MANAGER") {
-    const ownEmployee = await prisma.employee.findUnique({
-      where: { userId: session.user.id },
-      select: { id: true },
-    });
-    if (ownEmployee) {
-      restrictToIds = showArchived
-        ? await getSubordinateIdsIncludingArchived(ownEmployee.id)
-        : await getSubordinateIds(ownEmployee.id);
-    } else {
-      restrictToIds = [];
-    }
-  }
-
   // Non-HR DEPT_MANAGER: restrict to employees in their managed department
+  let restrictToIds: string[] | undefined;
   if (effectiveRole === "DEPT_MANAGER") {
     const deptManagerEmployee = await prisma.employee.findUnique({
       where: { userId: session.user.id },

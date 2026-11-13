@@ -21,7 +21,7 @@ export default async function GenerateReportPage() {
   // The server action re-validates scope regardless of what the client sends.
   let employees: { id: string; employeeId: string; firstName: string; lastName: string }[] = [];
 
-  if (role === "MANAGER" || role === "DEPT_MANAGER") {
+  if (role === "DEPT_MANAGER") {
     const ownEmployee = await prisma.employee.findUnique({
       where: { userId },
       select: { id: true },
