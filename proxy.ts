@@ -32,6 +32,13 @@ const PUBLIC_PATHS = new Set([
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // ── Step 0: Pass static public assets through unconditionally ─────────────
+  // Handles both /templates/... and /{locale}/templates/... so that static
+  // files in public/templates/ are always served without interference.
+  if (pathname.includes("/templates/")) {
+    return NextResponse.next();
+  }
+
   // ── Step 1: Detect whether the path already has a valid locale prefix ──────
   const pathnameLocale = LOCALES.find(
     (l) => pathname.startsWith(`/${l}/`) || pathname === `/${l}`
@@ -75,5 +82,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|templates).*)"],
 };
