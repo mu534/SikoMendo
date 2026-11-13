@@ -28,7 +28,8 @@ type BackupRow = Awaited<ReturnType<typeof listBackups>>[number];
 function UploadStatusBadge({ status }: { status: string }) {
   if (status === "UPLOADED") return <Badge tone="success">Uploaded</Badge>;
   if (status === "FAILED")   return <Badge tone="danger">Failed</Badge>;
-  return <Badge tone="warning">Pending</Badge>;
+  if (status === "PENDING")  return <Badge tone="warning">Upload Pending</Badge>;
+  return <Badge tone="warning">{status}</Badge>;
 }
 
 function BackupStatusBadge({ status }: { status: string }) {
@@ -246,7 +247,7 @@ export function BackupRestoreManager({ backups }: { backups: BackupRow[] }) {
               <tbody className="divide-y divide-ink-900/6">
                 {backups.map((b) => {
                   const canDownload =
-                    b.cloudinaryUploadStatus === "UPLOADED" &&
+                    (b.cloudinaryUploadStatus === "UPLOADED" || b.backupStatus === "RESTORED") &&
                     b.backupStatus !== "FAILED";
                   return (
                     <tr key={b.id} className="hover:bg-sand-50/50">
@@ -294,6 +295,12 @@ export function BackupRestoreManager({ backups }: { backups: BackupRow[] }) {
                               )}
                               {t("restore")}
                             </button>
+                          )}
+                          {!canDownload && b.cloudinaryUploadStatus === "PENDING" && (
+                            <span className="text-xs text-ink-900/40 italic">Awaiting cloud upload…</span>
+                          )}
+                          {!canDownload && b.cloudinaryUploadStatus === "FAILED" && (
+                            <span className="text-xs text-red-400 italic">Upload failed — cannot restore</span>
                           )}
                         </div>
                       </td>

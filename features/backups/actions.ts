@@ -241,10 +241,10 @@ export async function executeRestore(
 
     const record = await prisma.backupRecord.findUnique({
       where: { id: backupId },
-      select: { id: true, filename: true, publicId: true, cloudinaryUploadStatus: true },
+      select: { id: true, filename: true, publicId: true, cloudinaryUploadStatus: true, fileSize: true },
     });
 
-    if (!record || record.cloudinaryUploadStatus !== "UPLOADED") {
+    if (!record || (record.cloudinaryUploadStatus !== "UPLOADED" && record.backupStatus !== "RESTORED")) {
       throw new LocalizedError("errors.backups.notFound", "Backup record not found.");
     }
 
@@ -293,10 +293,18 @@ export async function executeRestore(
       );
     }
 
-    // Mark restored
+    // Mark restored — also force cloudinaryUploadStatus to UPLOADED because the
+    // pg_restore just overwrote the DB with an older snapshot where this record
+    // may have been PENDING. We know it was uploaded (we just downloaded it), so
+    // correct both fields together.
     await prisma.backupRecord.update({
       where: { id: backupId },
-      data: { backupStatus: "RESTORED" },
+      data: {
+        backupStatus: "RESTORED",
+        cloudinaryUploadStatus: "UPLOADED",
+        publicId: record.publicId,
+        fileSize: record.fileSize ?? 0,
+      },
     }).catch(() => {});
 
     // Best-effort asset verification (non-blocking)
