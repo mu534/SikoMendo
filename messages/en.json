@@ -496,7 +496,7 @@
     },
     "import": {
       "title": "Bulk Import",
-      "description": "Import multiple employees from a CSV file.",
+      "description": "Import multiple employees from a CSV file. Download the Excel template below for a guided starting point.",
       "downloadTemplate": "Download template",
       "uploadStep": "Upload",
       "previewStep": "Preview",

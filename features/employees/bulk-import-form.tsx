@@ -239,7 +239,7 @@ function UploadStep({
         </ButtonLink>
 
         <a
-          href="/templates/employee-import-template.csv"
+          href="/templates/employee-import-template.xlsx"
           download
           className={buttonClasses("ghost", "md", "ml-auto text-brand-700")}
         >
