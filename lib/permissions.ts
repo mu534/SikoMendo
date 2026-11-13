@@ -105,7 +105,8 @@ export const PERMISSIONS: Record<Role, Action[]> = {
     "MANAGE_ATTENDANCE",
     "VIEW_ATTENDANCE",
     "SELF_ATTENDANCE",
-    "MANAGE_ATTENDANCE_POLICY",
+    // MANAGE_ATTENDANCE_POLICY intentionally NOT granted to ADMIN.
+    // Only the General Manager (MANAGER) may configure attendance policy and holiday calendar.
     "MANAGE_DOCUMENTS",
     "GENERATE_REPORTS",
     "VIEW_REPORTS",
@@ -137,9 +138,8 @@ export const PERMISSIONS: Record<Role, Action[]> = {
     "VIEW_ATTENDANCE",
     "VIEW_ATTENDANCE_MONITOR",
     "SELF_ATTENDANCE",
-    // HR Officer is granted policy configuration access per the user request:
-    // "Allow Admin or authorized HR Officer to configure these times".
-    "MANAGE_ATTENDANCE_POLICY",
+    // MANAGE_ATTENDANCE_POLICY intentionally NOT granted to HR_OFFICER.
+    // Only the General Manager (MANAGER) may configure attendance policy and holiday calendar.
     "MANAGE_DOCUMENTS",
     "GENERATE_REPORTS",
     "VIEW_REPORTS",
